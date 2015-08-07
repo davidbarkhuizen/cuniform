@@ -1,0 +1,36 @@
+.BoldText
+{
+  font-weight : bold;
+}  
+
+canvas
+{
+	border 		: 	1px solid lightgray;
+	margin 		: 	0 auto;
+	width 		: 	1000px;
+	height 		: 	600px;
+	
+	background-color 	: 	white;
+}  
+
+.main_menu_option
+{
+	margin 		: 	5px;
+}
+
+.documentBody
+{
+	font-family			: 	"Courier";
+	background-color 	: 	white;
+}
+
+.mainLabel
+{
+	font-size: xx-large;
+}
+
+.selectionInfoPanel
+{
+	font-family			: "Courier";
+}
+
