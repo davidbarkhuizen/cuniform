@@ -1,15 +1,19 @@
-function State() { 
-    
-    this.b0Down = false;
-    this.b1Down = false; 
-    this.b2Down = false; 
-    
-    this.b0ClickPos = {x:0, y:0};
-    this.lastB0DragPos = {x:0, y:0};
-    
-    this.curPos = {x:0, y:0};
+class State{
+	constructor(
+	) {
+		this.b0Down = false;
+		this.b1Down = false; 
+		this.b2Down = false; 
+		
+		this.b0ClickPos = {x:0, y:0};
+		this.lastB0DragPos = {x:0, y:0};
+		
+		this.curPos = {x:0, y:0};
+	
+	}
 }
 
+let canvas = null;
 
 const updateSelectionInfo = () => {
 	
@@ -69,9 +73,7 @@ const getMousePos = (cnvs, evt) => {
 
 const onTimerTick = (event) => {
 	window.fdg.iterate(
-		document
-			.getElementById("canvas")
-			.getContext('2d')
+		canvas.getContext('2d')
 	);
 };
 
@@ -88,7 +90,6 @@ const onMouseMove = (event) => {
 	*/
 	if (window.state.b0Down) {
 
-		const canvas = document.getElementById("canvas");
 		const mxy = getMousePos(canvas, event);
 		const phasePos = window.fdg.wrapReverse(mxy);
 		window.state.lastB0DragPos = mxy;
@@ -143,64 +144,64 @@ const onMouseUp = (event) => {
 		window.state.b2Down = false;
 }
 
-const checkRequirements = () => {
-	
-	let csv_error_string = ''; 
-	
-	if (!!window.Worker != true)
-		csv_error_string = csv_error_string + 'web worker not supported' + ',';
-		
-	const checkCanvas = document.getElementById('canvas');
-	if (checkCanvas == null) {
-		csv_error_string = csv_error_string + 'canvas not supported' + ',';
-	}
-	else if (checkCanvas.getContext == false){
-		csv_error_string = csv_error_string + 'no [canvas] context' + ',';
-	}				
-	
-	return csv_error_string;
-}					
+const initialize = () => {
 
-const draw = () => {				
-	
-	const failedRequirements = checkRequirements();				
-	if (failedRequirements != '') {
-		console.error('Minimum Requirements Not Met');
-		console.error(failedRequirements);
-	}
-	
-	const canvas = document.getElementById('canvas')
-	if (canvas != null) {
-		if (canvas.getContext) {
+	window.state = new State();
 		
-			window.state = new State();
+	const gFactory = new GraphFactory();
+	const graph = gFactory.generateGraph(50, 2);
+	window.fdg = new ForceDirectedGraph(graph);
+	
+	canvas.addEventListener("mousemove", onMouseMove, false);
+	canvas.addEventListener("mousedown", onMouseDown, false);
+	canvas.addEventListener("mouseup", onMouseUp, false);
+	canvas.addEventListener("mouseout", onMouseOut, false);
+	
+	window.timerTickWorker = new Worker('drone.js');
+	window.timerTickWorker.onmessage = onTimerTick;
+	window.timerTickWorkerStarted = true;
+	window.timerTickWorker.postMessage('50'); // !!	
+}
+
+const entrypoint = () => {				
+
+	canvas = document.getElementById('canvas')
+
+	const listUnsupportedRequirements = () => {
+	
+		const unsupportedRequirements = []; 
 		
-			const gFactory = new GraphFactory();
-			const graph = gFactory.generateGraph(50, 2);
-			window.fdg = new ForceDirectedGraph(graph);
+		if (!!window.Worker != true)
+			unsupportedRequirements.push('web worker not supported');
 			
-			canvas.addEventListener("mousemove", onMouseMove, false);
-			canvas.addEventListener("mousedown", onMouseDown, false);
-			canvas.addEventListener("mouseup", onMouseUp, false);
-			canvas.addEventListener("mouseout", onMouseOut, false);
-			
-			window.timerTickWorker = new Worker('drone.js');
-			window.timerTickWorker.onmessage = onTimerTick;
-			window.timerTickWorkerStarted = true;
-			window.timerTickWorker.postMessage('50'); // !!	
+		if (canvas == null) {
+			unsupportedRequirements.push('canvas not supported');
 		}
+		else if (canvas.getContext == false){
+			unsupportedRequirements.push('no [canvas] context');
+		}				
+		
+		return unsupportedRequirements;
+	}					
+	
+	const unsupportedRequirements = listUnsupportedRequirements();				
+	if (unsupportedRequirements.length > 0) {
+				
+		console.log('UnSupported Requirements:');
+		unsupportedRequirements.forEach(
+			txt => console.log(txt)
+		)
+		
+		alert('Minimum Requirements Not Met.\nSee console log for details')
+		return
 	}
-	else
-	{
-		console.error('Could not find canvas element')
-	}
+
+	initialize()
 };
 
 const export_canvas_clicked_handler = () => {
  	window.open(
-		document
-			.getElementById('canvas')
-			.toDataURL('image/png')
+		canvas.toDataURL('image/png')
 	);
 };
 

@@ -2,10 +2,8 @@
 	<head>
 		
 		<title>
-			scrypt
+			cuneiform
 		</title>	
-		
-		<script src="jquery-1.7.2.js"></script>	
 		
 		<script src="gforce.js"></script>
 		<script src="frame.js"></script>
@@ -14,14 +12,17 @@
 	
 	</head>		
 	
-	<body onload="draw();" class="documentBody">
+	<body class="documentBody">
 		<div>
-			<!--button id="toggle_button" onclick="toggle_button_clicked_handler();">start</button-->
+			<div>
+				<label class="mainLabel">cuneiform</label>
+			</div>
+			<div style="font-size: smaller;">
+				force directed graphs
+			</div>
 		</div>
 
-		<div>
-			<label class="mainLabel">cuniform</label>
-		</div>
+		<br/>
 
 		<div>
 			<a id="export_canvas_link" class="main_menu_option" onclick="export_canvas_clicked_handler(); return false;" href="">export</a>
@@ -47,5 +48,6 @@
 		</tr>
 		</table>
 		
+		<script>entrypoint()</script>
 	</body>
 </html>
