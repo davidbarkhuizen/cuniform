@@ -553,10 +553,7 @@ function Graph() {
 		if((this.vertices.indexOf(v1) == -1) | (this.vertices.indexOf(v2) == -1))
 			throw "one of the vertices in the edge requested to add, is not actually an ";
 
-		this.edges.push({
-			v1 : v1,
-			v2 : v2
-		});
+		this.edges.push({ v1, v2});
 	};
 
 	this.neighbours = function(v) {
@@ -566,14 +563,9 @@ function Graph() {
 		for (i = 0; i < this.edges.length; i++) {
 			var edge = this.edges[i];
 			if (edge.v1 == v) {
-				// this check should not be necessary, could be remove to speed up
-				if (set.indexOf(edge.v2) == -1)
-					set.push(edge.v2);
-			}
-			else if (edge.v2 == v) {
-				// this check should not be necessary, could be remove to speed up
-				if (set.indexOf(edge.v1) == -1)
-					set.push(edge.v1);
+				set.push(edge.v2);
+			} else if (edge.v2 == v) {
+				set.push(edge.v1);
 			}
 		}
 		
@@ -610,60 +602,6 @@ function GraphFactory() {
 		}
 		return genXY;
 	};
-	/*
-	 def calc_xy_for_new_node(graph):
-
-	 x = 0
-	 y = 0
-
-	 unique = false
-	 while ! unique:
-	 x = (- float(W_0) / 2.0) +  (Math.random() * float(W_0))
-	 y = (- float(H_0) / 2.0) + (Math.random() * float(H_0))
-	 unique = ((x,y) ! in [(n.position.x, n.position.y) for n in graph.nodes()])
-
-	 return (x,y)
-
-	 def add_edges_for_vertex_at_Math.random(graph, node, max_edges_to_create_per_node_per_pass=2):
-
-	 nodes = graph.nodes()
-
-	 for j in range(randint(1, max_edges_to_create_per_node_per_pass)):
-
-	 newEdgeAdded = false
-	 while newEdgeAdded == false:
-
-	 edges = graph.edges()
-
-	 z = randint(0, len(nodes) - 1)
-	 if nodes[z] != node:
-	 if ((nodes[z], node) ! in edges) and ((node, nodes[z]) ! in edges):
-	 graph.add_edge(node, nodes[z])
-	 newEdgeAdded = true
-	 */
-	/*
-
-	 def add_node_to_graph_at_Math.random(graph):
-
-	 (x, y) = calc_xy_for_new_node(graph)
-	 tag = Tag(x, y, '')
-	 tag.label = 'Node %i' % tag.idx
-	 graph.add_node(tag)
-
-	 add_edges_for_vertex_at_Math.random(graph, tag, max_edges_to_create_per_node_per_pass=4)
-
-	 return tag
-
-	 def remove_node_from_graph_at_Math.random(graph):
-
-	 nodes = graph.nodes()
-	 idx = randint(0, len(nodes) - 1)
-	 node_to_remove = nodes[idx]
-
-	 graph.remove_node(node_to_remove)
-
-	 return graph
-	 */
 
 	this.generateGraph = function(order, maxEdgesPerVertexPerPass) {
 		/*

@@ -32,7 +32,7 @@ const updateSelectionInfo = () => {
 	// no selection => discard old info
 	//
 	if (!selectedNode) {
-		selectedNodeInfoLabel.innerHTML = 'Select a Node...';
+		selectedNodeInfoLabel.innerHTML = 'Click on a node to select...';
 	}
 	else {
 		selectedNodeInfoLabel.innerHTML = selectedNode.label;
@@ -161,6 +161,8 @@ const initialize = () => {
 	window.timerTickWorker.onmessage = onTimerTick;
 	window.timerTickWorkerStarted = true;
 	window.timerTickWorker.postMessage('50'); // !!	
+
+	updateSelectionInfo();
 }
 
 const entrypoint = () => {				
