@@ -10,61 +10,49 @@ function State() {
     this.curPos = {x:0, y:0};
 }
 
-function updateSelectionInfo() {
+
+const updateSelectionInfo = () => {
 	
-	var selectedNode = null;
+	const selectedNode = window.fdg.graph.vertices.find(
+		vertex => (vertex.isSelected == true)
+	)
 	
-	// is a node selected ?
-	//
-	for (i = 0; i < window.fdg.graph.vertices.length; i++) {
-		if (window.fdg.graph.vertices[i].isSelected) {
-			selectedNode = window.fdg.graph.vertices[i];
-			break;
-		}
+	const selectedNodeInfoLabel = document.getElementById('selectedNodeInfoLabel');
+	const list = document.getElementById('selectedNodeInfoList');
+	
+	// clear current items
+	while (list.children.length > 0) {
+		list.removeChild(list.firstChild);
 	}
-	
-	var selectedNodeInfoLabel = document.getElementById('selectedNodeInfoLabel');
-	var list = document.getElementById('selectedNodeInfoList');
-	
+
 	// no selection => discard old info
 	//
-	if (selectedNode == null) {
+	if (!selectedNode) {
 		selectedNodeInfoLabel.innerHTML = 'Select a Node...';
-		
-		// clear current items
-		while (list.children.length > 0) {
-			list.removeChild(list.firstChild);
-		}
 	}
 	else {
 		selectedNodeInfoLabel.innerHTML = selectedNode.label;
+
+		window.fdg.graph.neighbours(selectedNode).forEach(
+			neighbour => {
+				const neighbourString = neighbour.label;
+			
+				const item = document.createElement('li');
+				item.innerHTML = neighbourString;
 				
-		// clear current items
-		while (list.children.length > 0) {
-			list.removeChild(list.firstChild);
-		}
-		
-		var neighbours = window.fdg.graph.neighbours(selectedNode);
-		for (i = 0; i < neighbours.length; i++) {			
-			var neighbour = neighbours[i];
-			
-			var neighbourString = neighbour.label;
-			
-			var item = document.createElement('li');
-			item.innerHTML = neighbourString;
-			
-			list.insertBefore(item, list.firstChild);
-		}		
+				list.insertBefore(item, list.firstChild);
+			}
+		)
 	}
 };
 
-function getMousePos(cnvs, evt){
+const getMousePos = (cnvs, evt) => {
 
     // get canvas position
     //
-    var obj = cnvs;
-    var top = 0;
-    var left = 0;
+    let obj = cnvs;
+    let top = 0;
+    let left = 0;
     while (obj && obj.tagName != 'BODY') {
         top += obj.offsetTop;
         left += obj.offsetLeft;
@@ -73,67 +61,67 @@ function getMousePos(cnvs, evt){
  
     // return relative mouse position
     //
-    var mx = evt.clientX - left + window.pageXOffset;
-    var my = evt.clientY - top + window.pageYOffset;
-    
-    return {
-        x: mx,
-        y: my
+	return {
+        x: evt.clientX - left + window.pageXOffset,
+        y: evt.clientY - top + window.pageYOffset
     };
 };
 
-function onTimerTick(event) {
-	var canvas = document.getElementById("canvas");
-	var context = canvas.getContext('2d');
-	window.fdg.iterate(context);
+const onTimerTick = (event) => {
+	window.fdg.iterate(
+		document
+			.getElementById("canvas")
+			.getContext('2d')
+	);
 };
 
-function onMouseOut(event) {
+const onMouseOut = (event) => {
 	window.state.b0Down = false;
 	window.state.b1Down = false;
 	window.state.b2Down = false;
 };
 
-function onMouseMove(event) {
+const onMouseMove = (event) => {
 	/*
 	record mouse movement, calc deltas
 	call self.force_directed_graph.move(d_x, d_y, d_z), passing deltas
 	*/
 	if (window.state.b0Down) {
 
-		var canvas = document.getElementById("canvas");
-		var mxy = getMousePos(canvas, event);
-		var phasePos = window.fdg.wrapReverse(mxy);
+		const canvas = document.getElementById("canvas");
+		const mxy = getMousePos(canvas, event);
+		const phasePos = window.fdg.wrapReverse(mxy);
 		window.state.lastB0DragPos = mxy;
 		
-		for (i = 0; i < window.fdg.graph.vertices.length; i++) {
-			if (window.fdg.graph.vertices[i].isSelected == true) {
-				window.fdg.graph.vertices[i].position = {x:phasePos.x, y:phasePos.y};
-			}
-		}
+		window.fdg.graph.vertices
+			.filter(vertex => (vertex.isSelected == true))
+			.forEach(
+				vertex => {
+					vertex.position = {x:phasePos.x, y:phasePos.y};
+				}
+			)
 	}
 };	
 
-function calcCanvasXY(event, canvas) {
-	
-	var x = (event.x - canvas.offsetLeft);
-	var y = (event.y - canvas.offsetTop);
-	
-	return {x:x, y:y};
+const calcCanvasXY = (event, canvas) => {
+	return {
+		x: event.x - canvas.offsetLeft,
+		y: event.y - canvas.offsetTop
+	};
 };
 
-function onMouseDown(event) {
+const onMouseDown = (event) => {
 	
-	var canvas = document.getElementById("canvas");	
-	var context = canvas.getContext('2d');	
-	
-	var mxy = getMousePos(canvas, event);
+	var mxy = getMousePos(
+		document.getElementById("canvas"), 
+		event
+	);
 	
 	if (event.button == 0) {
 		window.state.b0Down = true;		
 		window.state.b0ClickPos = mxy;    
 			
-    	var selectionChanged = window.fdg.handleNodeSelectionAttempt(mxy);
+    	const selectionChanged = window.fdg.handleNodeSelectionAttempt(mxy);
     	if (selectionChanged == true)
     		updateSelectionInfo();
 	}
@@ -143,7 +131,7 @@ function onMouseDown(event) {
 		window.state.b2Down = true;	
 }
 
-function onMouseUp(event) {
+const onMouseUp = (event) => {
 	
 	if (event.button == 0) {
 		window.state.b0Down = false;
@@ -155,14 +143,14 @@ function onMouseUp(event) {
 		window.state.b2Down = false;
 }
 
-function checkRequirements() {
+const checkRequirements = () => {
 	
-	var csv_error_string = ''; 
+	let csv_error_string = ''; 
 	
 	if (!!window.Worker != true)
 		csv_error_string = csv_error_string + 'web worker not supported' + ',';
 		
-	var checkCanvas = document.getElementById('canvas');
+	const checkCanvas = document.getElementById('canvas');
 	if (checkCanvas == null) {
 		csv_error_string = csv_error_string + 'canvas not supported' + ',';
 	}
@@ -173,24 +161,22 @@ function checkRequirements() {
 	return csv_error_string;
 }					
 
-function draw() {				
+const draw = () => {				
 	
-	var failedRequirements = checkRequirements();				
+	const failedRequirements = checkRequirements();				
 	if (failedRequirements != '') {
 		console.error('Minimum Requirements Not Met');
 		console.error(failedRequirements);
 	}
 	
-	var canvas = document.getElementById('canvas')
+	const canvas = document.getElementById('canvas')
 	if (canvas != null) {
 		if (canvas.getContext) {
 		
-			var context = canvas.getContext('2d');	
-			
 			window.state = new State();
 		
-			var gFactory = new GraphFactory();
-			var graph = gFactory.generateGraph(50, 2);
+			const gFactory = new GraphFactory();
+			const graph = gFactory.generateGraph(50, 2);
 			window.fdg = new ForceDirectedGraph(graph);
 			
 			canvas.addEventListener("mousemove", onMouseMove, false);
@@ -210,18 +196,20 @@ function draw() {
 	}
 };
 
-function export_canvas_clicked_handler() {
-	var canvas = document.getElementById('canvas');
-	var img = canvas.toDataURL('image/png');
- 	window.open(img);
+const export_canvas_clicked_handler = () => {
+ 	window.open(
+		document
+			.getElementById('canvas')
+			.toDataURL('image/png')
+	);
 };
 
-function reset_clicked_handler() {
+const reset_clicked_handler = () => {
 	
 	if (confirm('Reset.\nAre You Sure ?')) {
 
-		var gFactory = new GraphFactory();
-		var graph = gFactory.generateGraph(50, 2);
+		const gFactory = new GraphFactory();
+		const graph = gFactory.generateGraph(50, 2);
 		window.fdg = new ForceDirectedGraph(graph);
 
 		//var canvas = document.getElementById('canvas');
