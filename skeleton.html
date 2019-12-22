@@ -13,41 +13,50 @@
 	</head>		
 	
 	<body class="documentBody">
-		<div>
+		
+		<div class="column-container">
+
+			<div class="column-container">
+				<div class="mainLabel">
+					cuneiform
+				</div>
+				<div style="font-size: smaller;">
+					force directed graphs in javascript
+				</div>
+			</div>
+	
+			<br/>
+
 			<div>
-				<label class="mainLabel">cuneiform</label>
+	
+				<div>
+					<a id="export_canvas_link" class="main_menu_option" onclick="export_canvas_clicked_handler(); return false;" href="">export</a>
+					<a id="reset_link" class="main_menu_option" onclick="reset_clicked_handler(); return false;" href="">reset</a>
+				</div>
+				
+				<table>
+					<tr>
+						<td>
+						<canvas id="canvas" height="600" width="1000">
+							<a href="https://www.google.com/chrome">Your Browser (i.e. IE) Does Not Support the 2d Canvas HTML Element</a>			
+						</canvas>
+						</td>
+				</tr>
+				</table>
+				
 			</div>
-			<div style="font-size: smaller;">
-				force directed graphs
+
+			<br/>
+
+			<div class="selectionInfoPanel">
+				<label id="selectedNodeInfoLabel"></label>
+				<br/>
+				<ul id="selectedNodeInfoList">						
+				</ul>
 			</div>
+
 		</div>
 
-		<br/>
-
-		<div>
-			<a id="export_canvas_link" class="main_menu_option" onclick="export_canvas_clicked_handler(); return false;" href="">export</a>
-			<a id="reset_link" class="main_menu_option" onclick="reset_clicked_handler(); return false;" href="">reset</a>
-		</div>
-		
-		<table>
-			<tr>
-				<td>
-				<canvas id="canvas" height="600" width="1000">
-					<a href="https://www.google.com/chrome">Your Browser (i.e. IE) Does Not Support the 2d Canvas HTML Element</a>			
-				</canvas>
-				</td>
-				<td width="50">
-					
-				</td>
-				<td class="selectionInfoPanel">
-					<label id="selectedNodeInfoLabel">Select a Node</label>
-					<br/>
-					<ul id="selectedNodeInfoList">						
-					</ul>
-				</td>
-		</tr>
-		</table>
-		
 		<script>entrypoint()</script>
 	</body>
 </html>
