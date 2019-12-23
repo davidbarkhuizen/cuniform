@@ -153,6 +153,20 @@ const onMouseUp = (event) => {
 		window.state.b2Down = false;
 }
 
+const deregisterMouseEventListeners = () => {
+	canvas.removeEventListener("mousemove", onMouseMove, false);
+	canvas.removeEventListener("mousedown", onMouseDown, false);
+	canvas.removeEventListener("mouseup", onMouseUp, false);
+	canvas.removeEventListener("mouseout", onMouseOut, false);	
+}
+
+const registerMouseEventListeners = (canvas) => {
+	canvas.addEventListener("mousemove", onMouseMove, false);
+	canvas.addEventListener("mousedown", onMouseDown, false);
+	canvas.addEventListener("mouseup", onMouseUp, false);
+	canvas.addEventListener("mouseout", onMouseOut, false);	
+}
+
 const initialize = () => {
 
 	window.state = new State();
@@ -160,24 +174,8 @@ const initialize = () => {
 	const gFactory = new GraphFactory();
 	const graph = gFactory.generateGraph(50, 2);
 	window.fdg = new ForceDirectedGraph(graph);
-	
-	const registerEventListeners = (canvas) => {
-		canvas.addEventListener("mousemove", onMouseMove, false);
-		canvas.addEventListener("mousedown", onMouseDown, false);
-		canvas.addEventListener("mouseup", onMouseUp, false);
-		canvas.addEventListener("mouseout", onMouseOut, false);	
-	}
 
-	registerEventListeners(canvas);
-
-	// window.timerTickWorker = new Worker('drone.js');
-	// window.timerTickWorker.onmessage = onTimerTick;
-	// window.timerTickWorkerStarted = true;
-	// window.timerTickWorker.postMessage('50'); // !!	
-
-	// const onTimerTick = (event) => {
-	// 	window.fdg.iterate(context2d);
-	// };
+	registerMouseEventListeners(canvas);
 
 	setInterval(onTimerTick, 50)
 
@@ -237,8 +235,7 @@ const reset_clicked_handler = () => {
 	
 	if (confirm('Reset.\nAre You Sure ?')) {
 
-		const gFactory = new GraphFactory();
-		const graph = gFactory.generateGraph(50, 2);
-		window.fdg = new ForceDirectedGraph(graph);
+		deregisterMouseEventListeners()
+		initialize()
 	}
 };
