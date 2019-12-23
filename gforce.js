@@ -1,17 +1,13 @@
 var K = {
 	// PHYSICS CONSTANTS
 	SPRING_CONSTANT : 0.1,
-	EQUILIBRIUM_DISPLACEMENT : 30,
+	EQUILIBRIUM_DISPLACEMENT : 40,
 	TIME_STEP : 0.8,
 	FRICTION : 0.95,
 
 	// DIMENSIONS OF PHASE SPACE
-	W_0 : 800,
-	H_0 : 400,
-
-	// DIMENSIONS OF CANVAS
-	W_1 : 1000,
-	H_1 : 600,
+	W_0 : 2000,
+	H_0 : 2000/1.618,
 
 	PHASE_SPACE_LIMIT_RIGHT_MARGIN : 50,
 	PHASE_SPACE_LIMIT_MINOR_MARGIN : 15,
@@ -26,9 +22,13 @@ var K = {
 
 	MINIMUM_NODE_SELECTION_RADIUS : 50.0,
 
-	DEMO_GRAPH_SIZE : 11,
+	//DEMO_GRAPH_SIZE : 11,
 	DEMO_GRAPH_BRANCHING_CONST : 2,
 	GENERATION_INTERVAL : 10.0 ,// seconds
+
+	q_A: 15.0,
+	q_B: 15.0,
+	k: 200.0
 };
 
 var lastUsedTagIndex = 0;
@@ -120,8 +120,8 @@ function ForceDirectedGraph(graph) {
 		};
 	};
 	
-	this.wrapReverse = function(xy) {
-		return this.reverse(xy, K.W_0, K.H_0, K.W_1, K.H_1);
+	this.wrapReverse = function(xy, canvasWidth, canvasHeight) {
+		return this.reverse(xy, K.W_0, K.H_0, canvasWidth, canvasHeight);
 	};
 
 	this.drawToContext = function(context, node_label_vert_spacing) {
@@ -251,11 +251,7 @@ function ForceDirectedGraph(graph) {
 			var sin_theta = deltaY / r;
 			var cos_theta = deltaX / r;
 
-			var q_A = 10.0;
-			var q_B = 10.0;
-			var k = 100.0;
-
-			var scalar_force = k * q_A * q_B / (r * r);
+			var scalar_force = K.k * K.q_A * K.q_B / (r * r);
 
 			var Fy = scalar_force * sin_theta;
 			var Fx = scalar_force * cos_theta;
@@ -376,9 +372,7 @@ function ForceDirectedGraph(graph) {
 
 	};
 
-	
-
-	this.iterate = function(context) {
+	this.iterate = function(context, canvasWidth, canvasHeight) {
 		/*
 		for each node
 		calc net electrostatic force
@@ -427,7 +421,7 @@ function ForceDirectedGraph(graph) {
 		//
 		for( i = 0; i < this.graph.vertices.length; i++) {
 			var node = this.graph.vertices[i];
-			node.translatedPosition = this.translate(node.position, K.W_0, K.H_0, K.W_1, K.H_1);
+			node.translatedPosition = this.translate(node.position, K.W_0, K.H_0, canvasWidth, canvasHeight);
 		}
 		// CALL RENDERING METHOD
 		//
@@ -451,9 +445,9 @@ function ForceDirectedGraph(graph) {
 		}		
 	};
 
-	this.handleNodeSelectionAttempt = function(canvasPos) {
+	this.handleNodeSelectionAttempt = function(canvasPos, canvasWidth, canvasHeight) {
 
-		var transformedPos = this.reverse(canvasPos, K.W_0, K.H_0, K.W_1, K.H_1);
+		var transformedPos = this.reverse(canvasPos, K.W_0, K.H_0, canvasWidth, canvasHeight);
 
 		// calc distance from each node
 		//
@@ -620,6 +614,15 @@ function GraphFactory() {
 			var tag = new Tag(pos, 'no label');
 			tag.label = 'Node ' + tag.idx.toString();
 			graph.addNode(tag);
+		
+			if (i > 0) {
+				var z = Math.floor(Math.random() * (graph.vertices.length - 1));
+				if (z == 0) { 
+					z = 1;  	
+				}
+
+				graph.addEdge(tag, graph.vertices[z]);
+			}
 		}
 
 		var nodes = graph.vertices;
