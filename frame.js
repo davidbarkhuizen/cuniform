@@ -1,19 +1,29 @@
-class State{
+class Point2D {
+	constructor(
+		x, y
+	) {
+		this.x = x
+		this.y = y
+	}
+}
+
+class State {
 	constructor(
 	) {
 		this.b0Down = false;
 		this.b1Down = false; 
 		this.b2Down = false; 
 		
-		this.b0ClickPos = {x:0, y:0};
-		this.lastB0DragPos = {x:0, y:0};
+		this.b0ClickPos = new Point2D(0, 0);
+		this.lastB0DragPos = new Point2D(0,0)
 		
-		this.curPos = {x:0, y:0};
-	
+		this.curPos = new Point2D(0, 0);
 	}
 }
 
 let canvas = null;
+let context2d = null;
+let state = new State();
 
 const updateSelectionInfo = () => {
 	
@@ -37,7 +47,8 @@ const updateSelectionInfo = () => {
 	else {
 		selectedNodeInfoLabel.innerHTML = selectedNode.label;
 
-		window.fdg.graph.neighbours(selectedNode).forEach(
+		window.fdg.graph.neighbours(selectedNode)
+		.forEach(
 			neighbour => {
 				const neighbourString = neighbour.label;
 			
@@ -65,16 +76,14 @@ const getMousePos = (cnvs, evt) => {
  
     // return relative mouse position
     //
-	return {
-        x: evt.clientX - left + window.pageXOffset,
-        y: evt.clientY - top + window.pageYOffset
-    };
+	return new Point2D(
+        evt.clientX - left + window.pageXOffset,
+        evt.clientY - top + window.pageYOffset
+	)
 };
 
 const onTimerTick = (event) => {
-	window.fdg.iterate(
-		canvas.getContext('2d')
-	);
+	window.fdg.iterate(context2d);
 };
 
 const onMouseOut = (event) => {
@@ -152,22 +161,39 @@ const initialize = () => {
 	const graph = gFactory.generateGraph(50, 2);
 	window.fdg = new ForceDirectedGraph(graph);
 	
-	canvas.addEventListener("mousemove", onMouseMove, false);
-	canvas.addEventListener("mousedown", onMouseDown, false);
-	canvas.addEventListener("mouseup", onMouseUp, false);
-	canvas.addEventListener("mouseout", onMouseOut, false);
-	
-	window.timerTickWorker = new Worker('drone.js');
-	window.timerTickWorker.onmessage = onTimerTick;
-	window.timerTickWorkerStarted = true;
-	window.timerTickWorker.postMessage('50'); // !!	
+	const registerEventListeners = (canvas) => {
+		canvas.addEventListener("mousemove", onMouseMove, false);
+		canvas.addEventListener("mousedown", onMouseDown, false);
+		canvas.addEventListener("mouseup", onMouseUp, false);
+		canvas.addEventListener("mouseout", onMouseOut, false);	
+	}
+
+	registerEventListeners(canvas);
+
+	// window.timerTickWorker = new Worker('drone.js');
+	// window.timerTickWorker.onmessage = onTimerTick;
+	// window.timerTickWorkerStarted = true;
+	// window.timerTickWorker.postMessage('50'); // !!	
+
+	// const onTimerTick = (event) => {
+	// 	window.fdg.iterate(context2d);
+	// };
+
+	setInterval(onTimerTick, 50)
 
 	updateSelectionInfo();
 }
 
 const entrypoint = () => {				
 
-	canvas = document.getElementById('canvas')
+	canvas = document.getElementById('canvas');
+	if (canvas != null) {
+		try {
+			context2d = canvas.getContext('2d');
+		} catch (e) {
+			console.log(`error attempting to get 2d context from canvas: ${e}`)
+		}
+	}
 
 	const listUnsupportedRequirements = () => {
 	
@@ -179,7 +205,7 @@ const entrypoint = () => {
 		if (canvas == null) {
 			unsupportedRequirements.push('canvas not supported');
 		}
-		else if (canvas.getContext == false){
+		else if (context2d == null){
 			unsupportedRequirements.push('no [canvas] context');
 		}				
 		
@@ -214,9 +240,5 @@ const reset_clicked_handler = () => {
 		const gFactory = new GraphFactory();
 		const graph = gFactory.generateGraph(50, 2);
 		window.fdg = new ForceDirectedGraph(graph);
-
-		//var canvas = document.getElementById('canvas');
-		//var context = canvas.getContext('2d');
-		//context.clearRect(0, 0, canvas.width, canvas.height);
 	}
 };
