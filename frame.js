@@ -21,6 +21,7 @@ class State {
 	}
 }
 
+let body = null;
 let canvas = null;
 let context2d = null;
 let state = new State();
@@ -84,7 +85,7 @@ const getMousePos = (cnvs, evt) => {
 };
 
 const onTimerTick = (event) => {
-	window.fdg.iterate(context2d);
+	window.fdg.iterate(context2d, canvas.width, canvas.height);
 };
 
 const onMouseOut = (event) => {
@@ -100,8 +101,9 @@ const onMouseMove = (event) => {
 	*/
 	if (window.state.b0Down) {
 
+
 		const mxy = getMousePos(canvas, event);
-		const phasePos = window.fdg.wrapReverse(mxy);
+		const phasePos = window.fdg.wrapReverse(mxy, canvas.width, canvas.height);
 		window.state.lastB0DragPos = mxy;
 		
 		window.fdg.graph.vertices
@@ -124,7 +126,7 @@ const calcCanvasXY = (event, canvas) => {
 const onMouseDown = (event) => {
 	
 	var mxy = getMousePos(
-		document.getElementById("canvas"), 
+		canvas, 
 		event
 	);
 	
@@ -132,7 +134,7 @@ const onMouseDown = (event) => {
 		window.state.b0Down = true;		
 		window.state.b0ClickPos = mxy;    
 			
-    	const selectionChanged = window.fdg.handleNodeSelectionAttempt(mxy);
+    	const selectionChanged = window.fdg.handleNodeSelectionAttempt(mxy, canvas.width, canvas.height);
     	if (selectionChanged == true)
     		updateSelectionInfo();
 	}
@@ -154,7 +156,7 @@ const onMouseUp = (event) => {
 		window.state.b2Down = false;
 }
 
-const deregisterMouseEventListeners = () => {
+const deregisterMouseEventListeners = (canvas) => {
 	canvas.removeEventListener("mousemove", onMouseMove, false);
 	canvas.removeEventListener("mousedown", onMouseDown, false);
 	canvas.removeEventListener("mouseup", onMouseUp, false);
@@ -170,10 +172,16 @@ const registerMouseEventListeners = (canvas) => {
 
 const initialize = () => {
 
+	const width = body.offsetWidth;
+	const height = body.offsetHeight * 0.9;
+
+	canvas.width = width;
+	canvas.height = height;
+
 	window.state = new State();
 		
 	const gFactory = new GraphFactory();
-	const graph = gFactory.generateGraph(50, 2);
+	const graph = gFactory.generateGraph(30, 2);
 	window.fdg = new ForceDirectedGraph(graph);
 
 	registerMouseEventListeners(canvas);
@@ -186,6 +194,8 @@ const initialize = () => {
 const entrypoint = () => {				
 
 	selectionInfoPanel = document.getElementById('selectionInfoPanel')
+
+	body = document.getElementById('body');
 
 	canvas = document.getElementById('canvas');
 	if (canvas != null) {
@@ -254,45 +264,26 @@ let startTop = null
 let startLeft = null
 
 const onDragStart = (event) => {
-	console.log('onDragStart')
-	console.log(event.screenX, event.screenY)
 
-	startScreenX = event.screenX
-	startScreenY = event.screenY
-
-	console.log(event)
+	startScreenX = event.screenX;
+	startScreenY = event.screenY;
 
 	var rect = selectionInfoPanel.getBoundingClientRect();
-	startTop = rect.top
-	startLeft = rect.left
+	startTop = rect.top;
+	startLeft = rect.left;
 }
 
 const onDrag = (event) => {
-	// console.log(event)
-	//console.log(event.offsetX, event.offsetY)
-	
-	//const br = event.target.getBoundingClientRect();
-	//console.log(br.top, br.left)
-
-	//console.log(event.screenX, event.screenY, event.pageX, event.pageY, event.offsetX, event.offsetY);
-	// console.log(event.screenX - event.offsetX)
-
 	if ((event.screenX <= 0) && (event.screenY <= 0)){
 		return
 	}
 
-
-	moveX = event.screenX - startScreenX
-	moveY = event.screenY - startScreenY
-
-	console.log(moveX, moveY)
+	moveX = event.screenX - startScreenX;
+	moveY = event.screenY - startScreenY;
 }
 
 const onDragEnd = (event) => {
 
-	console.log('onDragEnd')
-
-	selectionInfoPanel.style.top = moveY + startTop
-	selectionInfoPanel.style.left =moveX + startLeft
-
+	selectionInfoPanel.style.top = moveY + startTop;
+	selectionInfoPanel.style.left =moveX + startLeft;
 }
