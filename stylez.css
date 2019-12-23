@@ -11,6 +11,8 @@ canvas
 }  
 
 .canvas-container {
+
+	position: relative;
 }
 
 .main_menu_option
@@ -32,21 +34,28 @@ canvas
 .selectionInfoPanel
 {
 	font-family			: "Courier";
-	border 		: 	1px solid lightgray;
-	padding: 10px;
+	
+	border-style: solid;
+	border-color: lightgreen;
+	border-radius: 10px;
 
-	width: 300 px;
-	height: 400 px;
+	color: black;
 
-	position: fixed; /* Sit on top of the page content */
-  	width: 400px; /* Full width (cover the whole page) */
-  	height: 300px; /* Full height (cover the whole page) */
-  	top: 33;
+	padding: 10;
+
+	width: 300;
+	height: 400;
+
+	position: absolute;
+  
+	top: 33;
   	left: 33;
   
-	background-color: rgba(0,0,0,0.5); /* Black background with opacity */
-  	z-index: 2; /* Specify a stack order in case you're using a different order for other elements */
-  	cursor: pointer; /* Add a pointer on hover */
+	z-index: 2;
+
+	opacity: 0.5;
+
+	background-color: #F0F0F0;
 }
 
 .column-container {
