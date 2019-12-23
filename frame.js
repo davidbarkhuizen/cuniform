@@ -254,36 +254,46 @@ const reset_clicked_handler = () => {
 };
 
 
-let startScreenX = null
-let startScreenY = null
+let startDragScreenX = null
+let startDragScreenY = null
 
-let moveX = null
-let moveY = null
+let dragX = null
+let dragY = null
 
-let startTop = null
-let startLeft = null
+let startTop = null;
+let startLeft = null;
 
 const onDragStart = (event) => {
 
-	startScreenX = event.screenX;
-	startScreenY = event.screenY;
+	startDragScreenX = event.screenX;
+	startDragScreenY = event.screenY;
 
 	var rect = selectionInfoPanel.getBoundingClientRect();
-	startTop = rect.top;
-	startLeft = rect.left;
+	var parentRect = selectionInfoPanel.parentElement.getBoundingClientRect();
+
+	startTop = rect.top - parentRect.top;
+	startLeft = rect.left - parentRect.left;
 }
 
 const onDrag = (event) => {
+
 	if ((event.screenX <= 0) && (event.screenY <= 0)){
 		return
 	}
 
-	moveX = event.screenX - startScreenX;
-	moveY = event.screenY - startScreenY;
+	dragX = event.screenX - startDragScreenX;
+	dragY = event.screenY - startDragScreenY;
+
+	console.log(dragX, dragY)
 }
 
 const onDragEnd = (event) => {
 
-	selectionInfoPanel.style.top = moveY + startTop;
-	selectionInfoPanel.style.left =moveX + startLeft;
+	console.log(selectionInfoPanel.style)
+
+	selectionInfoPanel.style.top = dragY + startTop;
+	selectionInfoPanel.style.left = dragX + startLeft;
+
+	// selectionInfoPanel.style.top = parseInt(selectionInfoPanel.style.top, 10) + dragY + 'px';
+	// selectionInfoPanel.style.left = parseInt(selectionInfoPanel.style.left, 10) + dragX + 'px';
 }

@@ -41,22 +41,26 @@
 				</div>
 				
 				<div class="canvas-container">
-					<canvas id="canvas"/>
+					<canvas id="canvas">
+					</canvas>
+					<div id="selectionInfoPanel" 
+						class="selectionInfoPanel"
+						draggable="true" 
+						ondrag="onDrag(event)"
+						ondragstart="onDragStart(event)"
+						ondragend="onDragEnd(event)"
+						>
+						<label id="selectedNodeInfoLabel"></label>
+						<br/>
+						<ul id="selectedNodeInfoList"></ul>
+					</div>
 				</div>
 			</div>
 		</div>
+
+		
 	
-		<div id="selectionInfoPanel" 
-			class="selectionInfoPanel"
-			draggable="true" 
-			ondrag="onDrag(event)"
-			ondragstart="onDragStart(event)"
-			ondragend="onDragEnd(event)"
-			>
-			<label id="selectedNodeInfoLabel"></label>
-			<br/>
-			<ul id="selectedNodeInfoList"></ul>
-		</div>
+
 
 		<script>entrypoint()</script>
 	</body>
