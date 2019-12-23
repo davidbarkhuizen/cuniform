@@ -24,6 +24,7 @@ class State {
 let canvas = null;
 let context2d = null;
 let state = new State();
+let selectionInfoPanel = null;
 
 const updateSelectionInfo = () => {
 	
@@ -184,6 +185,8 @@ const initialize = () => {
 
 const entrypoint = () => {				
 
+	selectionInfoPanel = document.getElementById('selectionInfoPanel')
+
 	canvas = document.getElementById('canvas');
 	if (canvas != null) {
 		try {
@@ -203,7 +206,7 @@ const entrypoint = () => {
 		if (canvas == null) {
 			unsupportedRequirements.push('canvas not supported');
 		}
-		else if (context2d == null){
+		else if (context2d == null){ 	
 			unsupportedRequirements.push('no [canvas] context');
 		}				
 		
@@ -239,3 +242,57 @@ const reset_clicked_handler = () => {
 		initialize()
 	}
 };
+
+
+let startScreenX = null
+let startScreenY = null
+
+let moveX = null
+let moveY = null
+
+let startTop = null
+let startLeft = null
+
+const onDragStart = (event) => {
+	console.log('onDragStart')
+	console.log(event.screenX, event.screenY)
+
+	startScreenX = event.screenX
+	startScreenY = event.screenY
+
+	console.log(event)
+
+	var rect = selectionInfoPanel.getBoundingClientRect();
+	startTop = rect.top
+	startLeft = rect.left
+}
+
+const onDrag = (event) => {
+	// console.log(event)
+	//console.log(event.offsetX, event.offsetY)
+	
+	//const br = event.target.getBoundingClientRect();
+	//console.log(br.top, br.left)
+
+	//console.log(event.screenX, event.screenY, event.pageX, event.pageY, event.offsetX, event.offsetY);
+	// console.log(event.screenX - event.offsetX)
+
+	if ((event.screenX <= 0) && (event.screenY <= 0)){
+		return
+	}
+
+
+	moveX = event.screenX - startScreenX
+	moveY = event.screenY - startScreenY
+
+	console.log(moveX, moveY)
+}
+
+const onDragEnd = (event) => {
+
+	console.log('onDragEnd')
+
+	selectionInfoPanel.style.top = moveY + startTop
+	selectionInfoPanel.style.left =moveX + startLeft
+
+}
