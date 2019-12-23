@@ -1,20 +1,18 @@
+function sleep_thread_async(ms) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 this.onmessage = function(event) {
 	
-	var endlessLoop = function(periodMS) {
-		postMessage('starting loop');
+	var endlessLoop = async (periodMS) => {
+		postMessage('simulation heartbeat loop started');
 		while (true) {
-			var then = new Date();
-			var periodIsComplete = false;
-			while (periodIsComplete == false) {
-				var now = new Date();
-				var elapsedMS = now.getTime() - then.getTime();
-				if (elapsedMS >= periodMS)
-					periodIsComplete = true;
-			}
+			await this.sleep_thread_async(periodMS)
 			postMessage(periodMS);
 		}
 	};
 	
-	endlessLoop(event.data);		
+	endlessLoop(event.data)
+	.then(() => { console.log('simulation heartbeat loop terminated')})
 };
 
