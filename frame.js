@@ -308,48 +308,57 @@ const entrypoint = () => {
 
 	const controller = new UIController(canvas, exportElement, resetElement);
 	controller.initialize()
+
+	const dragController = new DragController(selectionInfoPanel);
 };
 
-// selection info panel drag handlers
+class DragController {
 
-// draggable="true" 
-// ondrag="onDrag(event)"
-// ondragstart="onDragStart(event)"
-// ondragend="onDragEnd(event)"
+	startDragScreenX = null
+	startDragScreenY = null
+	
+	dragX = null
+	dragY = null
+	
+	startTop = null;
+	startLeft = null;
+	
+	constructor(element) {
 
-let startDragScreenX = null
-let startDragScreenY = null
+		this.element = element
 
-let dragX = null
-let dragY = null
+		this.element.draggable = true 
 
-let startTop = null;
-let startLeft = null;
-
-const onDragStart = (event) => {
-
-	startDragScreenX = event.screenX;
-	startDragScreenY = event.screenY;
-
-	var rect = selectionInfoPanel.getBoundingClientRect();
-	var parentRect = selectionInfoPanel.parentElement.getBoundingClientRect();
-
-	startTop = rect.top - parentRect.top;
-	startLeft = rect.left - parentRect.left;
-}
-
-const onDrag = (event) => {
-
-	if ((event.screenX <= 0) && (event.screenY <= 0)){
-		return
+		this.element.addEventListener('dragstart', this.onDragStart);
+		this.element.addEventListener('drag', this.onDrag);
+		this.element.addEventListener('dragend', this.onDragEnd);
 	}
 
-	dragX = event.screenX - startDragScreenX;
-	dragY = event.screenY - startDragScreenY;
-}
+	onDragStart = (event) => {
 
-const onDragEnd = (event) => {
-
-	selectionInfoPanel.style.top = dragY + startTop;
-	selectionInfoPanel.style.left = dragX + startLeft;
+		this.startDragScreenX = event.screenX;
+		this.startDragScreenY = event.screenY;
+	
+		var rect = this.element.getBoundingClientRect();
+		var parentRect = this.element.parentElement.getBoundingClientRect();
+	
+		this.startTop = rect.top - parentRect.top;
+		this.startLeft = rect.left - parentRect.left;
+	}
+	
+	onDrag = (event) => {
+	
+		if ((event.screenX <= 0) && (event.screenY <= 0)){
+			return
+		}
+	
+		this.dragX = event.screenX - this.startDragScreenX;
+		this.dragY = event.screenY - this.startDragScreenY;
+	}
+	
+	onDragEnd = (event) => {
+	
+		this.element.style.top = this.dragY + this.startTop;
+		this.element.style.left = this.dragX + this.startLeft;
+	}
 }
