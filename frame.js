@@ -31,6 +31,8 @@ let exportElement = null;
 
 class UIController {
 
+	timer = null;
+
 	constructor(
 		canvas, 
 		exportElement, 
@@ -144,6 +146,10 @@ class UIController {
 		return false
 	};
 
+	onTimerTick = (event) => {
+		window.fdg.iterate(context2d, canvas.width, canvas.height);
+	};
+	
 	deregisterEventListeners = (canvas, exportElement, resetElement) => {
 		
 		// export link
@@ -227,12 +233,12 @@ class UIController {
 		window.state = new State();
 			
 		const gFactory = new GraphFactory();
-		const graph = gFactory.generateGraph(30, 2);
+		const graph = gFactory.generateGraph(30, 5);
 		window.fdg = new ForceDirectedGraph(graph);
 	
 		this.registerEventListeners(this.canvas, this.exportElement, this.resetElement);
 	
-		timer = setInterval(onTimerTick, 50)
+		this.timer = setInterval(this.onTimerTick, 50)
 	
 		this.updateSelectionInfo();
 	}
@@ -241,23 +247,8 @@ class UIController {
 		clearInterval(timer)
 		timer = null
 		this.deregisterEventListeners(this.canvas, this.exportElement, this.resetElement)
-	}
-	
+	}	
 }
-
-const calcCanvasXY = (event, canvas) => {
-	return {
-		x: event.x - canvas.offsetLeft,
-		y: event.y - canvas.offsetTop
-	};
-};
-
-let timer = null
-
-
-const onTimerTick = (event) => {
-	window.fdg.iterate(context2d, canvas.width, canvas.height);
-};
 
 const entrypoint = () => {				
 

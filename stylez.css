@@ -1,9 +1,4 @@
-.BoldText
-{
-  font-weight : bold;
-}  
-
-canvas
+#canvas
 {
 	border 		: 	1px solid lightgray;
 	margin 		: 	0 auto;	

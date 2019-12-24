@@ -634,14 +634,8 @@ function GraphFactory() {
 				while(newEdgeAdded == false) {
 					var z = Math.floor(Math.random() * (nodes.length - 1));
 					if(nodes[z] != node) {
-						var edges = graph.edges;
-						if((edges.indexOf({
-							v1 : nodes[z],
-							v2 : node
-						}) == -1) & (edges.indexOf({
-							v1 : node,
-							v2 : nodes[z]
-						}) == -1)) {
+			
+						if (!graph.neighbours(nodes[z]).includes(node)) {
 							graph.addEdge(node, nodes[z]);
 							newEdgeAdded = true;
 						}
