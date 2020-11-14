@@ -599,11 +599,11 @@ function GraphFactory() {
 
 	this.generateGraph = function(order, maxEdgesPerVertexPerPass) {
 		/*
-		 generate a semi-Math.random graph of size p
+		 generate a semi-random graph of size p
 
-		 generate p vertices, with Math.random x,y co-ords
+		 generate p vertices, with random x,y co-ords
 		 for each vertex:
-		 Math.randomly add at most max_edges_to_create_per_node_per_pass new edges
+		 randomly add at most max_edges_to_create_per_node_per_pass new edges
 		 */
 
 		var graph = new Graph();
