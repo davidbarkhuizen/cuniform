@@ -1,11 +1,14 @@
 {
     "compilerOptions": {
-      "module": "commonjs",
-      "esModuleInterop": true,
-      "target": "es6",
-      "moduleResolution": "node",
-      "sourceMap": true,
-      "outDir": "dist"
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "sourceMap": true,
+        "declaration": true,
+        "outDir": "./dist",
+        "rootDir": ".",
+        "noImplicitAny": true,
+        "removeComments": true,
+        "preserveConstEnums": true
     },
-    "lib": ["es2015"]
-  }
+    "include": ["src"]
+}

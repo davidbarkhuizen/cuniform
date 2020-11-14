@@ -1,12 +1,5 @@
-import express from 'express';
+import { root } from './other';
 
-const app = express();
-const port = 3000;
+export * from './other';
 
-app.get('/', (req, res) => {
-  res.send('The sedulous hyena ate the antelope!');
-});
-
-app.listen(port, () => {
-    return console.log(`server is listening on ${port}`);
-});
+console.log('dog');
