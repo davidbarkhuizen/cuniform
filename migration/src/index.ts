@@ -1,5 +1,5 @@
-import { root } from './other';
+import { root } from './ui/other';
 
-export * from './other';
+export * from './ui/other';
 
 console.log('dog');

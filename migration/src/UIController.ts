@@ -1,64 +1,53 @@
-class Point2D {
-	constructor(
-		x, y
-	) {
-		this.x = x
-		this.y = y
-	}
-}
+import { Point2D } from "./Point2D";
+import { State } from "./State";
 
-class State {
-	constructor(
-	) {
-		this.b0Down = false;
-		this.b1Down = false; 
-		this.b2Down = false; 
-		
-		this.b0ClickPos = new Point2D(0, 0);
-		this.lastB0DragPos = new Point2D(0,0)
-		
-		this.curPos = new Point2D(0, 0);
-	}
-}
-
-let body = null;
-let canvas = null;
-let context2d = null;
+let body: HTMLElement = null;
+let canvas: HTMLCanvasElement = null;
+let context2d: CanvasRenderingContext2D = null;
 let state = new State();
 let selectionInfoPanel = null;
 let resetElement = null;
 let exportElement = null;
 
-class UIController {
+declare global {
+    interface Window {
+        state: State;
+    }
+}
 
-	timer = null;
+export class UIController {
+
+    timer: NodeJS.Timeout = null;
+    
+    canvas: HTMLCanvasElement;
+    exportElement: HTMLElement;
+    resetElement: HTMLElement;
 
 	constructor(
-		canvas, 
-		exportElement, 
-		resetElement
+		canvas: HTMLCanvasElement, 
+		exportElement: HTMLElement, 
+		resetElement: HTMLElement
 	) {
 		this.canvas = canvas;
 		this.exportElement = exportElement;
 		this.resetElement = resetElement;
 	}
 
-	onMouseOut = (event) => {
+	onMouseOut = (event: MouseEvent) => {
 		window.state.b0Down = false;
 		window.state.b1Down = false;
 		window.state.b2Down = false;
 	};
 
-	onMouseMove = (event) => {
+	onMouseMove = (event: MouseEvent) => {
 		/*
 		record mouse movement, calc deltas
 		call self.force_directed_graph.move(d_x, d_y, d_z), passing deltas
 		*/
 		if (window.state.b0Down) {
-	
-	
-			const mxy = this.getMousePos(canvas, event);
-			const phasePos = window.fdg.wrapReverse(mxy, canvas.width, canvas.height);
+		
+			const mxy = this.getMousePos(this.canvas, event);
+			const phasePos = window.fdg.wrapReverse(mxy, this.canvas.width, this.canvas.height);
 			window.state.lastB0DragPos = mxy;
 			
 			window.fdg.graph.vertices
@@ -71,7 +60,7 @@ class UIController {
 		}
 	};	
 
-	onMouseDown = (event) => {
+	onMouseDown = (event: MouseEvent) => {
 	
 		var mxy = this.getMousePos(
 			this.canvas, 
@@ -82,7 +71,7 @@ class UIController {
 			window.state.b0Down = true;		
 			window.state.b0ClickPos = mxy;    
 				
-			const selectionChanged = window.fdg.handleNodeSelectionAttempt(mxy, canvas.width, canvas.height);
+			const selectionChanged = window.fdg.handleNodeSelectionAttempt(mxy, this.canvas.width, this.canvas.height);
 			if (selectionChanged == true)
 				this.updateSelectionInfo();
 		}
@@ -92,7 +81,7 @@ class UIController {
 			window.state.b2Down = true;	
 	}
 	
-	getMousePos = (cnvs, evt) => {
+	getMousePos = (cnvs: HTMLCanvasElement, evt: MouseEvent) => {
 
 		// get canvas position
 		//
@@ -113,7 +102,7 @@ class UIController {
 		)
 	};
 
-	onMouseUp = (event) => {
+	onMouseUp = (event: MouseEvent) => {
 	
 		if (event.button == 0) {
 			window.state.b0Down = false;
@@ -129,11 +118,11 @@ class UIController {
 
 	onExport = () => {
 		window.open(
-			canvas.toDataURL('image/png')
+			this.canvas.toDataURL('image/png')
 		);
 	};
 
-	onReset = (event) => {
+	onReset = (event: MouseEvent) => {
 	
 		const reset = confirm('Reset.\nAre You Sure ?');
 		if (reset == true) {
@@ -146,11 +135,15 @@ class UIController {
 		return false
 	};
 
-	onTimerTick = (event) => {
-		window.fdg.iterate(context2d, canvas.width, canvas.height);
+	onTimerTick = (event: any) => {
+		window.fdg.iterate(context2d, this.canvas.width, this.canvas.height);
 	};
 	
-	deregisterEventListeners = (canvas, exportElement, resetElement) => {
+	deregisterEventListeners = (
+            canvas: HTMLCanvasElement, 
+            exportElement: HTMLElement, 
+            resetElement: HTMLElement
+        ) => {
 		
 		// export link
 		//
@@ -168,7 +161,11 @@ class UIController {
 		canvas.removeEventListener("mouseout", this.onMouseOut, false);	
 	}
 	
-	registerEventListeners = (canvas, exportElement, resetElement) => {
+	registerEventListeners = (
+            canvas: HTMLCanvasElement, 
+            exportElement: HTMLElement, 
+            resetElement: HTMLElement
+        ) => {
 		
 		// export link
 		//
@@ -227,8 +224,8 @@ class UIController {
 		const width = body.offsetWidth;
 		const height = body.offsetHeight * 0.9;
 	
-		canvas.width = width;
-		canvas.height = height;
+		this.canvas.width = width;
+		this.canvas.height = height;
 	
 		window.state = new State();
 			
@@ -248,108 +245,4 @@ class UIController {
 		timer = null
 		this.deregisterEventListeners(this.canvas, this.exportElement, this.resetElement)
 	}	
-}
-
-const entrypoint = () => {				
-
-	selectionInfoPanel = document.getElementById('selectionInfoPanel')
-
-	body = document.getElementById('body');
-
-	canvas = document.getElementById('canvas');
-	if (canvas != null) {
-		try {
-			context2d = canvas.getContext('2d');
-		} catch (e) {
-			console.log(`error attempting to get 2d context from canvas: ${e}`)
-		}
-	}
-
-	const listUnsupportedRequirements = () => {
-	
-		const unsupportedRequirements = []; 
-		
-		if (!!window.Worker != true)
-			unsupportedRequirements.push('web worker not supported');
-			
-		if (canvas == null) {
-			unsupportedRequirements.push('canvas not supported');
-		}
-		else if (context2d == null){ 	
-			unsupportedRequirements.push('no [canvas] context');
-		}				
-		
-		return unsupportedRequirements;
-	}					
-	
-	const unsupportedRequirements = listUnsupportedRequirements();				
-	if (unsupportedRequirements.length > 0) {
-				
-		console.log('UnSupported Requirements:');
-		unsupportedRequirements.forEach(
-			txt => console.log(txt)
-		)
-		
-		alert('Minimum Requirements Not Met.\nSee console log for details')
-		return
-	}
-
-	exportElement = document.getElementById('export_canvas_link');
-	resetElement = document.getElementById('reset_link');
-
-	const controller = new UIController(canvas, exportElement, resetElement);
-	controller.initialize()
-
-	const dragController = new DragController(selectionInfoPanel);
-};
-
-class DragController {
-
-	startDragScreenX = null
-	startDragScreenY = null
-	
-	dragX = null
-	dragY = null
-	
-	startTop = null;
-	startLeft = null;
-	
-	constructor(element) {
-
-		this.element = element
-
-		this.element.draggable = true 
-
-		this.element.addEventListener('dragstart', this.onDragStart);
-		this.element.addEventListener('drag', this.onDrag);
-		this.element.addEventListener('dragend', this.onDragEnd);
-	}
-
-	onDragStart = (event) => {
-
-		this.startDragScreenX = event.screenX;
-		this.startDragScreenY = event.screenY;
-	
-		var rect = this.element.getBoundingClientRect();
-		var parentRect = this.element.parentElement.getBoundingClientRect();
-	
-		this.startTop = rect.top - parentRect.top;
-		this.startLeft = rect.left - parentRect.left;
-	}
-	
-	onDrag = (event) => {
-	
-		if ((event.screenX <= 0) && (event.screenY <= 0)){
-			return
-		}
-	
-		this.dragX = event.screenX - this.startDragScreenX;
-		this.dragY = event.screenY - this.startDragScreenY;
-	}
-	
-	onDragEnd = (event) => {
-	
-		this.element.style.top = this.dragY + this.startTop;
-		this.element.style.left = this.dragX + this.startLeft;
-	}
 }
