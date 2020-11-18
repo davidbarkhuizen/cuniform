@@ -1,12 +1,13 @@
-import { entrypoint } from './entrypoint';
+import  { entrypoint } from './entrypoint';
 
-export const go = () => {
+document.addEventListener("DOMContentLoaded", function(event) { 
+    
     entrypoint(
         'selectionInfoPanel',
         'canvas',
         'export_canvas_link',
         'reset_link'
     );
-};
 
-console.log('yo');
+    console.log('launched');
+});

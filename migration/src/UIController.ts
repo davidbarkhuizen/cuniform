@@ -3,14 +3,6 @@ import { GraphFactory } from "./GraphFactory";
 import { Point2D } from "./Point2D";
 import { State } from "./State";
 
-let body: HTMLElement = null;
-let canvas: HTMLCanvasElement = null;
-let context2d: CanvasRenderingContext2D = null;
-let state = new State();
-let selectionInfoPanel = null;
-let resetElement = null;
-let exportElement = null;
-
 declare global {
     interface Window {
         state: State;
@@ -22,16 +14,22 @@ export class UIController {
 
     timer: NodeJS.Timeout = null;
     
+    body: HTMLElement;
     canvas: HTMLCanvasElement;
+    context2D: CanvasRenderingContext2D;
     exportElement: HTMLElement;
     resetElement: HTMLElement;
 
 	constructor(
-		canvas: HTMLCanvasElement, 
+        body: HTMLElement,
+        canvas: HTMLCanvasElement, 
+        context2D: CanvasRenderingContext2D,
 		exportElement: HTMLElement, 
 		resetElement: HTMLElement
 	) {
-		this.canvas = canvas;
+        this.body = body;
+        this.canvas = canvas;
+        this.context2D = context2D;
 		this.exportElement = exportElement;
 		this.resetElement = resetElement;
 	}
@@ -139,7 +137,7 @@ export class UIController {
 	};
 
 	onTimerTick = (event: any) => {
-		window.fdg.iterate(context2d, this.canvas.width, this.canvas.height);
+		window.fdg.iterate(this.context2D, this.canvas.width, this.canvas.height);
 	};
 	
 	deregisterEventListeners = (
@@ -224,8 +222,8 @@ export class UIController {
 
 	initialize = () => {
 
-		const width = body.offsetWidth;
-		const height = body.offsetHeight * 0.9;
+		const width = this.body.offsetWidth;
+		const height = this.body.offsetHeight * 0.9;
 	
 		this.canvas.width = width;
 		this.canvas.height = height;

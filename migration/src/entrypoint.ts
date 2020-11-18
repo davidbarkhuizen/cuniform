@@ -11,9 +11,12 @@ export const entrypoint = (
 	const selectionInfoPanel = document.getElementById(selectionInfoPanelID);
 	const body = document.getElementById('body');
 
+    console.log(document.getElementById(canvasElementID));
     const canvas = document.getElementById(canvasElementID) as HTMLCanvasElement;
+    
+    
     if (!canvas) {
-        console.error(`couldnt find canvas element for ID: ${canvasElementID}`);
+        console.error(`could not find canvas element for ID: ${canvasElementID}`);
         return false;
     }
     
@@ -51,8 +54,8 @@ export const entrypoint = (
 	const exportElement = document.getElementById(exportElementID);
 	const resetElement = document.getElementById(resetElementID);
 
-    const dragController = new DragController(selectionInfoPanel);
+    new DragController(selectionInfoPanel);
     
-    const controller = new UIController(canvas, exportElement, resetElement);
+    const controller = new UIController(body, canvas, context2d, exportElement, resetElement);
 	controller.initialize()
 };
