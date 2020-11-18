@@ -6,5 +6,7 @@ export const go = () => {
         'canvas',
         'export_canvas_link',
         'reset_link'
-    )    
+    );
 };
+
+console.log('yo');

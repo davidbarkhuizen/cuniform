@@ -1,10 +1,47 @@
-<!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>cuniform</title>
-  </head>
-  <body>
-    <script src="main.js">go();</script>
-  </body>
+	<head>
+		
+		<title>
+			cuneiform
+		</title>	
+		
+        <script src="main.js"></script>
+		
+		<link rel="stylesheet"  tyeepe="text/css" href="stylez.css"/>	
+	</head>		
+	
+	<body id="body" class="documentBody">
+		
+		<div class="column-container">
+
+			<div class="column-container">
+				<div class="mainLabel">
+					cuneiform
+				</div>
+				<div style="font-size: smaller;">
+					force directed graphs in javascript
+				</div>
+			</div>
+	
+			<br/>
+
+			<div>
+	
+				<div>
+					<a id="export_canvas_link" class="main_menu_option" href="">export</a>
+					<a id="reset_link" class="main_menu_option" href="">reset</a>
+				</div>
+				
+				<div class="canvas-container">
+					<canvas id="canvas">
+					</canvas>
+					<div id="selectionInfoPanel" class="selectionInfoPanel">
+						<label id="selectedNodeInfoLabel"></label>
+						<br/>
+						<ul id="selectedNodeInfoList"></ul>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>

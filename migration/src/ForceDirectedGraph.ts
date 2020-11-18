@@ -55,9 +55,10 @@ export class ForceDirectedGraph {
 		if(this.graph.vertices[i].isSelected) {
 			selected_node = this.graph.vertices[i];
 			break;
-		};
-
-		context.clearRect(0, 0, canvas.width, canvas.height);
+        };
+        
+        // TODO CHECK THIS !!
+		context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 
 		// EDGES
 		//
@@ -231,7 +232,11 @@ export class ForceDirectedGraph {
 			var scalar_force = -k * (l - r);
 
 			// DISTINGUISH BETWEEN PUSH & PULL VECTORS
-			//
+            //
+            
+            let tag_A: Tag;
+            let tag_B: Tag;
+
 			if(scalar_force < 0) {
 				tag_A = tag;
 				tag_B = other_tag;
@@ -328,7 +333,7 @@ export class ForceDirectedGraph {
 		//
 		for(i = 0; i < this.graph.vertices.length; i++) {
 			var tag = this.graph.vertices[i];
-			if (tag.isSelected & window.state.b0Down) {
+			if (tag.isSelected && window.state.b0Down) {
 			} 
 			else {
 				var displacement = tag.displacement;

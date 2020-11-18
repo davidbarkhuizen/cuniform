@@ -1,9 +1,10 @@
+import { Edge } from "./Edge";
 import { Tag } from "./Tag";
 
 export class Graph {
 
-	vertices = [];
-	edges = [];
+	vertices: Array<Tag> = [];
+	edges: Array<Edge> = [];
 
 	addNode(tag: Tag) {
 		this.vertices.push(tag);
@@ -19,8 +20,8 @@ export class Graph {
 		// remove adjcant edges
 		
 		var toRemove = [];
-		for (i = 0; i < this.edges.length; i ++)
-			if ((this.edges[i].v1 == tag) | (this.edges[i].v2 == tag))
+		for (let i = 0; i < this.edges.length; i ++)
+			if ((this.edges[i].v1 == tag) || (this.edges[i].v2 == tag))
 				toRemove.push(this.edges[i]); 
 	
 		while (toRemove.length > 0) {
@@ -34,18 +35,18 @@ export class Graph {
 		return "No Rep";
 	};
 
-	addEdge(v1, v2) {
-		if((this.vertices.indexOf(v1) == -1) | (this.vertices.indexOf(v2) == -1))
+	addEdge(v1: Tag, v2: Tag) {
+		if((this.vertices.indexOf(v1) == -1) || (this.vertices.indexOf(v2) == -1))
 			throw "one of the vertices in the edge requested to add, is not actually an ";
 
 		this.edges.push({ v1, v2});
 	};
 
-	neighbours(v) {
+	neighbours(v: Tag) {
 		
 		var set = [];
 		
-		for (i = 0; i < this.edges.length; i++) {
+		for (let i = 0; i < this.edges.length; i++) {
 			var edge = this.edges[i];
 			if (edge.v1 == v) {
 				set.push(edge.v2);

@@ -244,8 +244,8 @@ export class UIController {
 	}
 	
 	terminate = () => {
-		clearInterval(timer)
-		timer = null
+		clearInterval(this.timer);
+		this.timer = null
 		this.deregisterEventListeners(this.canvas, this.exportElement, this.resetElement)
 	}	
 }
