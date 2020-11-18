@@ -232,7 +232,7 @@ export class UIController {
 		window.state = new State();
 			
 		const gFactory = new GraphFactory();
-		const graph = gFactory.generateGraph(30, 5);
+		const graph = gFactory.generateGraph(K.DEMO_GRAPH_SIZE, K.DEMO_GRAPH_BRANCHING_CONST);
 		window.fdg = new ForceDirectedGraph(graph);
 	
 		this.registerEventListeners(this.canvas, this.exportElement, this.resetElement);

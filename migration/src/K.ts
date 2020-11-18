@@ -19,13 +19,13 @@ export const K = {
 	NODE_LABEL_FONTFAMILY : '10pt Arial',
 
 	// PERIOD OF GTK WINDOW TIMER TICK EVENT [that our handler is hooked into]
-	TIMER_TICK_PERIOD : 500, // milliseconds
+	TIMER_TICK_PERIOD : 50, // milliseconds
 
 	MINIMUM_NODE_SELECTION_RADIUS : 50.0,
 
-	//DEMO_GRAPH_SIZE : 11,
+	DEMO_GRAPH_SIZE : 11,
 	DEMO_GRAPH_BRANCHING_CONST : 2,
-	GENERATION_INTERVAL : 10.0 ,// seconds
+	GENERATION_INTERVAL : 10.0,
 
 	q_A: 15.0,
 	q_B: 15.0,

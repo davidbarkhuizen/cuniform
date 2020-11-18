@@ -12,6 +12,7 @@ export declare const K: {
     NODE_LABEL_FONTFAMILY: string;
     TIMER_TICK_PERIOD: number;
     MINIMUM_NODE_SELECTION_RADIUS: number;
+    DEMO_GRAPH_SIZE: number;
     DEMO_GRAPH_BRANCHING_CONST: number;
     GENERATION_INTERVAL: number;
     q_A: number;
