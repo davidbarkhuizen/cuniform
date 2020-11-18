@@ -1,23 +1,29 @@
 import { DragController } from "./DragController";
 import { UIController } from "./UIController";
 
-const entrypoint = () => {				
+export const entrypoint = (
+    selectionInfoPanelID: string,
+    canvasElementID: string,
+    exportElementID: string,
+    resetElementID: string
+): boolean => {				
 
-	const selectionInfoPanel = document.getElementById('selectionInfoPanel')
-
+	const selectionInfoPanel = document.getElementById(selectionInfoPanelID);
 	const body = document.getElementById('body');
 
-	const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+    const canvas = document.getElementById(canvasElementID) as HTMLCanvasElement;
+    if (!canvas) {
+        console.error(`couldnt find canvas element for ID: ${canvasElementID}`);
+        return false;
+    }
     
     let context2d: CanvasRenderingContext2D;
-    
-    if (canvas != null) {
-		try {
-			context2d = canvas.getContext('2d');
-		} catch (e) {
-			console.log(`error attempting to get 2d context from canvas: ${e}`)
-		}
-	}
+    try {
+        context2d = canvas.getContext('2d');
+    } catch (e) {
+        console.log(`error attempting to get 2d context from canvas: ${e}`)
+        return false;
+    }
 
 	const listUnsupportedRequirements = () => {
 	
@@ -38,21 +44,15 @@ const entrypoint = () => {
 	
 	const unsupportedRequirements = listUnsupportedRequirements();				
 	if (unsupportedRequirements.length > 0) {
-				
-		console.log('UnSupported Requirements:');
-		unsupportedRequirements.forEach(
-			txt => console.log(txt)
-		)
-		
-		alert('Minimum Requirements Not Met.\nSee console log for details')
-		return
+		console.error(`unsupported requirements: ${unsupportedRequirements.join(', ')}`);
+		return false;
 	}
 
-	const exportElement = document.getElementById('export_canvas_link');
-	const resetElement = document.getElementById('reset_link');
+	const exportElement = document.getElementById(exportElementID);
+	const resetElement = document.getElementById(resetElementID);
 
-	const controller = new UIController(canvas, exportElement, resetElement);
+    const dragController = new DragController(selectionInfoPanel);
+    
+    const controller = new UIController(canvas, exportElement, resetElement);
 	controller.initialize()
-
-	const dragController = new DragController(selectionInfoPanel);
 };

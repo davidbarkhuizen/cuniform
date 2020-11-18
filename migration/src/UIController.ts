@@ -1,3 +1,5 @@
+import { ForceDirectedGraph } from "./ForceDirectedGraph";
+import { GraphFactory } from "./GraphFactory";
 import { Point2D } from "./Point2D";
 import { State } from "./State";
 
@@ -12,6 +14,7 @@ let exportElement = null;
 declare global {
     interface Window {
         state: State;
+        fdg: ForceDirectedGraph;
     }
 }
 
@@ -85,13 +88,13 @@ export class UIController {
 
 		// get canvas position
 		//
-		let obj = cnvs;
+		let obj = cnvs as HTMLElement;
 		let top = 0;
 		let left = 0;
 		while (obj && obj.tagName != 'BODY') {
 			top += obj.offsetTop;
 			left += obj.offsetLeft;
-			obj = obj.offsetParent;
+			obj = obj.offsetParent as HTMLElement;
 		}
 	 
 		// return relative mouse position

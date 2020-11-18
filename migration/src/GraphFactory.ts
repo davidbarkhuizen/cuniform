@@ -1,9 +1,14 @@
+import { Graph } from "./Graph";
+import { K } from "./K";
+import { Point2D } from "./Point2D";
+import { Tag } from "./Tag";
+
 export class GraphFactory {
 
-	this.constructXYFactory = function() {
+	constructXYFactory() {
 
-		var used = [];
-		genXY = function() {
+		var used = Array<Point2D>();
+		const genXY = () => {
 			var unique = false;
 			while(!unique) {
 				var x = (-K.W_0 / 2.0) + (Math.random() * K.W_0);
@@ -25,7 +30,7 @@ export class GraphFactory {
 		return genXY;
 	};
 
-	this.generateGraph = function(order, maxEdgesPerVertexPerPass) {
+	generateGraph(order: number, maxEdgesPerVertexPerPass: number) {
 		/*
 		 generate a semi-random graph of size p
 
@@ -37,7 +42,7 @@ export class GraphFactory {
 		var graph = new Graph();
 		var funcGenXY = this.constructXYFactory();
 
-		for( i = 0; i < order; i++) {
+		for(let i = 0; i < order; i++) {
 			var pos = funcGenXY();
 			var tag = new Tag(pos, 'no label');
 			tag.label = 'Node ' + tag.idx.toString();
@@ -54,10 +59,10 @@ export class GraphFactory {
 		}
 
 		var nodes = graph.vertices;
-		for( i = 0; i < nodes.length; i++) {
+		for(let i = 0; i < nodes.length; i++) {
 			var node = nodes[i];
 			var neighbourCount = Math.round(Math.random() * maxEdgesPerVertexPerPass);
-			for( j = 0; j < neighbourCount; j++) {
+			for(let j = 0; j < neighbourCount; j++) {
 				var newEdgeAdded = false;
 				while(newEdgeAdded == false) {
 					var z = Math.floor(Math.random() * (nodes.length - 1));

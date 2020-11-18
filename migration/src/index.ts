@@ -1,5 +1,10 @@
-import { root } from './ui/other';
+import { entrypoint } from './entrypoint';
 
-export * from './ui/other';
-
-console.log('dog');
+export const go = () => {
+    entrypoint(
+        'selectionInfoPanel',
+        'canvas',
+        'export_canvas_link',
+        'reset_link'
+    )    
+};
