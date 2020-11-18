@@ -8,12 +8,13 @@ export const entrypoint = (
     resetElementID: string
 ): boolean => {				
 
-	const selectionInfoPanel = document.getElementById(selectionInfoPanelID);
-	const body = document.getElementById('body');
+    const body = document.getElementById('body');
 
-    console.log(document.getElementById(canvasElementID));
+    const selectionInfoPanel = document.getElementById(selectionInfoPanelID);
+	const exportElement = document.getElementById(exportElementID);
+	const resetElement = document.getElementById(resetElementID);
+
     const canvas = document.getElementById(canvasElementID) as HTMLCanvasElement;
-    
     
     if (!canvas) {
         console.error(`could not find canvas element for ID: ${canvasElementID}`);
@@ -50,9 +51,6 @@ export const entrypoint = (
 		console.error(`unsupported requirements: ${unsupportedRequirements.join(', ')}`);
 		return false;
 	}
-
-	const exportElement = document.getElementById(exportElementID);
-	const resetElement = document.getElementById(resetElementID);
 
     new DragController(selectionInfoPanel);
     

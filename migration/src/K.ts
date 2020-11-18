@@ -1,5 +1,6 @@
 export const K = {
-	// PHYSICS CONSTANTS
+    
+    // PHYSICS CONSTANTS
 	SPRING_CONSTANT : 0.1,
 	EQUILIBRIUM_DISPLACEMENT : 40,
 	TIME_STEP : 0.8,
@@ -18,7 +19,7 @@ export const K = {
 	NODE_LABEL_FONTFAMILY : '10pt Arial',
 
 	// PERIOD OF GTK WINDOW TIMER TICK EVENT [that our handler is hooked into]
-	TIMER_TICK_PERIOD : 50, // milliseconds
+	TIMER_TICK_PERIOD : 500, // milliseconds
 
 	MINIMUM_NODE_SELECTION_RADIUS : 50.0,
 

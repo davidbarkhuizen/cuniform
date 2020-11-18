@@ -8,6 +8,4 @@ document.addEventListener("DOMContentLoaded", function(event) {
         'export_canvas_link',
         'reset_link'
     );
-
-    console.log('launched');
 });

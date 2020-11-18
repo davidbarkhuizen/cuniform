@@ -1,5 +1,6 @@
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { GraphFactory } from "./GraphFactory";
+import { K } from "./K";
 import { Point2D } from "./Point2D";
 import { State } from "./State";
 
@@ -223,7 +224,7 @@ export class UIController {
 	initialize = () => {
 
 		const width = this.body.offsetWidth;
-		const height = this.body.offsetHeight * 0.9;
+		const height = this.body.offsetHeight * 0.8;
 	
 		this.canvas.width = width;
 		this.canvas.height = height;
@@ -236,7 +237,7 @@ export class UIController {
 	
 		this.registerEventListeners(this.canvas, this.exportElement, this.resetElement);
 	
-		this.timer = setInterval(this.onTimerTick, 50)
+		this.timer = setInterval(this.onTimerTick, K.TIMER_TICK_PERIOD);
 	
 		this.updateSelectionInfo();
 	}
