@@ -174,7 +174,7 @@ export class ForceDirectedGraph {
 			var sin_theta = deltaY / r;
 			var cos_theta = deltaX / r;
 
-			var scalar_force = K.k * K.q_A * K.q_B / (r * r);
+			var scalar_force = K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge / (r * r);
 
 			var Fy = scalar_force * sin_theta;
 			var Fx = scalar_force * cos_theta;
@@ -226,8 +226,8 @@ export class ForceDirectedGraph {
 
 			// PHYSICS CONSTANTS
 			//
-			var k = K.SPRING_CONSTANT;
-			var l = K.EQUILIBRIUM_DISPLACEMENT;
+			var k = K.physics.sprintConstant;
+			var l = K.physics.equilibriumDisplacement;
 
 			var scalar_force = -k * (l - r);
 
@@ -390,7 +390,7 @@ export class ForceDirectedGraph {
 		var closestDistance = null;
 
 		for (let i = 0; i < r2s.length; i++) {
-			if(r2s[i] < (K.MINIMUM_NODE_SELECTION_RADIUS * K.MINIMUM_NODE_SELECTION_RADIUS)) {
+			if(r2s[i] < (K.ui.minimumNodeSelectionRadius * K.ui.minimumNodeSelectionRadius)) {
 				if(closestNode == null) {
 					closestNode = this.graph.vertices[i];
 					closestDistance = r2s[i];

@@ -1,8 +1,14 @@
 export declare const K: {
-    SPRING_CONSTANT: number;
-    EQUILIBRIUM_DISPLACEMENT: number;
-    TIME_STEP: number;
-    FRICTION: number;
+    physics: {
+        sprintConstant: number;
+        equilibriumDisplacement: number;
+        nodeCharge: number;
+        scalarForceConstant: number;
+        timerTickperiodMS: number;
+    };
+    ui: {
+        minimumNodeSelectionRadius: number;
+    };
     W_0: number;
     H_0: number;
     PHASE_SPACE_LIMIT_RIGHT_MARGIN: number;
@@ -10,12 +16,7 @@ export declare const K: {
     NODE_LABEL_VERT_SPACING: number;
     NODE_LABEL_HORIZ_SPACING: number;
     NODE_LABEL_FONTFAMILY: string;
-    TIMER_TICK_PERIOD: number;
-    MINIMUM_NODE_SELECTION_RADIUS: number;
     DEMO_GRAPH_SIZE: number;
     DEMO_GRAPH_BRANCHING_CONST: number;
     GENERATION_INTERVAL: number;
-    q_A: number;
-    q_B: number;
-    k: number;
 };

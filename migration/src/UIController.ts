@@ -237,7 +237,7 @@ export class UIController {
 	
 		this.registerEventListeners(this.canvas, this.exportElement, this.resetElement);
 	
-		this.timer = setInterval(this.onTimerTick, K.TIMER_TICK_PERIOD);
+		this.timer = setInterval(this.onTimerTick, K.physics.timerTickperiodMS);
 	
 		this.updateSelectionInfo();
 	}

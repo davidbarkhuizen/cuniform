@@ -1,10 +1,16 @@
 export const K = {
-    
-    // PHYSICS CONSTANTS
-	SPRING_CONSTANT : 0.1,
-	EQUILIBRIUM_DISPLACEMENT : 40,
-	TIME_STEP : 0.8,
-	FRICTION : 0.95,
+
+    physics: {
+        sprintConstant : 0.1,
+        equilibriumDisplacement : 40,
+        nodeCharge: 15.0,
+        scalarForceConstant: 200.0,
+	    timerTickperiodMS : 50,
+    },
+
+    ui: {
+        minimumNodeSelectionRadius : 50.0,
+    },
 
 	// DIMENSIONS OF PHASE SPACE
 	W_0 : 2000,
@@ -18,16 +24,7 @@ export const K = {
 	NODE_LABEL_HORIZ_SPACING : 5,
 	NODE_LABEL_FONTFAMILY : '10pt Arial',
 
-	// PERIOD OF GTK WINDOW TIMER TICK EVENT [that our handler is hooked into]
-	TIMER_TICK_PERIOD : 50, // milliseconds
-
-	MINIMUM_NODE_SELECTION_RADIUS : 50.0,
-
-	DEMO_GRAPH_SIZE : 11,
+	DEMO_GRAPH_SIZE : 7,
 	DEMO_GRAPH_BRANCHING_CONST : 2,
-	GENERATION_INTERVAL : 10.0,
-
-	q_A: 15.0,
-	q_B: 15.0,
-	k: 200.0
+	GENERATION_INTERVAL : 10.0
 };
