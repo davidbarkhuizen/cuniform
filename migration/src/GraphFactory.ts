@@ -11,8 +11,8 @@ export class GraphFactory {
 		const genXY = () => {
 			var unique = false;
 			while(!unique) {
-				var x = (-K.W_0 / 2.0) + (Math.random() * K.W_0);
-				var y = (-K.H_0 / 2.0) + (Math.random() * K.H_0);
+				var x = (-K.space.W_0 / 2.0) + (Math.random() * K.space.W_0);
+				var y = (-K.space.H_0 / 2.0) + (Math.random() * K.space.H_0);
 				unique = (used.indexOf({
 					x : x,
 					y : y

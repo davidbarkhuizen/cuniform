@@ -40,7 +40,7 @@ export class ForceDirectedGraph {
 	};
 	
 	wrapReverse(xy: Point2D, canvasWidth: number, canvasHeight: number) {
-		return this.reverse(xy, K.W_0, K.H_0, canvasWidth, canvasHeight);
+		return this.reverse(xy, K.space.W_0, K.space.H_0, canvasWidth, canvasHeight);
 	};
 
 	drawToContext(
@@ -138,8 +138,8 @@ export class ForceDirectedGraph {
 			pixmap.draw_text(font, gc, x, y - node_label_vert_spacing, node.label)
 			*/
 			
-			context.font = K.NODE_LABEL_FONTFAMILY;
-			context.fillText(node.label, x + K.NODE_LABEL_HORIZ_SPACING, y - K.NODE_LABEL_VERT_SPACING);
+			context.font = K.label.fontFamily;
+			context.fillText(node.label, x + K.label.horizontalSpacing, y - K.label.verticalSpacing);
 		};
 	};
 
@@ -226,7 +226,7 @@ export class ForceDirectedGraph {
 
 			// PHYSICS CONSTANTS
 			//
-			var k = K.physics.sprintConstant;
+			var k = K.physics.springConstant;
 			var l = K.physics.equilibriumDisplacement;
 
 			var scalar_force = -k * (l - r);
@@ -342,13 +342,13 @@ export class ForceDirectedGraph {
 			}
 		}
 
-		this.enforcePositionLimits(K.PHASE_SPACE_LIMIT_RIGHT_MARGIN, K.PHASE_SPACE_LIMIT_MINOR_MARGIN);
+		this.enforcePositionLimits(K.space.rightMargin, K.space.minorMargin);
 
 		// TRANSLATE TO CANVAS
 		//
 		for( i = 0; i < this.graph.vertices.length; i++) {
 			var node = this.graph.vertices[i];
-			node.translatedPosition = this.translate(node.position, K.W_0, K.H_0, canvasWidth, canvasHeight);
+			node.translatedPosition = this.translate(node.position, K.space.W_0, K.space.H_0, canvasWidth, canvasHeight);
 		}
 		// CALL RENDERING METHOD
 		//
@@ -360,21 +360,21 @@ export class ForceDirectedGraph {
 		for (let i = 0; i < this.graph.vertices.length; i++) {
 			var node = this.graph.vertices[i];
 
-			if (node.position.x < - ((K.W_0 / 2) - minorMargin))
-				node.position.x = - ((K.W_0 / 2) - minorMargin);
-			else if (node.position.x > ((K.W_0 / 2) - rightMargin))
-				node.position.x = (K.W_0 / 2) - rightMargin;
+			if (node.position.x < - ((K.space.W_0 / 2) - minorMargin))
+				node.position.x = - ((K.space.W_0 / 2) - minorMargin);
+			else if (node.position.x > ((K.space.W_0 / 2) - rightMargin))
+				node.position.x = (K.space.W_0 / 2) - rightMargin;
 
-			if (node.position.y < - ((K.H_0 / 2) - minorMargin))
-				node.position.y = - ((K.H_0 / 2) - minorMargin);
-			else if (node.position.y > ((K.H_0 / 2) - minorMargin))
-				node.position.y = (K.H_0 / 2) - minorMargin;
+			if (node.position.y < - ((K.space.H_0 / 2) - minorMargin))
+				node.position.y = - ((K.space.H_0 / 2) - minorMargin);
+			else if (node.position.y > ((K.space.H_0 / 2) - minorMargin))
+				node.position.y = (K.space.H_0 / 2) - minorMargin;
 		}		
 	};
 
 	handleNodeSelectionAttempt(canvasPos: Point2D, canvasWidth: number, canvasHeight: number) {
 
-		var transformedPos = this.reverse(canvasPos, K.W_0, K.H_0, canvasWidth, canvasHeight);
+		var transformedPos = this.reverse(canvasPos, K.space.W_0, K.space.H_0, canvasWidth, canvasHeight);
 
 		// calc distance from each node
 		//

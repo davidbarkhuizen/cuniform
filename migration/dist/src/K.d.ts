@@ -1,6 +1,6 @@
 export declare const K: {
     physics: {
-        sprintConstant: number;
+        springConstant: number;
         equilibriumDisplacement: number;
         nodeCharge: number;
         scalarForceConstant: number;
@@ -9,14 +9,19 @@ export declare const K: {
     ui: {
         minimumNodeSelectionRadius: number;
     };
-    W_0: number;
-    H_0: number;
-    PHASE_SPACE_LIMIT_RIGHT_MARGIN: number;
-    PHASE_SPACE_LIMIT_MINOR_MARGIN: number;
-    NODE_LABEL_VERT_SPACING: number;
-    NODE_LABEL_HORIZ_SPACING: number;
-    NODE_LABEL_FONTFAMILY: string;
-    DEMO_GRAPH_SIZE: number;
-    DEMO_GRAPH_BRANCHING_CONST: number;
-    GENERATION_INTERVAL: number;
+    space: {
+        W_0: number;
+        H_0: number;
+        rightMargin: number;
+        minorMargin: number;
+    };
+    label: {
+        verticalSpacing: number;
+        horizontalSpacing: number;
+        fontFamily: string;
+    };
+    initialConditions: {
+        order: number;
+        branching: number;
+    };
 };

@@ -223,8 +223,10 @@ export class UIController {
 
 	initialize = () => {
 
-		const width = this.body.offsetWidth;
-		const height = this.body.offsetHeight * 0.8;
+        console.log(this.body.offsetWidth, this.body.offsetHeight, this.body.clientWidth, this.body.clientHeight);
+
+		const width = this.body.clientWidth * 0.8;
+		const height = this.body.clientHeight * 0.8;
 	
 		this.canvas.width = width;
 		this.canvas.height = height;
@@ -232,7 +234,7 @@ export class UIController {
 		window.state = new State();
 			
 		const gFactory = new GraphFactory();
-		const graph = gFactory.generateGraph(K.DEMO_GRAPH_SIZE, K.DEMO_GRAPH_BRANCHING_CONST);
+		const graph = gFactory.generateGraph(K.initialConditions.order, K.initialConditions.branching);
 		window.fdg = new ForceDirectedGraph(graph);
 	
 		this.registerEventListeners(this.canvas, this.exportElement, this.resetElement);
