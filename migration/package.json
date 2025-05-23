@@ -1,7 +1,7 @@
 {
   "name": "cuniform",
   "version": "0.0.1",
-  "description": "mandelbrot fractal",
+  "description": "force directed graphs",
   "private": true,
   "scripts": {
     "start": "npx webpack --config webpack.config.js",
