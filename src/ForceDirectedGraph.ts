@@ -3,9 +3,13 @@ import { K } from "./K";
 import { Point2D } from "./Point2D";
 import { Tag } from "./Tag";
 
+const COLOUR_SELECTED = 'red';
+const COLOUR_DEFAULT = 'green';
+
 export class ForceDirectedGraph {
 
     graph: Graph;
+
 
     constructor(graph: Graph) {
         this.graph = graph;
@@ -66,9 +70,9 @@ export class ForceDirectedGraph {
 			var v2 = edge.v2;	
 			
 			if((selected_node == v1) || (selected_node == v2))
-				context.strokeStyle = "red";
+				context.strokeStyle = COLOUR_DEFAULT;
 			else
-				context.strokeStyle = "green";
+				context.strokeStyle = COLOUR_DEFAULT;
 			
 			// DRAW EDGE
 			//
@@ -90,11 +94,11 @@ export class ForceDirectedGraph {
 			// NODES
 			//
 	        if (node.isSelected) {
-	        	context.fillStyle = "red";
+	        	context.fillStyle = COLOUR_SELECTED;
 	        }
 	        else
 	        {
-	        	context.fillStyle = "green";
+	        	context.fillStyle = COLOUR_DEFAULT;
 	        }
 
 			// Arc radius
@@ -121,7 +125,7 @@ export class ForceDirectedGraph {
 	        	radius = 10;
 				context.beginPath();	    
 				context.arc(x,y,radius,startAngle,endAngle, clockwise);
-				context.strokeStyle = "red";
+				context.strokeStyle = COLOUR_SELECTED;
 				context.stroke();
 	        }
 	        

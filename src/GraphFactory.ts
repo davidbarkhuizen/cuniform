@@ -53,37 +53,8 @@ export class GraphFactory {
                 if (v !== tag) {
                     graph.addEdge(tag, v);
                 }
-            }
-		
-			// if (i > 0) {
-                
-            //     var z = Math.floor(Math.random() * (graph.vertices.length - 1));
-			// 	if (z == 0) { 
-			// 		z = 1;  	
-			// 	}
-
-			// 	graph.addEdge(tag, graph.vertices[z]);
-			// }
+            }		
 		}
-
-		// var nodes = graph.vertices;
-		// for(let i = 0; i < nodes.length; i++) {
-		// 	var node = nodes[i];
-		// 	var neighbourCount = Math.round(Math.random() * maxEdgesPerVertexPerPass);
-		// 	for(let j = 0; j < neighbourCount; j++) {
-		// 		var newEdgeAdded = false;
-		// 		while(newEdgeAdded == false) {
-		// 			var z = Math.floor(Math.random() * (nodes.length - 1));
-		// 			if(nodes[z] != node) {
-			
-		// 				if (!graph.neighbours(nodes[z]).includes(node)) {
-		// 					graph.addEdge(node, nodes[z]);
-		// 					newEdgeAdded = true;
-		// 				}
-		// 			}
-		// 		}
-		// 	}
-		// }
 
 		return graph;
 	};

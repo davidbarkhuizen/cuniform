@@ -27,7 +27,7 @@ export const K = {
     },
 
     initialConditions: {
-        order : 17,
+        order : 10,
         branching : 1
     }
 };
