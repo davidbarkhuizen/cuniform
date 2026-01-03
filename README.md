@@ -2,6 +2,6 @@
 
 2d force-directed graphs in nodejs/typescripts  
 
-    source chrome.sh
+    source build-and-run.sh
 
 end.
