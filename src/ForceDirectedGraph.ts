@@ -48,8 +48,6 @@ export class ForceDirectedGraph {
         node_label_vert_spacing: number = 0
     ) {
 
-		var edge_colour = 'darkgreen', node_colour = 'darkgreen', text_colour = 'black', selected_node_colour = 'blue', edges_adj_to_selected_node_colour = 'blue';
-
 		var selected_node = null;
 		for(let i = 0; i < this.graph.vertices.length; i++)
 		if(this.graph.vertices[i].isSelected) {
@@ -57,7 +55,6 @@ export class ForceDirectedGraph {
 			break;
         };
         
-        // TODO CHECK THIS !!
 		context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 
 		// EDGES
@@ -69,13 +66,12 @@ export class ForceDirectedGraph {
 			var v2 = edge.v2;	
 			
 			if((selected_node == v1) || (selected_node == v2))
-				context.strokeStyle = "black";
+				context.strokeStyle = "red";
 			else
-				context.strokeStyle = "darkgray";
+				context.strokeStyle = "green";
 			
 			// DRAW EDGE
-			// context.drawLine
-			// pixmap.draw_line(gc, int(i.translatedPosition.x), int(i.translatedPosition.y), int(j.translatedPosition.x), int(j.translatedPosition.y))
+			//
 			context.beginPath();
 			context.moveTo(v1.translatedPosition.x, v1.translatedPosition.y);
 			context.lineTo(v2.translatedPosition.x, v2.translatedPosition.y);
@@ -91,31 +87,31 @@ export class ForceDirectedGraph {
 			const x = node.translatedPosition.x;
 			const y = node.translatedPosition.y;
 
-			// COLOURS = ['red', 'green', 'blue', 'purple', 'red_float', 'green_float', 'blue_float']
-			//
-			//gc.set_foreground(pixmap.get_colormap().alloc_color("brown"))
-
 			// NODES
 			//
-			/*
-			if isSelected
-			gc.set_foreground(pixmap.get_colormap().alloc_color(selected_node_colour));
-			else
-			gc.set_foreground(pixmap.get_colormap().alloc_color(node_colour));
-			*/
-
 	        if (node.isSelected) {
-	        	context.fillStyle = "black";
+	        	context.fillStyle = "red";
 	        }
 	        else
 	        {
-	        	context.fillStyle = "black";
+	        	context.fillStyle = "green";
 	        }
 
-	        var radius     = 5;                    // Arc radius
-	        var startAngle = 0;                     // Starting point on circle
-	        var endAngle   = 2 * Math.PI; // End point on circle
-	        var clockwise  = true; // clockwise or anticlockwise
+			// Arc radius
+			//
+	        var radius     = 5;                    
+	        
+			// Starting point on circle
+			//
+			var startAngle = 0;
+			
+			// End point on circle
+			//
+	        var endAngle   = 2 * Math.PI;
+	        
+			// clockwise or anticlockwise
+			//
+			var clockwise  = true; 
 
 			context.beginPath();	    
 	        context.arc(x,y,radius,startAngle,endAngle, clockwise);
@@ -125,19 +121,12 @@ export class ForceDirectedGraph {
 	        	radius = 10;
 				context.beginPath();	    
 				context.arc(x,y,radius,startAngle,endAngle, clockwise);
-				context.strokeStyle = "black";
+				context.strokeStyle = "red";
 				context.stroke();
 	        }
 	        
 			// LABEL / TEXT
-			//
-			/*
-			if (this.gem.display_node_labels):
-			
-			font = style.get_font()
-			pixmap.draw_text(font, gc, x, y - node_label_vert_spacing, node.label)
-			*/
-			
+			//			
 			context.font = K.label.fontFamily;
 			context.fillText(node.label, x + K.label.horizontalSpacing, y - K.label.verticalSpacing);
 		};
@@ -266,9 +255,7 @@ export class ForceDirectedGraph {
 
 	netForceAtNode(tag: Tag) {
 
-		/*
-		 net Force = net Electrostatic Force + net Spring Force
-		 */
+		// net Force = net Electrostatic Force + net Spring Force
 
 		var e = tag.netElectrostaticForce;
 		var s = tag.netSpringForce;
@@ -284,9 +271,7 @@ export class ForceDirectedGraph {
 
 	displacementAtNode(tag: Tag) {
 
-		/*
-		 ERROR - DISPLACEMENT IS ! USING VELOCITY
-		 */
+		// ERROR - DISPLACEMENT IS ! USING VELOCITY
 
 		var e = tag.netElectrostaticForce;
 		var s = tag.netSpringForce;
@@ -301,6 +286,7 @@ export class ForceDirectedGraph {
 	};
 
 	iterate(context: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number) {
+
 		/*
 		for each node
 		calc net electrostatic force
@@ -405,13 +391,13 @@ export class ForceDirectedGraph {
 		}
 
 		var selectionChanged = false;
-		var selectedNode = null;
 		
 		for (let i = 0; i < this.graph.vertices.length; i++) {
 			
 			var node = this.graph.vertices[i];
-			// RESET ALL OTHER NODES
 			
+			// RESET ALL OTHER NODES
+			//
 			if (node != closestNode) {
 				if (node.isSelected == true) {
 				
@@ -421,13 +407,11 @@ export class ForceDirectedGraph {
 			}
 			
 			// TOGGLE SELECTION ON TARGET NODE
+			//
 			else if (node == closestNode) {
 				
 				node.isSelected = !node.isSelected;
-				selectionChanged = true;
-				
-				if (node.isSelected)
-					selectedNode = node;
+				selectionChanged = true;				
 			}
 		}
 		

@@ -2,7 +2,7 @@
 {
 	border 		: 	1px solid lightgray;
 	margin 		: 	0 auto;	
-	background-color 	: 	white;
+	background-color 	: 	black;
 }  
 
 .canvas-container {
@@ -51,7 +51,7 @@
 
 	opacity: 0.75;
 
-	background-color: white;
+	background-color: black;
 
 	-webkit-box-shadow: 10px 10px 5px 0px rgba(0,0,0,0.75);
 	-moz-box-shadow: 10px 10px 5px 0px rgba(0,0,0,0.75);
