@@ -166,10 +166,11 @@ export class ForceDirectedGraph {
 			var deltaY = yA - yB;
 
 			var r2 = (deltaX * deltaX) + (deltaY * deltaY);
-			var r = Math.sqrt(r2);
 
-			if(r == 0)
+			if(r2 == 0)
 				continue;
+
+			var r = Math.sqrt(r2);
 
 			var sin_theta = deltaY / r;
 			var cos_theta = deltaX / r;

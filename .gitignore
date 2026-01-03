@@ -1,3 +1,3 @@
-migration/node_modules/***
-migration/dist/**.js
-migration/dist/**.js.map
+node_modules/***
+dist/**.js
+dist/**.js.map
