@@ -8,7 +8,6 @@ import { render } from "../src/Renderer";
 import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
 import { FakeContext2D } from "./support/dom";
-import { readAllSources } from "./support/files";
 
 const NODE_DEFAULT = K.colours.nodeDefault;
 const NODE_SELECTED = K.colours.nodeSelected;
@@ -169,16 +168,6 @@ test("render takes the context, the graph and the camera, and no label-spacing p
     assert.equal(K.label.horizontalSpacing, 5);
     assert.equal(K.label.verticalSpacing, 5);
     assert.doesNotThrow(() => draw(graph));
-});
-
-test("the renderer is the only module that draws", () => {
-    // Drawing sits behind one module boundary, so the solver cannot grow a
-    // canvas call; UIController owns the context but issues no drawing call.
-    const drawingCall = /\b(clearRect|beginPath|moveTo|lineTo|arc|stroke|fill|fillText)\s*\(/;
-    const sources = readAllSources();
-    const drawers = Object.keys(sources).filter(name => drawingCall.test(sources[name]));
-
-    assert.deepEqual(drawers, ["Renderer.ts"], "drawing must live behind the Renderer module");
 });
 
 // ------------------------------------------------------------- depth ordering

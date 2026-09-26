@@ -5,7 +5,6 @@ import { K } from "../src/K";
 import {
     CATALOG,
     CatalogEntry,
-    families,
     filterCatalog,
     MOLECULES,
     moleculeById,
@@ -46,18 +45,16 @@ test("the catalog holds at least twenty entries with unique keys, names and fami
     const commonNames = new Set(MOLECULES.map(molecule => molecule.commonName));
     assert.equal(commonNames.size, MOLECULES.length, "every common name must be unique");
 
-    const familyNames = families();
-    assert.equal(familyNames.length, MOLECULES.length, "every entry must represent its own family");
+    const familyNames = new Set(MOLECULES.map(molecule => molecule.family));
+    assert.equal(familyNames.size, MOLECULES.length, "every entry must represent its own family");
 });
 
 test("every entry parses, with a positive atom, bond and ring count", () => {
     for (const entry of CATALOG) {
         assert.ok(entry.heavyAtoms > 0, `${entry.id}: no heavy atoms`);
-        assert.ok(entry.bondCount > 0, `${entry.id}: no bonds`);
-        assert.ok(entry.ringCount > 0, `${entry.id}: no rings`);
+        assert.ok(entry.topology.bonds.length > 0, `${entry.id}: no bonds`);
+        assert.ok(entry.topology.ringClosures > 0, `${entry.id}: no rings`);
         assert.equal(entry.topology.atoms.length, entry.heavyAtoms);
-        assert.equal(entry.topology.bonds.length, entry.bondCount);
-        assert.equal(entry.topology.ringClosures, entry.ringCount);
     }
 });
 
@@ -185,19 +182,6 @@ test("sortCatalog does not reorder the caller's array", () => {
     sortCatalog(input);
 
     assert.deepEqual(input.map(entry => entry.id), before);
-});
-
-test("families lists each family once, in catalog order", () => {
-    const names = families();
-    const expected: string[] = [];
-
-    for (const entry of CATALOG) {
-        if (!expected.includes(entry.family))
-            expected.push(entry.family);
-    }
-
-    assert.deepEqual(names, expected);
-    assert.equal(new Set(names).size, names.length);
 });
 
 test("tagScale is monotone in heavy atoms and inside the configured range", () => {

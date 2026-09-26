@@ -24,8 +24,6 @@ export interface CatalogEntry extends Molecule {
     /** Parsed once at module load, so a bad SMILES fails loudly at startup. */
     topology: MoleculeTopology;
     heavyAtoms: number;
-    bondCount: number;
-    ringCount: number;
     /** Font scale in em, across `K.wordCloud`. */
     tagScale: number;
 }
@@ -269,8 +267,6 @@ const PARSED = MOLECULES.map(molecule => {
         ...molecule,
         topology,
         heavyAtoms: topology.atoms.length,
-        bondCount: topology.bonds.length,
-        ringCount: topology.ringClosures,
     };
 });
 
@@ -341,23 +337,6 @@ export function sortCatalog(entries: CatalogEntry[]): CatalogEntry[] {
     return [...entries].sort(
         (a, b) => a.commonName.localeCompare(b.commonName) || a.id.localeCompare(b.id)
     );
-}
-
-/** The distinct family names, in catalog order. */
-export function families(entries: CatalogEntry[] = CATALOG): string[] {
-
-    const seen = new Set<string>();
-    const out: string[] = [];
-
-    for (const entry of entries) {
-        if (seen.has(entry.family))
-            continue;
-
-        seen.add(entry.family);
-        out.push(entry.family);
-    }
-
-    return out;
 }
 
 export function moleculeTooltip(entry: CatalogEntry): string {

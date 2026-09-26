@@ -13,24 +13,32 @@ export class Graph {
 	adjacency: Map<Tag, Array<Edge>> = new Map();
 
 	addNode(tag: Tag) {
-		this.vertices.push(tag);
+		// A repeated vertex would double-count in the O(N^2) pass and make every
+		// index-based tie-break ambiguous, so it is rejected like a foreign edge.
+		if (this.adjacency.has(tag))
+			throw new Error("Graph.addNode: vertex is already in the graph");
 
-		if (!this.adjacency.has(tag))
-			this.adjacency.set(tag, []);
+		this.vertices.push(tag);
+		this.adjacency.set(tag, []);
 	};
 
 	addEdge(v1: Tag, v2: Tag) {
-		if((this.vertices.indexOf(v1) === -1) || (this.vertices.indexOf(v2) === -1))
+		// The adjacency map is the membership index: addNode() is its only writer,
+		// so a tag it holds is in `vertices`. An O(1) lookup, not an indexOf scan.
+		const incidentToV1 = this.adjacency.get(v1);
+		const incidentToV2 = this.adjacency.get(v2);
+
+		if (!incidentToV1 || !incidentToV2)
 			throw new Error("Graph.addEdge: both vertices must already be in the graph");
 
 		var edge = { v1, v2 };
 
 		this.edges.push(edge);
-		this.indexEdge(v1, edge);
+		incidentToV1.push(edge);
 
 		// A self-loop is incident to its vertex once, not twice.
 		if (v2 !== v1)
-			this.indexEdge(v2, edge);
+			incidentToV2.push(edge);
 	};
 
 	/** The edges incident to `v`, in insertion order. Empty for an unknown tag. */
@@ -81,15 +89,6 @@ export class Graph {
 	clearSelection() {
 		for (const v of this.vertices)
 			v.isSelected = false;
-	};
-
-	private indexEdge(tag: Tag, edge: Edge) {
-		const list = this.adjacency.get(tag);
-
-		if (list)
-			list.push(edge);
-		else
-			this.adjacency.set(tag, [edge]);
 	};
 
 };

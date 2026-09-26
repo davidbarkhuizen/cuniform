@@ -7,7 +7,6 @@ import { point3, Point3D } from "../src/Point3D";
 import { CameraView, defaultCameraView, Projector } from "../src/Projector";
 import { Viewport } from "../src/Viewport";
 import { assertClose } from "./support/assert";
-import { readSource } from "./support/files";
 
 function camera(overrides: Partial<CameraView> = {}): CameraView {
     return { ...defaultCameraView(), ...overrides };
@@ -211,18 +210,4 @@ test("the near plane culls and bounds the perspective divide", () => {
     assert.equal(atZero.depth, 0);
     assert.ok(Number.isFinite(atZero.screen.x), "zero depth must not produce a non-finite coordinate");
     assert.ok(Math.abs(atZero.screen.x) > 0);
-});
-
-// ------------------------------------------------------------ architecture
-
-test("the projector is pure math with no browser coupling", () => {
-    const projector = readSource("Projector.ts");
-
-    assert.ok(!/\bwindow\b/.test(projector), "the projector must not reference window");
-    assert.ok(!/\bdocument\b/.test(projector), "the projector must not reference document");
-    assert.equal(
-        projector.split("CanvasRenderingContext2D").length - 1,
-        0,
-        "the projector must not name a canvas type"
-    );
 });

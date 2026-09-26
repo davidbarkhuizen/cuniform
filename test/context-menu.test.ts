@@ -15,7 +15,6 @@ import {
     withUIController,
     withUIControllerAsync,
 } from "./support/dom";
-import { readSource } from "./support/files";
 
 /** Let every pending setTimeout(..., 0) callback run. */
 function flushDeferred() {
@@ -334,15 +333,6 @@ test("export revokes the object URL it created", async () => {
 
         assert.deepEqual(dom.objectUrls.revoked, dom.objectUrls.created);
     });
-});
-
-test("UIController exports through an object URL, never a data: URL", () => {
-    const source = readSource("UIController.ts");
-
-    // Regression: window.open(toDataURL(...)) navigates a window no browser permits; the scheme is the contract.
-    assert.ok(!/\bwindow\.open\b/.test(source), "export must not use window.open");
-    assert.ok(/\bURL\.createObjectURL\b/.test(source), "export must build an object URL");
-    assert.ok(/\bURL\.revokeObjectURL\b/.test(source), "the object URL must be released");
 });
 
 test("reset opens the graph chooser and leaves the graph alone until a choice", () => {

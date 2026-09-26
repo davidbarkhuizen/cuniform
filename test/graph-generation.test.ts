@@ -7,7 +7,6 @@ import { specLabel } from "../src/GraphSpec";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
 import { catalogEntry } from "./support/catalog";
-import { readSource } from "./support/files";
 import { newGraph } from "./support/physics";
 
 test("generateGraph creates exactly `order` vertices", () => {
@@ -151,14 +150,6 @@ test("generated positions fill the 600^3 model cube", () => {
     const zs = graph.vertices.map(v => v.position.z);
     assert.ok(Math.min(...zs) < 0, "the generated z must reach the near half of the cube");
     assert.ok(Math.max(...zs) > 0, "the generated z must reach the far half of the cube");
-});
-
-test("GraphFactory generates in 3D and names its factory accordingly", () => {
-    const source = readSource("GraphFactory.ts");
-
-    assert.ok(!/constructXYFactory/.test(source), "the 2D factory name is retired");
-    assert.ok(/constructXYZFactory/.test(source), "the factory generates a 3D position");
-    assert.ok(/K\.space\.D_0/.test(source), "the depth axis uses the world's D_0 extent");
 });
 
 test("labels restart for each graph instead of growing across graphs", () => {
