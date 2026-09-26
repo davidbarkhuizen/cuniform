@@ -6,7 +6,14 @@ import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
-import { CANVAS_H, CANVAS_W, newGraph, pairAt } from "./support/physics";
+import {
+    ANALYTIC_EQUILIBRIUM,
+    CANVAS_H,
+    CANVAS_W,
+    REPULSION_CONSTANT,
+    newGraph,
+    pairAt,
+} from "./support/physics";
 
 test("repulsion follows k*q^2 / r^1.9 and pushes away from the other node", () => {
     const k = K.physics.scalarForceConstant;
@@ -32,11 +39,11 @@ test("repulsion follows k*q^2 / r^1.9 and pushes away from the other node", () =
     }
 });
 
-test("repulsion is exactly 10000 / r^1.9 for the reference constants", () => {
-    for (const r of [30, 65.46, 200]) {
+test("repulsion follows the reference k*q^2 / r^1.9 law", () => {
+    for (const r of [30, ANALYTIC_EQUILIBRIUM, 200]) {
         const { a, fdg } = pairAt(r);
         const f = fdg.netElectrostaticForceAtNode(a);
-        assertClose(Math.abs(f.x), 10000 / Math.pow(r, 1.9), 1e-9, `r=${r}: got ${Math.abs(f.x)}`);
+        assertClose(Math.abs(f.x), REPULSION_CONSTANT / Math.pow(r, 1.9), 1e-9, `r=${r}: got ${Math.abs(f.x)}`);
     }
 });
 
@@ -124,9 +131,9 @@ test("coincident pairs separate deterministically, and the other edges still add
     // Repulsion: the coincident b is pushed away along the deterministic -x
     // direction at the clamped magnitude, and c pushes a to -x at the exact
     // law. The two contributions simply add.
-    const clamped = 10000 / Math.pow(K.physics.minimumInteractionRadius, K.physics.repulsionExponent);
+    const clamped = REPULSION_CONSTANT / Math.pow(K.physics.minimumInteractionRadius, K.physics.repulsionExponent);
     const repel = fdg.netElectrostaticForceAtNode(a);
-    assertClose(repel.x, -clamped - 10000 / Math.pow(10, 1.9), 1e-9, `repulsion was ${repel.x}`);
+    assertClose(repel.x, -clamped - REPULSION_CONSTANT / Math.pow(10, 1.9), 1e-9, `repulsion was ${repel.x}`);
     assertClose(repel.y, 0, 1e-12, "repulsion must stay radial");
 
     // Springs: the duplicate zero-length edges and the self-loop are still
@@ -149,7 +156,7 @@ test("coincident pairs separate deterministically, and the other edges still add
 
     // Equal and opposite: b's repulsion from a mirrors a's.
     const repelB = fdg.netElectrostaticForceAtNode(b);
-    assertClose(repelB.x, clamped - 10000 / Math.pow(10, 1.9), 1e-9, `b repulsion was ${repelB.x}`);
+    assertClose(repelB.x, clamped - REPULSION_CONSTANT / Math.pow(10, 1.9), 1e-9, `b repulsion was ${repelB.x}`);
 });
 
 test("exactly coincident unconnected nodes separate instead of staying a fixed point", () => {
@@ -258,7 +265,7 @@ test("an off-plane pair obeys the same radial repulsion law in z", () => {
     const fdg = new ForceDirectedGraph(graph);
     const f = fdg.netElectrostaticForceAtNode(a);
 
-    const expected = 10000 / Math.pow(40, K.physics.repulsionExponent);
+    const expected = REPULSION_CONSTANT / Math.pow(40, K.physics.repulsionExponent);
 
     assertClose(Math.abs(f.z), expected, 1e-9, `z force was ${f.z}, expected ${expected}`);
     assert.ok(f.z < 0, "a at z=0 is pushed toward -z by b at z=40");

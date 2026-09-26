@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import { Graph } from "../src/Graph";
 import { GraphFactory } from "../src/GraphFactory";
 import { K } from "../src/K";
-import { CATALOG } from "../src/Molecules";
 import { Tag } from "../src/Tag";
+import { catalogEntry } from "./support/catalog";
 import { readSource } from "./support/files";
 import { newGraph } from "./support/physics";
 
@@ -169,23 +169,21 @@ test("build of a random spec is exactly generateGraph(order, branching)", () => 
 });
 
 test("build of a molecule spec has one vertex per atom and one edge per bond", () => {
-    const entry = CATALOG.find(candidate => candidate.id === "ibogaine");
-    assert.ok(entry, "ibogaine should be in the catalog");
+    const entry = catalogEntry("ibogaine");
 
     const graph = new GraphFactory().build({ kind: "molecule", id: "ibogaine" });
 
-    assert.equal(graph.vertices.length, entry!.topology.atoms.length);
-    assert.equal(graph.edges.length, entry!.topology.bonds.length);
-    assert.equal(graph.vertices.length, entry!.heavyAtoms);
+    assert.equal(graph.vertices.length, entry.topology.atoms.length);
+    assert.equal(graph.edges.length, entry.topology.bonds.length);
+    assert.equal(graph.vertices.length, entry.heavyAtoms);
 });
 
 test("molecule vertices are labelled with element symbols, in SMILES order", () => {
-    const entry = CATALOG.find(candidate => candidate.id === "strychnine");
-    assert.ok(entry);
+    const entry = catalogEntry("strychnine");
 
     const graph = new GraphFactory().generateMolecule("strychnine");
 
-    assert.deepEqual(graph.vertices.map(vertex => vertex.label), entry!.topology.atoms);
+    assert.deepEqual(graph.vertices.map(vertex => vertex.label), entry.topology.atoms);
     assert.ok(
         graph.vertices.every(vertex => /^[A-Za-z]{1,2}$/.test(vertex.label)),
         "a label must be an element symbol, not an atom index"

@@ -6,10 +6,17 @@ import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
-import { CANVAS_H, CANVAS_W, maxAbsPosition, pairAt } from "./support/physics";
+import {
+    ANALYTIC_EQUILIBRIUM,
+    CANVAS_H,
+    CANVAS_W,
+    REPULSION_CONSTANT,
+    maxAbsPosition,
+    pairAt,
+} from "./support/physics";
 
 /**
- * Repulsion is 10000/r^1.9, which is singular as r -> 0. The solver guards the
+ * Repulsion is k*q^2/r^1.9, which is singular as r -> 0. The solver guards the
  * exact r == 0 case, but a pair a fraction of a unit apart used to produce an
  * enormous force: at r = 0.857 (one canvas pixel at a 700px canvas) a node was
  * thrown ~1340 model units - more than twice the 600-unit world - in a single
@@ -59,10 +66,10 @@ test("repulsion is exactly the reference law at and above the guard radius", () 
     const minR = K.physics.minimumInteractionRadius;
     const exponent = K.physics.repulsionExponent;
 
-    for (const r of [minR, 10, 30, 65.46, 100, 300]) {
+    for (const r of [minR, 10, 30, ANALYTIC_EQUILIBRIUM, 100, 300]) {
         const { a, fdg } = pairAt(r);
         const f = fdg.netElectrostaticForceAtNode(a);
-        const expected = 10000 / Math.pow(r, exponent);
+        const expected = REPULSION_CONSTANT / Math.pow(r, exponent);
 
         assertClose(
             Math.abs(f.x),
@@ -120,7 +127,7 @@ test("dragging a node onto another cannot fling the free node across the world",
         free.position.y - pinned.position.y,
         free.position.z - pinned.position.z
     );
-    assertClose(settled, 65.46, 1.0, `settled at r=${settled}, expected ~65.46`);
+    assertClose(settled, ANALYTIC_EQUILIBRIUM, 1.0, `settled at r=${settled}, expected ~${ANALYTIC_EQUILIBRIUM}`);
 });
 
 test("a cluster of near-coincident nodes stays finite and bounded", () => {

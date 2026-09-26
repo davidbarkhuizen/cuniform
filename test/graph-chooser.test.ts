@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { GraphFactory } from "../src/GraphFactory";
 import { defaultGraphSpec, specLabel } from "../src/GraphSpec";
 import { UIController } from "../src/UIController";
-import { CATALOG, moleculeById } from "../src/Molecules";
+import { moleculeById } from "../src/Molecules";
+import { catalogEntry } from "./support/catalog";
 import {
     CANVAS_EVENTS,
     el,
@@ -137,8 +138,7 @@ test("completing with a random spec swaps the graph and re-registers nothing", (
 
 test("completing with a molecule spec builds that molecule's graph", () => {
     withUIController(({ controller }) => {
-        const entry = CATALOG.find(candidate => candidate.id === "ibogaine");
-        assert.ok(entry, "ibogaine should be in the catalog");
+        const entry = catalogEntry("ibogaine");
 
         controller.state.camera.orbit(25, 0);
         const cameraBefore = cameraState(controller);
@@ -146,8 +146,8 @@ test("completing with a molecule spec builds that molecule's graph", () => {
         controller.onReset();
         chooseMolecule(controller, "ibogaine");
 
-        assert.equal(controller.solver.graph.vertices.length, entry!.heavyAtoms);
-        assert.equal(controller.solver.graph.edges.length, entry!.bondCount);
+        assert.equal(controller.solver.graph.vertices.length, entry.heavyAtoms);
+        assert.equal(controller.solver.graph.edges.length, entry.bondCount);
         assert.deepEqual(controller.spec, { kind: "molecule", id: "ibogaine" });
         assert.ok(controller.wizard === null);
         assert.deepEqual(cameraState(controller), cameraBefore, "the camera survives a molecule swap");

@@ -2,9 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
-import { Graph } from "../src/Graph";
-import { Tag } from "../src/Tag";
-import { CANVAS_H, CANVAS_W, newGraph } from "./support/physics";
+import { CANVAS_H, CANVAS_W, edgeBetween, newGraph, singleNode } from "./support/physics";
 
 test("the solver runs with no browser globals present", () => {
     assert.equal(typeof (globalThis as any).window, "undefined");
@@ -22,14 +20,7 @@ test("the solver runs with no browser globals present", () => {
 });
 
 test("a pinned node holds its position, has no velocity, and its neighbour still reacts", () => {
-    const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
-    const b = new Tag({ x: 100, y: 0, z: 0 }, "b");
-    graph.addNode(a);
-    graph.addNode(b);
-    graph.addEdge(a, b);
-
-    const fdg = new ForceDirectedGraph(graph);
+    const { a, b, fdg } = edgeBetween({ x: 0, y: 0, z: 0 }, { x: 100, y: 0, z: 0 });
 
     a.position = { x: 13, y: -7, z: 0 };
     a.velocity = { x: 50, y: 50, z: 0 };
@@ -46,11 +37,7 @@ test("a pinned node holds its position, has no velocity, and its neighbour still
 });
 
 test("step() refreshes the canvas-space cache but does not draw", () => {
-    const graph = new Graph();
-    const a = new Tag({ x: 100, y: 100, z: 0 }, "a");
-    graph.addNode(a);
-
-    const fdg = new ForceDirectedGraph(graph);
+    const { a, fdg } = singleNode();
     const before = { x: a.translatedPosition.x, y: a.translatedPosition.y };
 
     fdg.step(CANVAS_W, CANVAS_H);

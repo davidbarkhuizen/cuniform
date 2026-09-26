@@ -2,24 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
-import { Graph } from "../src/Graph";
-import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
-import { maxTravelPerStep, mean, newGraph } from "./support/physics";
-
-// Reference doc section 9: for a pair joined by a single edge the repulsion
-// 10000/r^1.9 balances the spring 0.1(r-30) at r* ~= 65.46 model units.
-const ANALYTIC_EQUILIBRIUM = 65.46;
+import {
+    ANALYTIC_EQUILIBRIUM,
+    edgeBetween,
+    maxTravelPerStep,
+    mean,
+    newGraph,
+} from "./support/physics";
 
 test("a single edge settles at the analytic equilibrium distance", () => {
-    const graph = new Graph();
-    const a = new Tag({ x: -200, y: 0, z: 0 }, "a");
-    const b = new Tag({ x: 200, y: 0, z: 0 }, "b");
-    graph.addNode(a);
-    graph.addNode(b);
-    graph.addEdge(a, b);
+    const { graph, a, b, fdg } = edgeBetween({ x: -200, y: 0, z: 0 }, { x: 200, y: 0, z: 0 });
 
-    const fdg = new ForceDirectedGraph(graph);
     maxTravelPerStep(fdg, graph, 4000);
 
     const r = Math.hypot(b.position.x - a.position.x, b.position.y - a.position.y, b.position.z - a.position.z);
@@ -28,14 +22,7 @@ test("a single edge settles at the analytic equilibrium distance", () => {
 });
 
 test("at equilibrium the spring and repulsion forces balance", () => {
-    const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
-    const b = new Tag({ x: ANALYTIC_EQUILIBRIUM, y: 0, z: 0 }, "b");
-    graph.addNode(a);
-    graph.addNode(b);
-    graph.addEdge(a, b);
-
-    const fdg = new ForceDirectedGraph(graph);
+    const { a, fdg } = edgeBetween({ x: 0, y: 0, z: 0 }, { x: ANALYTIC_EQUILIBRIUM, y: 0, z: 0 });
 
     const repel = fdg.netElectrostaticForceAtNode(a);
     const spring = fdg.netSpringForceAtNode(a);
@@ -80,14 +67,8 @@ test("a 10-node graph converges instead of oscillating", () => {
 test("a single edge separated only along z settles at the analytic equilibrium", () => {
     // The radial law depends on the scalar distance, so the 2D equilibrium
     // distance must survive when the separation is entirely out of plane.
-    const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0, z: -200 }, "a");
-    const b = new Tag({ x: 0, y: 0, z: 200 }, "b");
-    graph.addNode(a);
-    graph.addNode(b);
-    graph.addEdge(a, b);
+    const { graph, a, b, fdg } = edgeBetween({ x: 0, y: 0, z: -200 }, { x: 0, y: 0, z: 200 });
 
-    const fdg = new ForceDirectedGraph(graph);
     maxTravelPerStep(fdg, graph, 4000);
 
     const r = Math.hypot(
