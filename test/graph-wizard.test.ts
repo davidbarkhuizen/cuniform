@@ -487,6 +487,24 @@ test("the first control is focused when a step opens", () => {
     });
 });
 
+test("focusing a control directly resyncs the wizard's Tab index", () => {
+    withWizard(({ wizard }) => {
+        wizard.open("molecules");
+
+        // A pointer click or a native focus move bypasses the Tab handler, so the
+        // focus event has to move the roving index with it.
+        el(wizard.tags[2].element).focus();
+
+        el(wizard.element).dispatch("keydown", keyEvent({ key: "Tab" }));
+
+        assert.equal(
+            el(wizard.tags[3].element).focused,
+            true,
+            "Tab must continue from the chip the user focused, not from index 0"
+        );
+    });
+});
+
 test("each number field's caption names the input it labels", () => {
     withWizard(({ wizard }) => {
         const fields: Array<[string, HTMLInputElement]> = [

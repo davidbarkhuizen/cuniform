@@ -78,6 +78,11 @@ export class FakeElement {
 
         activeElement = this;
         this.focused = true;
+
+        // The browser dispatches `focus` after the previous element blurs. Local
+        // listeners depend on it — the roving index of both overlays is synced
+        // from this event, not only from their own Tab handlers.
+        this.dispatch('focus');
     }
 
     setAttribute(name: string, value: string) {
