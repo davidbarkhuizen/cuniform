@@ -199,3 +199,197 @@ body
 	outline			: 2px solid #ffffff;
 	outline-offset		: 2px;
 }
+
+/* ---------------------------------------------------------- graph wizard -- */
+
+/*
+ * The chooser: a modal above everything else. It sits above the floating panel
+ * (z-index 2) and the context menu (z-index 10), and the dim backdrop is what
+ * says the graph beneath is not the one being chosen.
+ */
+.graphWizard
+{
+	position		: fixed;
+	inset			: 0;
+	z-index			: 100;
+
+	display			: flex;
+	align-items		: center;
+	justify-content		: center;
+	padding			: 24px;
+
+	background-color	: rgba(2, 6, 14, 0.72);
+}
+
+.wizardPanel
+{
+	box-sizing		: border-box;
+	width			: 100%;
+	max-width		: 560px;
+	max-height		: calc(100% - 48px);
+	overflow-y		: auto;
+
+	padding			: 18px 20px;
+
+	font-family		: "Courier", monospace;
+	color			: #e8f4ff;
+
+	background-color	: rgba(9, 15, 28, 0.98);
+	border			: 2px solid #22d3ee;
+	border-radius		: 10px;
+
+	box-shadow		: 0 0 0 1px rgba(34, 211, 238, 0.25),
+				  0 20px 48px rgba(0, 0, 0, 0.85);
+}
+
+.wizardTitle
+{
+	margin-bottom		: 14px;
+
+	font-size		: large;
+	font-weight		: bold;
+	color			: #ffffff;
+}
+
+/* the three steps are toggled by inline display, not stacked */
+.wizardStep
+{
+	display			: none;
+}
+
+.wizardChoice
+{
+	display			: block;
+	width			: 100%;
+	margin			: 8px 0;
+	padding			: 14px;
+
+	font			: inherit;
+	font-size		: large;
+	font-weight		: bold;
+
+	color			: #04121c;
+	background-color	: #22d3ee;
+	border			: none;
+	border-radius		: 8px;
+
+	cursor			: pointer;
+}
+
+.wizardChoice:hover
+{
+	background-color	: #7dd3fc;
+}
+
+.wizardField
+{
+	display			: flex;
+	align-items		: center;
+	gap			: 10px;
+	margin-top		: 10px;
+}
+
+.wizardInput
+{
+	flex			: 1;
+	min-width		: 0;
+	padding			: 8px 10px;
+
+	font			: inherit;
+	color			: #e8f4ff;
+	background-color	: #04121c;
+	border			: 1px solid #22d3ee;
+	border-radius		: 6px;
+}
+
+/* the word cloud */
+.wizardTags
+{
+	display			: flex;
+	flex-wrap		: wrap;
+	gap			: 8px;
+	margin-top		: 12px;
+}
+
+.wizardTag
+{
+	padding			: 6px 12px;
+
+	font			: inherit;
+	line-height		: 1.2;
+
+	color			: #04121c;
+	background-color	: #a7f3d0;
+	border			: none;
+	border-radius		: 999px;
+
+	cursor			: pointer;
+}
+
+.wizardTagFamily
+{
+	display			: block;
+	font-size		: 0.7em;
+	color			: #0f766e;
+}
+
+.wizardFooter
+{
+	display			: flex;
+	gap			: 8px;
+	margin-top		: 16px;
+}
+
+.wizardPrimary,
+.wizardBack,
+.wizardCancel
+{
+	flex			: 1;
+	padding			: 8px 10px;
+
+	font			: inherit;
+	font-weight		: bold;
+
+	border			: none;
+	border-radius		: 6px;
+	cursor			: pointer;
+}
+
+.wizardPrimary
+{
+	color			: #04121c;
+	background-color	: #22d3ee;
+}
+
+.wizardPrimary:disabled
+{
+	opacity			: 0.45;
+	cursor			: not-allowed;
+}
+
+.wizardBack
+{
+	color			: #e8f4ff;
+	background-color	: #1f2a3a;
+}
+
+.wizardCancel
+{
+	color			: #e8f4ff;
+	background-color	: #3a2330;
+}
+
+.wizardValidation,
+.wizardEmpty,
+.wizardCount
+{
+	margin			: 8px 0 0;
+
+	font-size		: small;
+	color			: #9fb3c8;
+}
+
+.wizardValidation
+{
+	color			: #fca5a5;
+}

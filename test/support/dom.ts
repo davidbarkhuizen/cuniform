@@ -47,6 +47,12 @@ export class FakeElement {
     width = 0;
     height = 0;
     innerHTML = '';
+    /** The value of a form control; the wizard drives its inputs through it. */
+    value = '';
+    /** True when a form control is disabled; the generate button starts here. */
+    disabled = false;
+    /** The element's classes, read back by the component's assertions. */
+    className = '';
     /** True once focus() has been called; the fake tracks no real focus. */
     focused = false;
     /** Attributes set through setAttribute(), keyed by name. */
