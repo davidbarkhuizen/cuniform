@@ -3,6 +3,8 @@ import { ContextMenu } from "./ContextMenu";
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { Graph } from "./Graph";
 import { GraphFactory } from "./GraphFactory";
+import { defaultGraphSpec, GraphSpec, specLabel } from "./GraphSpec";
+import { GraphWizard } from "./GraphWizard";
 import { K } from "./K";
 import { point, Point2D } from "./Point2D";
 import { point3 } from "./Point3D";
@@ -12,17 +14,16 @@ import { handleNodeSelectionAttempt } from "./Selection";
 import { State } from "./State";
 
 /**
- * Builds the graph a fresh (or reset) controller simulates. Supplied by the
- * caller so the controller's real dependencies are visible in its signature
- * instead of being read from globals.
+ * Builds the graph a `GraphSpec` describes. Supplied by the caller so the
+ * controller's real dependencies are visible in its signature instead of being
+ * read from globals.
+ *
+ * The spec is passed by value rather than captured, because the chooser is what
+ * decides which graph to build and it does so after the controller exists.
  */
-export type GraphSource = () => Graph;
+export type GraphSource = (spec: GraphSpec) => Graph;
 
-const defaultGraphSource: GraphSource = () =>
-    new GraphFactory().generateGraph(
-        K.initialConditions.order,
-        K.initialConditions.branching
-    );
+const defaultGraphSource: GraphSource = spec => new GraphFactory().build(spec);
 
 /** The direction a console button rotates the camera. */
 type CameraDirection = 'cw' | 'acw';
@@ -99,6 +100,23 @@ export class UIController {
 
     contextMenu: ContextMenu | null = null;
 
+    /** The open graph chooser, or null. Owned so terminate() can close it. */
+    wizard: GraphWizard | null = null;
+
+    /**
+     * The last chosen graph description, or null before the first choice. It is
+     * what a fresh initialize() rebuilds and what seeds the chooser's random
+     * step; the graph itself lives in the solver.
+     */
+    spec: GraphSpec | null = null;
+
+    /**
+     * The panel's current-graph line. It names the technical spec - the full
+     * systematic name for a molecule - so the word cloud's short chips never
+     * lose the identity of the loaded graph.
+     */
+    currentGraphLabel: HTMLElement;
+
     /**
      * Logical (CSS-pixel) canvas size. All projected-plane <-> canvas mapping
      * uses these so pointer coordinates stay correct when the backing store is
@@ -115,6 +133,7 @@ export class UIController {
 		resetElement: HTMLElement,
 		selectionInfoLabel: HTMLElement,
 		selectionInfoList: HTMLElement,
+        currentGraphLabel: HTMLElement,
         cameraConsole: HTMLElement | null,
         private readonly makeGraph: GraphSource = defaultGraphSource
 	) {
@@ -125,17 +144,23 @@ export class UIController {
 		this.resetElement = resetElement;
 		this.selectionInfoLabel = selectionInfoLabel;
 		this.selectionInfoList = selectionInfoList;
+        this.currentGraphLabel = currentGraphLabel;
         this.cameraConsole = cameraConsole;
 	}
+
+    /** The graph a fresh initialize() shows: the last choice, else the default. */
+    private initialGraph(): Graph {
+        return this.makeGraph(this.spec ?? defaultGraphSpec());
+    }
 
     /**
      * The live solver. Built lazily so a handler that runs before initialize()
      * (and a test that never initializes) still has one; initialize() replaces
-     * it so a reset rebuilds the graph.
+     * it with the last chosen spec, and loadGraph() replaces it in place.
      */
     get solver(): ForceDirectedGraph {
         if (this.solverRef === null)
-            this.solverRef = new ForceDirectedGraph(this.makeGraph());
+            this.solverRef = new ForceDirectedGraph(this.initialGraph());
 
         return this.solverRef;
     }
@@ -533,17 +558,85 @@ export class UIController {
 		setTimeout(() => URL.revokeObjectURL(url), 0);
 	};
 
+	/**
+	 * Reset no longer rebuilds the graph. It opens the chooser, and the running
+	 * graph, the timer, the listeners, the context menu and the camera are all
+	 * left alone until a choice is actually made. A cancelled chooser changes
+	 * nothing.
+	 */
 	onReset = (event?: MouseEvent) => {
-	
-		const reset = confirm('Reset.\nAre You Sure ?');
 
 		event?.preventDefault();
 
-		if (reset == true) {
-			this.initialize()
-		}
+		this.openGraphWizard();
 
-		return false
+		return false;
+	};
+
+	/**
+	 * Replace the simulated graph in place. This is the reset path: the timer,
+	 * the listeners, the context menu and the camera are all left alone, only
+	 * the graph the solver steps changes.
+	 *
+	 * `initialize()` keeps its lifecycle meaning - attach the listeners, build
+	 * the menu, start the timer - so changing content never re-registers a
+	 * listener.
+	 */
+	loadGraph = (graph: Graph) => {
+
+		this.solverRef = new ForceDirectedGraph(graph);
+
+		// A swap happens between gestures, so no button may still be held.
+		this.state.b0Down = false;
+		this.state.b1Down = false;
+		this.state.b2Down = false;
+		this.state.lastMiddleDragPos = null;
+
+		this.updateSelectionInfo();
+	};
+
+	private applyGraphSpec = (spec: GraphSpec) => {
+
+		this.spec = spec;
+		this.loadGraph(this.makeGraph(spec));
+		this.updateCurrentGraphLabel();
+		this.closeGraphWizard();
+	};
+
+	/**
+	 * Open the chooser. The context menu is hidden first, so the two overlays
+	 * can never be open together, and the wizard is stored before it is opened
+	 * so a synchronous completion cannot leave a stale reference.
+	 */
+	openGraphWizard = () => {
+
+		this.closeGraphWizard();
+		this.hideContextMenu();
+
+		this.wizard = new GraphWizard(this.body, {
+			onComplete: this.applyGraphSpec,
+			onCancel: this.closeGraphWizard,
+			onDismiss: () => this.canvas.focus(),
+			// First run: there is no previous graph to keep, so there is nothing
+			// to cancel back to.
+			dismissible: this.spec !== null,
+			initialSpec: this.spec,
+		});
+
+		this.wizard.open();
+	};
+
+	closeGraphWizard = () => {
+
+		if (this.wizard) {
+			this.wizard.close();
+			this.wizard = null;
+		}
+	};
+
+	/** The panel's current-graph line: the technical name of the loaded graph. */
+	private updateCurrentGraphLabel = () => {
+		this.currentGraphLabel.innerHTML = specLabel(this.spec ?? defaultGraphSpec());
 	};
 
 	clearSelection = () => {
@@ -716,7 +809,7 @@ export class UIController {
 
 		// Idempotent: tear down any previous run before starting a new one, so
 		// a second initialize() without terminate() cannot double the timer,
-		// the listeners or the context menu. reset() relies on this.
+		// the listeners or the context menu. It also closes an open chooser.
 		this.terminate();
 
 		this.resizeCanvas();
@@ -728,7 +821,11 @@ export class UIController {
 		this.state.b2Down = false;
 		this.state.lastMiddleDragPos = null;
 
-		this.solverRef = new ForceDirectedGraph(this.makeGraph());
+		// The last chosen spec, else the documented default placeholder, so the
+		// app always has a valid graph and no render path needs a "no graph"
+		// special case. The first-run chooser replaces it before first paint.
+		this.solverRef = new ForceDirectedGraph(this.initialGraph());
+		this.updateCurrentGraphLabel();
 
 		this.buildContextMenu();
 
@@ -747,6 +844,9 @@ export class UIController {
 
 		// A button held across a reset must not keep turning the new graph.
 		this.stopCameraHold();
+
+		// A chooser must not outlive the controller that owns it.
+		this.closeGraphWizard();
 
 		if (this.contextMenu) {
 			this.body.removeChild(this.contextMenu.element);

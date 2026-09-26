@@ -8,6 +8,9 @@ const SELECTED_NODE_LIST_ID = 'selectedNodeInfoList';
 /** The floating panel's camera console, which owns the six rotate buttons. */
 const CAMERA_CONSOLE_ID = 'cameraConsole';
 
+/** The panel's current-graph line, which names the loaded graph. */
+const CURRENT_GRAPH_LABEL_ID = 'currentGraphLabel';
+
 export const entrypoint = (
     selectionInfoPanelID: string,
     canvasElementID: string,
@@ -56,13 +59,14 @@ export const entrypoint = (
         resetElementID,
         SELECTED_NODE_LABEL_ID,
         SELECTED_NODE_LIST_ID,
+        CURRENT_GRAPH_LABEL_ID,
         CAMERA_CONSOLE_ID,
     ]);
 
     if (!elements)
         return null;
 
-    const [body, exportElement, resetElement, selectionInfoLabel, selectionInfoList, cameraConsole] = elements;
+    const [body, exportElement, resetElement, selectionInfoLabel, selectionInfoList, currentGraphLabel, cameraConsole] = elements;
 
     const selectionInfoPanel = e(selectionInfoPanelID);
 
@@ -79,10 +83,16 @@ export const entrypoint = (
         resetElement,
         selectionInfoLabel,
         selectionInfoList,
+        currentGraphLabel,
         cameraConsole
     );
 
     uiController.initialize();
+
+    // The first-run chooser is a startup step, not a constructor side effect,
+    // so every test (and every caller) that wants only the lifecycle can have
+    // it without a wizard.
+    uiController.openGraphWizard();
 
     return uiController;
 };

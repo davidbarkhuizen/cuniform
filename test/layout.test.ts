@@ -59,6 +59,28 @@ test("the panel's fixed menu comes before the selected-node section", () => {
     }
 });
 
+test("the current-graph line sits under the title inside the menu section", () => {
+    const panel = panelMarkup(readWeb("index.html"));
+
+    const menu = panel.indexOf('class="overlayMenu"');
+    const title = panel.indexOf('class="mainLabel"');
+    const selection = panel.indexOf('class="selectionSection"');
+    const label = panel.indexOf('id="currentGraphLabel"');
+
+    assert.notEqual(label, -1, "the panel needs a currentGraphLabel line");
+    assert.ok(label > title, "the graph line belongs under the title");
+    assert.ok(label > menu && label < selection, "the graph line belongs in the menu section");
+    assert.ok(panel.includes('class="graphLabel"'), "the line needs its style hook");
+});
+
+test("the current-graph line is small and wraps a long systematic name", () => {
+    const css = readWeb("stylez.css");
+    const label = cssRule(css, ".graphLabel");
+
+    assert.match(label, /font-size\s*:/);
+    assert.match(label, /overflow-wrap\s*:\s*anywhere/, "a long IUPAC name must break rather than overflow");
+});
+
 test("the panel's third section is the camera console, after the selected node", () => {
     const panel = panelMarkup(readWeb("index.html"));
 
