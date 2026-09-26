@@ -383,6 +383,7 @@ export function demoElements(omit: string[] = []): Record<string, FakeElement> {
         selectionInfoPanel: new FakeElement('DIV'),
         selectedNodeInfoLabel: new FakeElement('LABEL'),
         selectedNodeInfoList: new FakeElement('UL'),
+        cameraConsole: new FakeElement('DIV'),
     };
 
     const out: Record<string, FakeElement> = {};
@@ -412,7 +413,7 @@ export function withFakeDom<T>(
 }
 
 /**
- * Build a UIController over the `demoElements()` map, hiding the seven
+ * Build a UIController over the `demoElements()` map, hiding the eight
  * `as unknown as` casts every UI test used to repeat.
  *
  * `width`/`height` pin the logical size for fixtures that bypass
@@ -435,6 +436,7 @@ export function newUIController(
         elements.reset_link as unknown as HTMLElement,
         elements.selectedNodeInfoLabel as unknown as HTMLElement,
         elements.selectedNodeInfoList as unknown as HTMLElement,
+        elements.cameraConsole as unknown as HTMLElement,
         suppliedGraph ? () => suppliedGraph : undefined
     );
 
@@ -493,19 +495,24 @@ export function wheelEvent(props: Partial<FakeWheelEvent> = {}): WheelEvent {
 export interface FakePointerEvent {
     button: number; clientX: number; clientY: number;
     pointerId: number;
+    propagationStopped: boolean;
     defaultPrevented: boolean; preventDefault: () => void;
+    stopPropagation: () => void;
 }
 
 /**
  * A pointer-event stand-in for the panel drag. It carries the fields the
  * controller reads: a viewport coordinate, the primary button, and the pointer
- * id used to tell one finger from another.
+ * id used to tell one finger from another. `propagationStopped` records whether
+ * a handler stopped the event before it reached an ancestor's listener.
  */
 export function pointerEvent(props: Partial<FakePointerEvent> = {}): PointerEvent {
     const event: FakePointerEvent = {
         button: 0, clientX: 0, clientY: 0, pointerId: 1,
+        propagationStopped: false,
         defaultPrevented: false,
         preventDefault: () => { event.defaultPrevented = true; },
+        stopPropagation: () => { event.propagationStopped = true; },
         ...props,
     };
 

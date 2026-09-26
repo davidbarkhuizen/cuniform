@@ -2,10 +2,10 @@
 
 | | |
 | --- | --- |
-| **Status** | Planned |
-| **Landed** | — |
-| **Area** | new `src/Mat3.ts`, `src/Camera.ts`, `src/Projector.ts`, `src/K.ts`, `src/UIController.ts`, `src/entrypoint.ts`, `src/index.ts`, `web/index.html`, `web/stylez.css`, `README.md`, `test/**` |
-| **Depends on** | nothing outstanding — `main` is green at 201 tests |
+| **Status** | Implemented |
+| **Landed** | PRs #68–#70; `main` green at 215 tests |
+| **Area** | new `src/Mat3.ts`, `src/Camera.ts`, `src/Projector.ts`, `src/K.ts`, `src/UIController.ts`, `src/entrypoint.ts`, `web/index.html`, `web/stylez.css`, `README.md`, `test/**` |
+| **Depends on** | nothing outstanding — `main` was green at 201 tests when this was planned |
 | **Blocks** | nothing |
 
 ## 1. Goal
@@ -176,10 +176,11 @@ exactly at a pole, reachable only through the buttons) falls back to world x,
 which is still a valid tilt axis because every horizontal axis is perpendicular
 to a vertical view.
 
-`rotateLocal` is simply `M <- rotX|rotY|rotZ(radians) . M`. `reset` restores the
-identity orientation, so the console's rotations do not survive a `reset` —
-matching `yaw`/`pitch`/`distance` today, and unlike the graph rebuild, which the
-camera deliberately survives (`initialize()` keeps `this.state.camera`).
+`rotateLocal` is simply `M <- rotX|rotY|rotZ(radians) . M`. `Camera.reset()`
+restores the identity orientation (as it restored the default yaw/pitch before,
+and as it restores the dolly distance). Note that the panel's `reset` is the
+*graph* reset: it calls `initialize()`, which deliberately keeps the live camera
+in `State`, so a console rotation survives it exactly as the viewing angle does.
 
 ### 4.3 `src/Projector.ts`: the same projection, matrix-backed
 
@@ -250,7 +251,7 @@ separator), a flex `.cameraRow`, a cyan `.cameraAxisLabel`, and a
 `:focus-visible` outline. The panel's `cursor: move` must not make the buttons
 read as drag handles.
 
-### 4.6 Wiring: `UIController`, `entrypoint`, `index.ts`
+### 4.6 Wiring: `UIController`, `entrypoint`
 
 `UIController` takes one more dependency, the console container, and binds it in
 the same `toggleEventListeners()` list that everything else uses — so detach is
@@ -290,10 +291,11 @@ onCameraPointerDown = (event: PointerEvent) => {
 
 `entrypoint()` resolves `cameraConsole` through the existing `required([...])`
 list (the console is part of the shipped chrome, so a missing one is a startup
-failure like the export link), and passes it to the controller. `src/index.ts`
-passes the new ID alongside the others. The controller's `cameraConsole` field is
-`HTMLElement | null` so fixtures that construct a controller directly without the
-console still work.
+failure like the export link), and passes it to the controller. The ID is a
+module constant beside the selection-label IDs rather than a new `entrypoint()`
+parameter, so `src/index.ts` is untouched. The controller's `cameraConsole`
+field is `HTMLElement | null` so fixtures that construct a controller directly
+without the console still work.
 
 ### 4.7 Sign convention
 
@@ -333,7 +335,7 @@ Three focused PRs. Each leaves `main` green.
 
 - `web/index.html`, `web/stylez.css`: the third section and its styles.
 - `src/UIController.ts`: the container dependency, the two delegated handlers.
-- `src/entrypoint.ts`, `src/index.ts`: resolve and pass `cameraConsole`.
+- `src/entrypoint.ts`: resolve `cameraConsole` and pass it to the controller.
 - `test/support/dom.ts`: `cameraConsole` in `demoElements()`; a
   `stopPropagation` flag on the pointer-event factory.
 - Tests: new `test/camera-console.test.ts`; `entrypoint.test.ts` and
@@ -393,9 +395,10 @@ Three focused PRs. Each leaves `main` green.
 - Press-and-hold auto-repeat, inertia or animation. Every press is one step.
 - Rebindable keys or a keyboard shortcut per axis. The buttons are tabbable and
   Enter/Space-activated, which is the accessibility baseline.
-- A reset-orientation button. `reset` (the existing graph reset) already returns
-  the camera to its default orientation in PR 2, and a `reset` context-menu
-  entry stays the single action.
+- A reset-orientation button. `Camera.reset()` restores the identity and is
+  covered by the camera tests, but nothing in the UI calls it: the panel's
+  `reset` is the graph reset, which deliberately keeps the camera, and adding a
+  "face front" action is a separate decision.
 - Touch/pointer orbit on the canvas; the existing mouse handlers are unchanged.
 - Snapping, angle read-outs, gizmos, or showing the current angles in the panel.
 - Orthographic projection, or a perspective/orthographic toggle.

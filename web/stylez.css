@@ -142,3 +142,60 @@ body
 
 	color			: #a7f3d0;
 }
+
+/* the camera console: three rows of axis rotate buttons */
+.cameraSection
+{
+	padding-top		: 12px;
+	margin-top		: 12px;
+	border-top		: 1px solid rgba(34, 211, 238, 0.35);
+
+	/* the panel itself is a drag handle; the console is not */
+	cursor			: default;
+}
+
+.cameraRow
+{
+	display			: flex;
+	align-items		: center;
+	gap			: 8px;
+	margin-top		: 8px;
+}
+
+.cameraAxisLabel
+{
+	width			: 1.2em;
+
+	font-weight		: bold;
+	text-transform		: uppercase;
+
+	color			: #22d3ee;
+}
+
+.cameraButton
+{
+	flex			: 1;
+	padding			: 6px 10px;
+
+	font			: inherit;
+	font-weight		: bold;
+	line-height		: 1;
+
+	color			: #04121c;
+	background-color	: #22d3ee;
+	border			: none;
+	border-radius		: 6px;
+
+	cursor			: pointer;
+}
+
+.cameraButton:hover
+{
+	background-color	: #7dd3fc;
+}
+
+.cameraButton:focus-visible
+{
+	outline			: 2px solid #ffffff;
+	outline-offset		: 2px;
+}

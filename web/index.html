@@ -30,7 +30,8 @@
 
 			<!--
 				The single piece of chrome: a floating panel holding the fixed
-				menu (title, export, reset) and the currently selected node.
+				menu (title, export, reset), the currently selected node and the
+				camera console.
 			-->
 			<div id="selectionInfoPanel" class="selectionInfoPanel">
 
@@ -51,6 +52,54 @@
 					<label id="selectedNodeInfoLabel"></label>
 					<br/>
 					<ul id="selectedNodeInfoList"></ul>
+				</div>
+
+				<!--
+					The camera console: one row per camera axis, each with a
+					clockwise and an anticlockwise button. They are real buttons,
+					so Enter and Space activate them, and each carries the axis
+					and direction as data attributes for the delegated handler.
+				-->
+				<div id="cameraConsole" class="cameraSection">
+					<div class="sectionHeading">
+						camera
+					</div>
+
+					<div class="cameraRow">
+						<span class="cameraAxisLabel">x</span>
+						<button type="button" class="cameraButton"
+							data-axis="x" data-direction="cw"
+							aria-label="rotate clockwise about the x axis"
+							title="rotate clockwise about the x axis">&#8635;</button>
+						<button type="button" class="cameraButton"
+							data-axis="x" data-direction="acw"
+							aria-label="rotate anticlockwise about the x axis"
+							title="rotate anticlockwise about the x axis">&#8634;</button>
+					</div>
+
+					<div class="cameraRow">
+						<span class="cameraAxisLabel">y</span>
+						<button type="button" class="cameraButton"
+							data-axis="y" data-direction="cw"
+							aria-label="rotate clockwise about the y axis"
+							title="rotate clockwise about the y axis">&#8635;</button>
+						<button type="button" class="cameraButton"
+							data-axis="y" data-direction="acw"
+							aria-label="rotate anticlockwise about the y axis"
+							title="rotate anticlockwise about the y axis">&#8634;</button>
+					</div>
+
+					<div class="cameraRow">
+						<span class="cameraAxisLabel">z</span>
+						<button type="button" class="cameraButton"
+							data-axis="z" data-direction="cw"
+							aria-label="rotate clockwise about the z axis"
+							title="rotate clockwise about the z axis">&#8635;</button>
+						<button type="button" class="cameraButton"
+							data-axis="z" data-direction="acw"
+							aria-label="rotate anticlockwise about the z axis"
+							title="rotate anticlockwise about the z axis">&#8634;</button>
+					</div>
 				</div>
 			</div>
 		</div>

@@ -65,6 +65,13 @@ export class UIController {
     selectionInfoLabel: HTMLElement;
     selectionInfoList: HTMLElement;
 
+    /**
+     * The camera console's container. Its buttons are static chrome in
+     * web/index.html, so one delegated listener on the container is enough;
+     * null in a fixture that builds a controller without the console.
+     */
+    cameraConsole: HTMLElement | null;
+
     contextMenu: ContextMenu | null = null;
 
     /**
@@ -83,6 +90,7 @@ export class UIController {
 		resetElement: HTMLElement,
 		selectionInfoLabel: HTMLElement,
 		selectionInfoList: HTMLElement,
+        cameraConsole: HTMLElement | null,
         private readonly makeGraph: GraphSource = defaultGraphSource
 	) {
         this.body = body;
@@ -92,6 +100,7 @@ export class UIController {
 		this.resetElement = resetElement;
 		this.selectionInfoLabel = selectionInfoLabel;
 		this.selectionInfoList = selectionInfoList;
+        this.cameraConsole = cameraConsole;
 	}
 
     /**
@@ -216,6 +225,48 @@ export class UIController {
 		// The canvas fills the viewport; never let the wheel scroll the page
 		// out from under the graph.
 		event.preventDefault();
+	};
+
+	/**
+	 * A console rotate button. One delegated listener serves all six: the
+	 * container is stable across presses, so the handler count is fixed, and
+	 * the data attributes on the pressed button name the axis and direction.
+	 * X in the camera's own frame, y across it and z along the view axis.
+	 */
+	onCameraButtonClick = (event: MouseEvent) => {
+
+		const target = event.target as HTMLElement | null;
+
+		if (!target || typeof target.getAttribute !== 'function')
+			return;
+
+		const axis = target.getAttribute('data-axis');
+		const direction = target.getAttribute('data-direction');
+
+		// Anything that is not one of the six buttons - the section heading,
+		// the container itself - is not a rotation.
+		if (axis !== 'x' && axis !== 'y' && axis !== 'z')
+			return;
+
+		if (direction !== 'cw' && direction !== 'acw')
+			return;
+
+		// Anticlockwise is the right-hand positive sense about the axis, so it
+		// is the positive step; clockwise is its negation.
+		const step = direction === 'acw'
+			? K.camera.rotateStepRadians
+			: -K.camera.rotateStepRadians;
+
+		this.state.camera.rotateLocal(axis, step);
+	};
+
+	/**
+	 * The panel is a drag handle: DragController captures the pointer on
+	 * pointerdown, which would retarget the compatibility click away from a
+	 * button. A press that starts on the console must not reach the panel.
+	 */
+	onCameraPointerDown = (event: PointerEvent) => {
+		event.stopPropagation();
 	};
 
 	/** The projection for the current canvas size and live camera. */
@@ -430,6 +481,15 @@ export class UIController {
 		// reset link
 		//
 		bind(this.resetElement, "click", this.onReset);
+
+		// camera console: one delegated listener, plus the guard that keeps a
+		// press on a button from starting a panel drag. Both are skipped when
+		// the console is absent, on attach and detach alike.
+		//
+		if (this.cameraConsole) {
+			bind(this.cameraConsole, "click", this.onCameraButtonClick);
+			bind(this.cameraConsole, "pointerdown", this.onCameraPointerDown);
+		}
 
 		// viewport
 		//
