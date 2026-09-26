@@ -39,7 +39,7 @@ test("the title and the export/reset links live inside the floating panel", () =
     assert.ok(panel.includes("cuniform"), "the title text should be inside the overlay panel");
 });
 
-test("the panel is split into a fixed menu section and a selected-node section", () => {
+test("the panel's fixed menu comes before the selected-node section", () => {
     const panel = panelMarkup(readWeb("index.html"));
 
     const menu = panel.indexOf('class="overlayMenu"');
@@ -57,6 +57,62 @@ test("the panel is split into a fixed menu section and a selected-node section",
     for (const id of ["selectedNodeInfoLabel", "selectedNodeInfoList"]) {
         assert.ok(panel.indexOf(`id="${id}"`) > selection, `${id} belongs in the selection section`);
     }
+});
+
+test("the panel's third section is the camera console, after the selected node", () => {
+    const panel = panelMarkup(readWeb("index.html"));
+
+    const selection = panel.indexOf('class="selectionSection"');
+    const camera = panel.indexOf('class="cameraSection"');
+
+    assert.notEqual(camera, -1, "the panel needs a cameraSection");
+    assert.ok(selection < camera, "the camera console should come after the selected node");
+
+    assert.ok(panel.includes('id="cameraConsole"'), "the console needs the id the entrypoint resolves");
+});
+
+test("the camera console has six labelled axis/direction rotate buttons", () => {
+    const panel = panelMarkup(readWeb("index.html"));
+
+    // The attributes may be laid out over several lines, so compare against
+    // whitespace-normalised markup.
+    const markup = panel.replace(/\s+/g, " ");
+
+    for (const axis of ["x", "y", "z"]) {
+        for (const direction of ["cw", "acw"]) {
+            assert.ok(
+                markup.includes(`data-axis="${axis}" data-direction="${direction}"`),
+                `the console needs a ${direction} button for the ${axis} axis`
+            );
+        }
+
+        assert.ok(
+            markup.includes(`aria-label="rotate clockwise about the ${axis} axis"`),
+            `the ${axis} clockwise button needs an accessible name`
+        );
+        assert.ok(
+            markup.includes(`aria-label="rotate anticlockwise about the ${axis} axis"`),
+            `the ${axis} anticlockwise button needs an accessible name`
+        );
+    }
+
+    const cameraSection = panel.slice(panel.indexOf('class="cameraSection"'));
+    assert.ok(cameraSection.includes('class="sectionHeading"'), "the console needs a section heading");
+    assert.ok(!/data-axis="[^xyz]/.test(markup), "an axis attribute must name one of x, y or z");
+});
+
+test("the console buttons read as buttons, not as panel drag handles", () => {
+    const css = readWeb("stylez.css");
+
+    const button = cssRule(css, ".cameraButton");
+    assert.match(button, /cursor\s*:\s*pointer/, "a console button should look pressable");
+    assert.match(button, /background-color\s*:/, "a console button needs a visible face");
+
+    assert.match(
+        cssRule(css, ".cameraSection"),
+        /cursor\s*:\s*default/,
+        "the console itself is not a drag handle"
+    );
 });
 
 test("the old second title line is gone", () => {

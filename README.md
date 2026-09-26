@@ -39,13 +39,16 @@ type.
 The canvas fills the viewport: it is stretched over a fixed, full-viewport
 `.canvas-container`, and the backing store is re-sized when the window is
 resized. Everything else lives in a single floating overlay panel in the
-top-left corner, split into two sections:
+top-left corner, split into three sections:
 
 - a **fixed menu** — the `cuniform` title, `export` and `reset`;
-- the **currently selected node** — the selection and its neighbours.
+- the **currently selected node** — the selection and its neighbours;
+- the **camera console** — six buttons that rotate the camera about its own
+  axes.
 
 The panel is opaque and high-contrast so it stays readable over the graph, and
-the whole panel can be dragged out of the way.
+the whole panel can be dragged out of the way. The console is excluded from that
+drag: a press that starts on a button never reaches the panel's drag handle.
 
 ## Interaction
 
@@ -55,12 +58,19 @@ the whole panel can be dragged out of the way.
   depth is preserved; a culled node drags on the near plane. An exact screen tie
   selects the node nearest the camera. A dragged node is pinned: it keeps the
   position the pointer writes and has its velocity zeroed.
-- **Middle-drag** — orbits the camera around its target. Pitch is clamped just
-  inside the poles so the view basis never flips.
+- **Middle-drag** — orbits the camera around its target. The tilt is clamped just
+  inside the poles so the view never flips over one.
 - **Shift+middle-drag** — pans the camera target. Node positions are never
   touched, so a pan cannot perturb the simulation.
 - **Wheel** — dollies the camera (zooms). The focal length is constant, so only
   the camera distance changes; it is clamped above the near plane.
+- **Camera console** — three rows, one per camera axis, each with a clockwise
+  and an anticlockwise button. Every press applies one fixed step (15°), and the
+  buttons are real buttons, so Tab reaches them and Enter or Space activates
+  them. Anticlockwise is the right-hand positive sense about that axis: on
+  screen, x tilts the view about the horizontal, y turns it about the vertical,
+  and z rolls it about the view axis. Unlike the middle-drag guard, an explicit
+  axis rotation is free to carry the view through a pole.
 - **Right-click** — opens a context menu with `export`, `reset` and
   `clear selection`. The native browser menu is suppressed.
 - **Shift+F10** (or the context-menu key) — opens the same actions menu from
@@ -68,7 +78,8 @@ the whole panel can be dragged out of the way.
   them, Enter or Space activates one, and Escape closes the menu.
 - **Drag the overlay panel** — the panel itself is movable, by mouse or by touch.
 
-A `reset` rebuilds the graph but keeps the current viewing angle and zoom.
+A `reset` rebuilds the graph but keeps the current viewing angle and zoom,
+including any rotation applied from the console.
 
 ## Physics
 

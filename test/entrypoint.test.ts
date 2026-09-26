@@ -72,7 +72,7 @@ test("entrypoint still initializes when the optional drag panel is missing", () 
 });
 
 test("entrypoint reports failure when any required element is missing", () => {
-    for (const missing of ['body', 'export_canvas_link', 'reset_link', 'selectedNodeInfoLabel', 'selectedNodeInfoList']) {
+    for (const missing of ['body', 'export_canvas_link', 'reset_link', 'selectedNodeInfoLabel', 'selectedNodeInfoList', 'cameraConsole']) {
         withFakeDom(demoElements([missing]), dom => {
             const result = quietly(() => entrypoint(...IDS));
 
