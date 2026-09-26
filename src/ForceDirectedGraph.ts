@@ -2,6 +2,7 @@ import { Graph } from "./Graph";
 import { K } from "./K";
 import { Point2D } from "./Point2D";
 import { Tag } from "./Tag";
+import { Viewport } from "./Viewport";
 
 export class ForceDirectedGraph {
 
@@ -12,47 +13,14 @@ export class ForceDirectedGraph {
         this.graph = graph;
     }
 
-	/**
-	 * Model -> canvas. The scale is uniform on both axes,
-	 * min(w1/w0, h1/h0), so the layout is never stretched anisotropically when
-	 * the canvas aspect ratio differs from the model square. The y axis is
-	 * flipped so increasing model y moves up the canvas.
-	 */
-	translate(
-        xy: Point2D, 
-        w0: number, 
-        h0: number, 
-        w1: number, 
-        h1: number
-    ) {
-
-		var scale = Math.min(w1 / w0, h1 / h0);
-
-		var x1 = (w1 / 2.0) + xy.x * scale;
-		var y1 = (h1 / 2.0) - xy.y * scale;
-
-		return {
-			x : x1,
-			y : y1
-		};
-	};
-
-	/** Exact inverse of translate(): canvas -> model. */
-	reverse(xy: Point2D, w0: number, h0: number, w1: number, h1: number) {
-
-		var scale = Math.min(w1 / w0, h1 / h0);
-
-		var x0 = (xy.x - (w1 / 2.0)) / scale;
-		var y0 = ((h1 / 2.0) - xy.y) / scale;
-
-		return {
-			x : x0,
-			y : y0
-		};
-	};
-	
+	/** Canvas -> model for a canvas of the given size. */
 	wrapReverse(xy: Point2D, canvasWidth: number, canvasHeight: number) {
-		return this.reverse(xy, K.space.W_0, K.space.H_0, canvasWidth, canvasHeight);
+		return Viewport.forCanvas(canvasWidth, canvasHeight).toModel(xy);
+	};
+
+	/** Model -> canvas for a canvas of the given size. */
+	wrapTranslate(xy: Point2D, canvasWidth: number, canvasHeight: number) {
+		return Viewport.forCanvas(canvasWidth, canvasHeight).toCanvas(xy);
 	};
 
 	render(context: CanvasRenderingContext2D) {
@@ -356,15 +324,19 @@ export class ForceDirectedGraph {
 
 		// TRANSLATE TO CANVAS
 		//
+		// One viewport for the whole pass: the scale and the half-extents are
+		// loop invariants, so they are computed once per tick, not per node.
+		const viewport = Viewport.forCanvas(canvasWidth, canvasHeight);
+
 		for( i = 0; i < this.graph.vertices.length; i++) {
 			var node = this.graph.vertices[i];
-			node.translatedPosition = this.translate(node.position, K.space.W_0, K.space.H_0, canvasWidth, canvasHeight);
+			node.translatedPosition = viewport.toCanvas(node.position);
 		}
 	};
 
 	handleNodeSelectionAttempt(canvasPos: Point2D, canvasWidth: number, canvasHeight: number) {
 
-		var transformedPos = this.reverse(canvasPos, K.space.W_0, K.space.H_0, canvasWidth, canvasHeight);
+		var transformedPos = this.wrapReverse(canvasPos, canvasWidth, canvasHeight);
 
 		// calc distance from each node
 		//
