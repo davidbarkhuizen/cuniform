@@ -115,7 +115,7 @@ All tuning lives in [`src/K.ts`](src/K.ts):
 | `minimumInteractionRadius` | `10.0` | repulsion is evaluated at `max(r, this)`, bounding the `r -> 0` singularity |
 | `timeStep` | `0.1` | integration gain, **not** seconds |
 | `friction` | `0.9` | per-step velocity retained |
-| `timerTickperiodMS` | `50` | one simulation step per tick |
+| `timerTickPeriodMS` | `50` | one simulation step per tick |
 | `minimumNodeSelectionRadius` | `15.0` | click hit radius, model units |
 
 Keep `timeStep / (1 - friction)` near `1`: that ratio is the terminal per-step

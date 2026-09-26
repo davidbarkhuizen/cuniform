@@ -1,4 +1,4 @@
-import { Edge } from "./Edge";
+import { Edge, otherEndpoint } from "./Edge";
 import { Tag } from "./Tag";
 
 export class Graph {
@@ -70,16 +70,19 @@ export class Graph {
 	/**
 	 * The distinct neighbours of `v`, one entry per adjacent vertex. Duplicate
 	 * edges and self-loops never produce a repeated entry.
+	 *
+	 * Walks the maintained adjacency list rather than rescanning every edge, so
+	 * the cost is O(deg(v)); the index preserves edge insertion order, which
+	 * keeps the result order identical to the old full scan.
 	 */
 	neighbours(v: Tag) {
 		var out: Array<Tag> = [];
 
-		for (let i = 0; i < this.edges.length; i++) {
+		for (const edge of this.incidentEdges(v)) {
 
-			var edge = this.edges[i];
-			var other = edge.v1 === v ? edge.v2 : (edge.v2 === v ? edge.v1 : null);
+			var other = otherEndpoint(edge, v);
 
-			if (other === null || other === v)
+			if (other === null)
 				continue;
 
 			if (out.indexOf(other) === -1)

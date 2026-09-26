@@ -1,27 +1,31 @@
 import { Graph } from "./Graph";
 import { K } from "./K";
-import { Point2D } from "./Point2D";
+import { point } from "./Point2D";
 import { Tag } from "./Tag";
 
 export class GraphFactory {
 
 	constructXYFactory() {
 
-		var used = Array<Point2D>();
+		// Generated coordinates, keyed by value so uniqueness is an O(1) Set
+		// lookup rather than a rescan of every prior point.
+		const used = new Set<string>();
+
 		const genXY = () => {
 			// Coordinates are continuous and uniform, so an exact duplicate is
 			// effectively impossible; the attempt cap only guarantees that this
 			// loop terminates rather than spinning forever.
 			for (let attempt = 0; attempt < 1000; attempt++) {
-				var x = (-K.space.W_0 / 2.0) + (Math.random() * K.space.W_0);
-				var y = (-K.space.H_0 / 2.0) + (Math.random() * K.space.H_0);
+				const x = (-K.space.W_0 / 2.0) + (Math.random() * K.space.W_0);
+				const y = (-K.space.H_0 / 2.0) + (Math.random() * K.space.H_0);
 
 				// Compare by value: indexOf on a fresh object literal never matches.
-				if (used.some(p => p.x === x && p.y === y))
+				const key = `${x},${y}`;
+				if (used.has(key))
 					continue;
 
-				used.push({ x : x, y : y });
-				return { x : x, y : y };
+				used.add(key);
+				return point(x, y);
 			}
 
 			throw new Error("constructXYFactory: could not generate a unique position");

@@ -23,7 +23,6 @@ export class ContextMenu {
     constructor(items: ContextMenuItem[]) {
 
         this.element = document.createElement('div');
-        this.element.className = 'contextMenu';
 
         this.setStyle(this.element, {
             position: 'absolute',
@@ -40,7 +39,6 @@ export class ContextMenu {
         for (const item of items) {
 
             const entry = document.createElement('div');
-            entry.className = 'contextMenuItem';
             entry.innerHTML = item.label;
 
             this.setStyle(entry, {
@@ -73,9 +71,12 @@ export class ContextMenu {
         this.element.style.display = 'none';
     }
 
-    private setStyle(element: HTMLElement, styles: Record<string, string>) {
-        for (const key of Object.keys(styles)) {
-            (element.style as any)[key] = styles[key];
-        }
+    /**
+     * Apply inline styles by name. Typed as `Partial<CSSStyleDeclaration>` so
+     * the camelCase keys are checked against the real style properties rather
+     * than written through an `any` hole.
+     */
+    private setStyle(element: HTMLElement, styles: Partial<CSSStyleDeclaration>) {
+        Object.assign(element.style, styles);
     }
 }

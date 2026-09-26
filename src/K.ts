@@ -13,7 +13,7 @@ export const K = {
         // oscillating or flinging nodes off-canvas.
         timeStep: 0.1,
         friction: 0.9,
-	    timerTickperiodMS : 50,
+	    timerTickPeriodMS : 50,
         // Robustness guard, not part of the reference model. Repulsion is
         // singular as r -> 0, and the exact r == 0 guard only catches perfect
         // coincidence: a pair a fraction of a unit apart would otherwise be

@@ -83,8 +83,8 @@ test("entrypoint still initializes when the optional drag panel is missing", () 
     });
 });
 
-test("entrypoint reports failure when a selection info element is missing", () => {
-    for (const missing of ['selectedNodeInfoLabel', 'selectedNodeInfoList']) {
+test("entrypoint reports failure when any required element is missing", () => {
+    for (const missing of ['body', 'export_canvas_link', 'reset_link', 'selectedNodeInfoLabel', 'selectedNodeInfoList']) {
         withFakeDom(demoElements([missing]), dom => {
             let result: boolean | undefined;
             quietly(() => {

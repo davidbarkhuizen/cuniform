@@ -625,6 +625,27 @@ later "cleanup sweep" PR once the structural work has landed.
 | Mixed tab/space indentation across `src/` | repo-wide |
 | `index.html` / `stylez.css` live in `dist/` while being hand-maintained source | `dist/` |
 
+### §8 cleanup sweep
+
+The small items above landed in one later PR
+([#48](https://github.com/davidbarkhuizen/cuniform/pull/48)): the render
+constants and arc boilerplate, the per-frame font, the shared colour choice,
+`step()`'s hoisted `var i`, the adjacency-backed `neighbours()`, the shared
+`Edge.otherEndpoint()`, the dead `State.curPos` / `State.b0ClickPos`, the
+entrypoint's duplicate null-check, the `GraphFactory` uniqueness scan, the dead
+`ContextMenu` class names and its `any`-typed style write, the
+`timerTickPeriodMS` casing and the `tyeepe` typo. `npm run ci` stayed green and
+the suite went 127 → 129 tests: the two additions pin `otherEndpoint()` and the
+typed `setStyle`.
+
+Three items are still deferred, and none is a small code edit:
+
+| Item | Why it stays deferred |
+| --- | --- |
+| Mixed tab/space indentation | re-indenting is out of scope for every PR (§1); it would bury every real diff |
+| ESLint declared with no config or script | a useful config needs a TypeScript parser that is not installed, and §3 forbids new dependencies; this is a tooling decision |
+| `index.html` / `stylez.css` live in `dist/` | moving hand-maintained source out of the build output is a build-layout change |
+
 ---
 
 ## 9. Definition of done
