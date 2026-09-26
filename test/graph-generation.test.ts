@@ -5,6 +5,7 @@ import { Graph } from "../src/Graph";
 import { GraphFactory } from "../src/GraphFactory";
 import { specLabel } from "../src/GraphSpec";
 import { K } from "../src/K";
+import { CATALOG } from "../src/Molecules";
 import { Tag } from "../src/Tag";
 import { catalogEntry } from "./support/catalog";
 import { newGraph } from "./support/physics";
@@ -228,26 +229,28 @@ test("molecule vertices are labelled with element symbols, in SMILES order", () 
     );
 });
 
-test("a molecule graph is connected and has no self-loops", () => {
-    const graph = new GraphFactory().generateMolecule("vincristine");
+test("every molecule graph is connected and has no self-loops", () => {
+    for (const entry of CATALOG) {
+        const graph = new GraphFactory().generateMolecule(entry.id);
 
-    for (const edge of graph.edges)
-        assert.notEqual(edge.v1, edge.v2, "a bond must join two distinct atoms");
+        for (const edge of graph.edges)
+            assert.notEqual(edge.v1, edge.v2, `${entry.id}: a bond must join two distinct atoms`);
 
-    const seen = new Set<Tag>([graph.vertices[0]]);
-    const queue = [graph.vertices[0]];
+        const seen = new Set<Tag>([graph.vertices[0]]);
+        const queue = [graph.vertices[0]];
 
-    while (queue.length > 0) {
-        const vertex = queue.shift()!;
-        for (const neighbour of graph.neighbours(vertex)) {
-            if (seen.has(neighbour))
-                continue;
-            seen.add(neighbour);
-            queue.push(neighbour);
+        while (queue.length > 0) {
+            const vertex = queue.shift()!;
+            for (const neighbour of graph.neighbours(vertex)) {
+                if (seen.has(neighbour))
+                    continue;
+                seen.add(neighbour);
+                queue.push(neighbour);
+            }
         }
-    }
 
-    assert.equal(seen.size, graph.vertices.length, "every atom should be reachable");
+        assert.equal(seen.size, graph.vertices.length, `${entry.id}: every atom should be reachable`);
+    }
 });
 
 test("molecule seeds are unique, deterministic and bounded by the jitter", () => {
