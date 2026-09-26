@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+
+# cuniform command line entry point.
+#
+# The node/npm equivalent of the reference project's `cli` script. Run it from
+# the repository root:
+#
+#   ./cli [ build | ci | clean | help | install | run | test | typecheck ]
+#
+# With no recognised option it builds and runs the app, matching the
+# reference's default action.
+
+option="$1"
+shift 1
+
+clean () {
+
+    # The reference defeats stale build caches by touching every file. Here the
+    # only build outputs are webpack's bundle and the test compilation, so
+    # removing them achieves the same "force everything to rebuild" result
+    # without needing sudo.
+    rm -rf dist/main.js dist/main.js.map dist/src .test-build
+    echo "... cleaned build artefacts"
+}
+
+install () {
+
+    npm install
+}
+
+typecheck () {
+
+    npm run typecheck
+}
+
+test () {
+
+    npm test
+}
+
+ci () {
+
+    npm run ci
+}
+
+build () {
+
+    echo "building js from typescript ..."
+    npm run start
+    echo "... built"
+}
+
+run () {
+
+    bash build-and-run.sh
+}
+
+usage () {
+    echo "-----------------------------------------------"
+    echo "cuniform - force directed graphs"
+    echo "-----------------------------------------------"
+    echo "usage:"
+    echo
+    echo "./cli [ build | ci | clean | help | install | run | test | typecheck ]"
+    echo
+    echo
+    echo "./cli run"
+}
+
+case "$option" in
+
+    build)
+        build
+    ;;
+
+    ci)
+        ci
+    ;;
+
+    clean)
+        clean "$@"
+    ;;
+
+    install)
+        install
+    ;;
+
+    test)
+        test
+    ;;
+
+    typecheck)
+        typecheck
+    ;;
+
+    help)
+        usage
+    ;;
+
+    *)
+        run "$@"
+    ;;
+
+esac
