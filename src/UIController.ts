@@ -166,10 +166,7 @@ export class UIController {
     }
 
 	onMouseOut = () => {
-		this.state.b0Down = false;
-		this.state.b1Down = false;
-		this.state.b2Down = false;
-		this.state.lastMiddleDragPos = null;
+		this.state.reset();
 	};
 
 	onMouseMove = (event: MouseEvent) => {
@@ -587,10 +584,7 @@ export class UIController {
 		this.solverRef = new ForceDirectedGraph(graph);
 
 		// A swap happens between gestures, so no button may still be held.
-		this.state.b0Down = false;
-		this.state.b1Down = false;
-		this.state.b2Down = false;
-		this.state.lastMiddleDragPos = null;
+		this.state.reset();
 
 		this.updateSelectionInfo();
 	};
@@ -821,10 +815,7 @@ export class UIController {
 
 		// Reset the existing state object rather than allocating a new one, so
 		// handlers holding a reference see the cleared flags.
-		this.state.b0Down = false;
-		this.state.b1Down = false;
-		this.state.b2Down = false;
-		this.state.lastMiddleDragPos = null;
+		this.state.reset();
 
 		// The last chosen spec, else the documented default placeholder, so the
 		// app always has a valid graph and no render path needs a "no graph"

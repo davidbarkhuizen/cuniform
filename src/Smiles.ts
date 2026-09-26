@@ -58,6 +58,15 @@ function isAromaticSymbol(symbol: string): boolean {
 }
 
 /**
+ * The bond order implied when no symbol is written: aromatic (4) when both
+ * ends are aromatic, a single bond (1) otherwise. One home for the default, so
+ * extending the chain and closing a ring cannot disagree about it.
+ */
+function defaultBondOrder(symbolA: string, symbolB: string): 1 | 4 {
+    return isAromaticSymbol(symbolA) && isAromaticSymbol(symbolB) ? 4 : 1;
+}
+
+/**
  * Read the element symbol out of a bracket atom such as `[nH]`, `[C@@H]`,
  * `[O-]`, `[NH3+]`, `[13CH4]` or `[Si]`.
  *
@@ -140,7 +149,6 @@ export function parseSmiles(smiles: string): MoleculeTopology {
     const addAtom = (symbol: string, position: number) => {
 
         const index = atoms.length;
-        const aromatic = isAromaticSymbol(symbol);
 
         atoms.push(symbol);
 
@@ -149,7 +157,7 @@ export function parseSmiles(smiles: string): MoleculeTopology {
             // single bond. An explicit bond symbol always wins.
             const order: 1 | 2 | 3 | 4 = pending !== 0
                 ? pending
-                : (aromatic && isAromaticSymbol(at(current)) ? 4 : 1);
+                : defaultBondOrder(at(current), symbol);
 
             addBond(current, index, order, position);
         }
@@ -186,7 +194,7 @@ export function parseSmiles(smiles: string): MoleculeTopology {
             ? pending
             : opened.order !== 0
                 ? opened.order
-                : (isAromaticSymbol(at(current)) && isAromaticSymbol(at(opened.atom)) ? 4 : 1);
+                : defaultBondOrder(at(opened.atom), at(current));
 
         addBond(opened.atom, current, order, position);
         pending = 0;
