@@ -33,3 +33,20 @@ export function assertClose(
         message ?? `expected ${actual} to be within ${eps} of ${expected} (was off by ${difference})`
     );
 }
+
+/**
+ * Assert that two matrices agree element-wise within `eps`. The camera tests
+ * compare whole orientations, and a per-element loop at every call site hid
+ * which entry had drifted.
+ */
+export function assertMatClose(
+    actual: readonly number[],
+    expected: readonly number[],
+    eps: number = 1e-12,
+    message: string = "matrix"
+): void {
+    assert.equal(actual.length, expected.length, `${message}: length`);
+    actual.forEach((value, index) =>
+        assertClose(value, expected[index], eps, `${message} [${index}]`)
+    );
+}

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { K } from "../src/K";
+import { fromYawPitch, identity, multiply, rotZ } from "../src/Mat3";
 import { point3, Point3D } from "../src/Point3D";
 import { CameraView, defaultCameraView, Projector } from "../src/Projector";
 import { Viewport } from "../src/Viewport";
@@ -37,8 +38,7 @@ function makeRandom(seed: number): () => number {
 test("forCanvas defaults to the identity camera that reduces to the 2D view", () => {
     const projector = Projector.forCanvas(800, 600);
 
-    assert.equal(projector.camera.yaw, 0);
-    assert.equal(projector.camera.pitch, 0);
+    assert.deepEqual(projector.camera.orientation, identity());
     assert.deepEqual(projector.camera.target, { x: 0, y: 0, z: 0 });
 
     // The 1:1 anchor needs focalLength === distance; if that ever drifts, the
@@ -76,7 +76,10 @@ test("the camera rotation is rigid: pairwise model distances are preserved", () 
     const rnd = makeRandom(12345);
 
     const projector = new Projector(
-        camera({ yaw: 0.7, pitch: -0.4, target: point3(10, -20, 30) }),
+        camera({
+            orientation: multiply(rotZ(0.35), fromYawPitch(0.7, -0.4)),
+            target: point3(10, -20, 30),
+        }),
         Viewport.forCanvas(800, 600)
     );
 
@@ -97,12 +100,12 @@ test("the camera rotation is rigid: pairwise model distances are preserved", () 
     }
 });
 
-test("the pitch clamp keeps the basis rigid and invertible (no pole flip)", () => {
+test("a camera at the elevation guard keeps the basis rigid and invertible (no pole flip)", () => {
     assert.ok(K.camera.maxPitch < Math.PI / 2, "the guard must be strictly inside the pole");
     assert.ok(K.camera.maxPitch > Math.PI / 2 - 0.1, "the guard should not give up much pitch");
 
     const projector = new Projector(
-        camera({ yaw: 1.1, pitch: K.camera.maxPitch }),
+        camera({ orientation: fromYawPitch(1.1, K.camera.maxPitch) }),
         Viewport.forCanvas(800, 600)
     );
 
@@ -131,9 +134,12 @@ test("unproject at a point's depth is the exact inverse of project", () => {
 
     const cameras = [
         camera(),
-        camera({ yaw: 0.6, pitch: 0.3 }),
-        camera({ yaw: -1.2, pitch: -0.9, target: point3(-50, 20, 80), distance: 900 }),
-        camera({ yaw: 2.4, pitch: K.camera.maxPitch, target: point3(120, -160, 150), distance: 1400 }),
+        camera({ orientation: fromYawPitch(0.6, 0.3) }),
+        camera({ orientation: fromYawPitch(-1.2, -0.9), target: point3(-50, 20, 80), distance: 900 }),
+        camera({ orientation: fromYawPitch(2.4, K.camera.maxPitch), target: point3(120, -160, 150), distance: 1400 }),
+        // A rolled orientation: the round trip must not depend on there being
+        // only two Euler angles.
+        camera({ orientation: multiply(rotZ(0.5), fromYawPitch(0.6, 0.3)), target: point3(10, -20, 30) }),
     ];
 
     let tested = 0;
@@ -164,7 +170,7 @@ test("unproject at a point's depth is the exact inverse of project", () => {
 
 test("unproject from a canvas point matches the projected-plane inverse", () => {
     const projector = new Projector(
-        camera({ yaw: 0.4, pitch: -0.2, target: point3(20, 30, -40), distance: 800 }),
+        camera({ orientation: fromYawPitch(0.4, -0.2), target: point3(20, 30, -40), distance: 800 }),
         Viewport.forCanvas(1024, 768)
     );
 

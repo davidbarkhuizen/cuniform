@@ -4,9 +4,10 @@ import assert from "node:assert/strict";
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
 import { K } from "../src/K";
+import { fromYawPitch, identity } from "../src/Mat3";
 import { Tag } from "../src/Tag";
 import { UIController } from "../src/UIController";
-import { assertClose } from "./support/assert";
+import { assertClose, assertMatClose } from "./support/assert";
 import {
     FakeCanvas,
     FakeDom,
@@ -71,8 +72,12 @@ test("middle-drag orbits the camera and leaves node positions untouched", () => 
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 150, clientY: 120 }));
 
         const rate = K.camera.orbitRadiansPerPixel;
-        assertClose(controller.state.camera.yaw, 50 * rate, 1e-12, "yaw");
-        assertClose(controller.state.camera.pitch, 20 * rate, 1e-12, "pitch");
+        assertMatClose(
+            controller.state.camera.orientation,
+            fromYawPitch(50 * rate, 20 * rate),
+            1e-12,
+            "orbit"
+        );
 
         assert.deepEqual({ ...a.position }, beforeA, "orbit must not touch the physics model");
         assert.deepEqual({ ...b.position }, beforeB, "orbit must not touch the physics model");
@@ -86,8 +91,12 @@ test("successive middle moves accumulate the orbit", () => {
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 200, clientY: 120 }));
 
         const rate = K.camera.orbitRadiansPerPixel;
-        assertClose(controller.state.camera.yaw, 100 * rate, 1e-12, "yaw");
-        assertClose(controller.state.camera.pitch, 20 * rate, 1e-12, "pitch");
+        assertMatClose(
+            controller.state.camera.orientation,
+            fromYawPitch(100 * rate, 20 * rate),
+            1e-12,
+            "orbit"
+        );
     });
 });
 
@@ -100,7 +109,7 @@ test("the first middle move only anchors the gesture and moves nothing", () => {
 
         assert.deepEqual({ ...a.position }, { x: 0, y: 0, z: 0 });
         assert.deepEqual({ ...b.position }, { x: 100, y: 100, z: 0 });
-        assert.equal(controller.state.camera.yaw, K.camera.yaw);
+        assert.deepEqual(controller.state.camera.orientation, identity());
         assert.deepEqual({ ...controller.state.lastMiddleDragPos }, { x: 400, y: 300 });
     });
 });
@@ -110,7 +119,7 @@ test("releasing the middle button clears the anchor and stops the gesture", () =
         controller.onMouseDown(mouseEvent({ button: 1, clientX: 100, clientY: 100 }));
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 150, clientY: 120 }));
 
-        const pausedYaw = controller.state.camera.yaw;
+        const pausedOrientation = controller.state.camera.orientation;
 
         controller.onMouseUp(mouseEvent({ button: 1, clientX: 150, clientY: 120 }));
 
@@ -119,7 +128,7 @@ test("releasing the middle button clears the anchor and stops the gesture", () =
 
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 300, clientY: 300 }));
 
-        assert.equal(controller.state.camera.yaw, pausedYaw);
+        assert.deepEqual(controller.state.camera.orientation, pausedOrientation);
     });
 });
 
@@ -307,16 +316,17 @@ test("a middle move while the left button is up does not follow the node-drag pa
 test("a reset rebuilds the graph without losing the viewing angle", () => {
     withFixture(({ controller }) => {
         controller.state.camera.orbit(40, 15);
+        // The console's roll is part of the viewing angle too, so it must
+        // survive a reset like the yaw and pitch do.
+        controller.state.camera.rotateLocal('z', 0.4);
         controller.state.camera.dolly(2);
 
-        const yaw = controller.state.camera.yaw;
-        const pitch = controller.state.camera.pitch;
+        const orientation = controller.state.camera.orientation;
         const distance = controller.state.camera.distance;
 
         controller.initialize();
 
-        assert.equal(controller.state.camera.yaw, yaw, "yaw must survive a reset");
-        assert.equal(controller.state.camera.pitch, pitch, "pitch must survive a reset");
+        assert.deepEqual(controller.state.camera.orientation, orientation, "orientation must survive a reset");
         assert.equal(controller.state.camera.distance, distance, "zoom must survive a reset");
     });
 });
