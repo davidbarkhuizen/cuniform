@@ -112,11 +112,21 @@ test("one step is exactly a synchronous update from the pre-step snapshot", () =
 });
 
 test("the solver source has no browser coupling", () => {
-    const source = readSource("ForceDirectedGraph.ts");
+    const solver = readSource("ForceDirectedGraph.ts");
 
-    assert.ok(!/\bwindow\b/.test(source), "solver must not reference window");
-    assert.ok(!/\bdocument\b/.test(source), "solver must not reference document");
+    assert.ok(!/\bwindow\b/.test(solver), "solver must not reference window");
+    assert.ok(!/\bdocument\b/.test(solver), "solver must not reference document");
 
-    const canvasTypeUses = source.split("CanvasRenderingContext2D").length - 1;
-    assert.equal(canvasTypeUses, 1, "the only canvas type should be render()'s parameter");
+    // Drawing lives in its own module now, so the solver's DOM-freedom is
+    // structural rather than a convention: there is no canvas type left in the
+    // file to reference.
+    const canvasTypeUses = solver.split("CanvasRenderingContext2D").length - 1;
+    assert.equal(canvasTypeUses, 0, "the solver must not name a canvas type");
+
+    const renderer = readSource("Renderer.ts");
+    assert.equal(
+        renderer.split("CanvasRenderingContext2D").length - 1,
+        1,
+        "Renderer is where render()'s canvas parameter lives"
+    );
 });

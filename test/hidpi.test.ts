@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
+import { render } from "../src/Renderer";
 import { Tag } from "../src/Tag";
 import { UIController } from "../src/UIController";
 import {
@@ -151,11 +151,10 @@ test("render clears the whole backing store in device space", () => {
     const a = new Tag({ x: 0, y: 0 }, "a");
     graph.addNode(a);
 
-    const fdg = new ForceDirectedGraph(graph);
     const context = new FakeContext2D();
     context.canvas = { width: 1200, height: 900 };
 
-    fdg.render(context as unknown as CanvasRenderingContext2D);
+    render(context as unknown as CanvasRenderingContext2D, graph);
 
     assert.deepEqual(context.transforms[0], [1, 0, 0, 1, 0, 0]);
     assert.deepEqual(context.clears[0], [0, 0, 1200, 900]);

@@ -5,20 +5,6 @@ import { point, Point2D, zero } from "./Point2D";
 import { Tag } from "./Tag";
 import { Viewport } from "./Viewport";
 
-/** Node markers are a filled dot; the selection ring is a larger stroke. */
-const NODE_RADIUS = 5;
-const SELECTION_RADIUS = 10;
-
-/** A full circle, traced clockwise from angle 0 to a whole turn. */
-const CIRCLE_START_ANGLE = 0;
-const CIRCLE_END_ANGLE = 2 * Math.PI;
-const CIRCLE_CLOCKWISE = true;
-
-/** The highlight colour when `active`, otherwise the base colour. */
-function colourFor(active: boolean, highlight: string, base: string): string {
-	return active ? highlight : base;
-}
-
 export class ForceDirectedGraph {
 
     graph: Graph;
@@ -27,72 +13,6 @@ export class ForceDirectedGraph {
     constructor(graph: Graph) {
         this.graph = graph;
     }
-
-	render(context: CanvasRenderingContext2D) {
-
-		const selected_node = this.graph.selectedVertex();
-        
-		// Clear the whole backing store in device space, independent of any
-		// devicePixelRatio transform the caller applied for HiDPI.
-		context.save();
-		context.setTransform(1, 0, 0, 1, 0, 0);
-		context.clearRect(0, 0, context.canvas.width, context.canvas.height);
-		context.restore();
-
-		// EDGES
-		//
-		for (const edge of this.graph.edges) {
-
-			const v1 = edge.v1;
-			const v2 = edge.v2;
-
-			context.strokeStyle = colourFor(
-				selected_node === v1 || selected_node === v2,
-				K.colours.edgeIncident,
-				K.colours.edgeDefault
-			);
-
-			// DRAW EDGE
-			//
-			context.beginPath();
-			context.moveTo(v1.translatedPosition.x, v1.translatedPosition.y);
-			context.lineTo(v2.translatedPosition.x, v2.translatedPosition.y);
-			context.stroke();
-		}
-
-		// A frame constant: nothing drawn inside the loop changes the font.
-		context.font = K.label.fontFamily;
-
-		// Trace a full circle at (x, y), ready to be filled or stroked.
-		const circle = (x: number, y: number, radius: number) => {
-			context.beginPath();
-			context.arc(x, y, radius, CIRCLE_START_ANGLE, CIRCLE_END_ANGLE, CIRCLE_CLOCKWISE);
-		};
-
-		for (const node of this.graph.vertices) {
-
-			const x = node.translatedPosition.x;
-			const y = node.translatedPosition.y;
-
-			// NODES
-			//
-			context.fillStyle = colourFor(node.isSelected, K.colours.nodeSelected, K.colours.nodeDefault);
-
-			circle(x, y, NODE_RADIUS);
-			context.fill();
-
-			if (node.isSelected) {
-				circle(x, y, SELECTION_RADIUS);
-				context.strokeStyle = K.colours.nodeSelected;
-				context.stroke();
-			}
-
-			// LABEL / TEXT
-			//
-			context.fillStyle = K.colours.label;
-			context.fillText(node.label, x + K.label.horizontalSpacing, y - K.label.verticalSpacing);
-		};
-	};
 
 	/**
 	 * Superpose one radial force onto the running (Fx, Fy) accumulator: a
@@ -301,49 +221,5 @@ export class ForceDirectedGraph {
 		for (const node of this.graph.vertices) {
 			node.translatedPosition = viewport.toCanvas(node.position);
 		}
-	};
-
-	/**
-	 * Resolve a canvas click to a node and apply it to the selection.
-	 *
-	 * One pass finds the nearest node inside the hit radius, then the whole
-	 * selection is cleared and the hit node is toggled - so clicking a selected
-	 * node deselects it, and clicking empty space clears the selection.
-	 *
-	 * Returns whether anything changed, which the pointer handler uses to decide
-	 * whether the info panel needs repainting.
-	 */
-	handleNodeSelectionAttempt(canvasPos: Point2D, canvasWidth: number, canvasHeight: number) {
-
-		var model = Viewport.forCanvas(canvasWidth, canvasHeight).toModel(canvasPos);
-
-		// Best distance so far, seeded with the squared hit radius so only a
-		// node inside it can win.
-		var best = K.ui.minimumNodeSelectionRadius * K.ui.minimumNodeSelectionRadius;
-		var closest: Tag | null = null;
-
-		for (const node of this.graph.vertices) {
-
-			const deltaX = node.position.x - model.x;
-			const deltaY = node.position.y - model.y;
-			const r2 = deltaX * deltaX + deltaY * deltaY;
-
-			// Strictly closer, so the first of two equidistant nodes wins.
-			if (r2 < best) {
-				best = r2;
-				closest = node;
-			}
-		}
-
-		// Capture the hit node's state before the clear, so the toggle still
-		// flips it: clearing first would always leave it unselected.
-		const hitWasSelected = closest !== null && closest.isSelected;
-		const hadSelection = this.graph.selectedVertex() !== null;
-		this.graph.clearSelection();
-
-		if (closest)
-			closest.isSelected = !hitWasSelected;
-
-		return closest !== null || hadSelection;
 	};
 };
