@@ -65,6 +65,31 @@ body
 	cursor			: move;
 }
 
+/*
+ * The panel's drag grip. It is the only touch drag surface, so the panel body
+ * stays scrollable; a mouse can still grab anywhere on the panel.
+ */
+.panelDragHandle
+{
+	display			: flex;
+	justify-content		: center;
+	align-items		: center;
+
+	margin			: -6px 0 10px;
+	padding			: 6px 0;
+
+	cursor			: move;
+}
+
+.panelDragGrip
+{
+	width			: 46px;
+	height			: 4px;
+
+	background-color	: rgba(34, 211, 238, 0.5);
+	border-radius		: 999px;
+}
+
 /* the fixed menu: identity and actions, always present */
 .overlayMenu
 {

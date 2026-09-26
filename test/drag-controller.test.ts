@@ -215,3 +215,65 @@ test("a press on the panel itself still drags", () => {
 
     assert.equal(panel.hasPointerCapture(13), true);
 });
+
+// ------------------------------------------------------------- touch handle
+
+/** The panel plus a grip at its top, built as the demo entrypoint builds it. */
+function panelWithHandle() {
+    const parent = new FakeElement('DIV');
+    parent.rect = { top: 30, left: 50, right: 1050, bottom: 830, width: 1000, height: 800, x: 50, y: 30 };
+
+    const panel = new FakeElement('DIV');
+    panel.parentElement = parent;
+    panel.rect = { top: 100, left: 150, right: 450, bottom: 500, width: 300, height: 400, x: 150, y: 100 };
+
+    const handle = new FakeElement('DIV');
+    handle.parentElement = panel;
+
+    const controller = new DragController(
+        panel as unknown as HTMLElement,
+        handle as unknown as HTMLElement
+    );
+
+    return { panel, handle, controller };
+}
+
+test("a handle scopes touch-action to the grip, leaving the panel scrollable", () => {
+    const { panel, handle } = panelWithHandle();
+
+    assert.equal(handle.style.touchAction, 'none', "the grip owns the touch drag");
+    assert.notEqual(panel.style.touchAction, 'none', "the panel body must stay touch-scrollable");
+    assert.equal(panel.style.userSelect, 'none');
+});
+
+test("a touch on the grip drags the panel", () => {
+    const { panel, handle } = panelWithHandle();
+
+    panel.dispatch('pointerdown', pointerEvent({ target: handle, pointerType: 'touch', pointerId: 21, clientX: 200, clientY: 200 }));
+    panel.dispatch('pointermove', pointerEvent({ target: handle, pointerType: 'touch', pointerId: 21, clientX: 260, clientY: 240 }));
+
+    assert.equal(panel.hasPointerCapture(21), true);
+    assert.equal(panel.style.left, '160px');
+    assert.equal(panel.style.top, '110px');
+});
+
+test("a touch on the panel body scrolls instead of dragging", () => {
+    const { panel } = panelWithHandle();
+    const body = controlIn(panel, 'SPAN');
+
+    panel.dispatch('pointerdown', pointerEvent({ target: body, pointerType: 'touch', pointerId: 22, clientX: 200, clientY: 200 }));
+    panel.dispatch('pointermove', pointerEvent({ target: body, pointerType: 'touch', pointerId: 22, clientX: 260, clientY: 240 }));
+
+    assert.equal(panel.hasPointerCapture(22), false, "the body touch must not be captured");
+    assert.equal(panel.style.left, undefined, "the panel must not move");
+});
+
+test("a mouse press still drags from the panel body when a handle exists", () => {
+    const { panel } = panelWithHandle();
+    const body = controlIn(panel, 'SPAN');
+
+    panel.dispatch('pointerdown', pointerEvent({ target: body, pointerType: 'mouse', pointerId: 23, clientX: 200, clientY: 200 }));
+    panel.dispatch('pointermove', pointerEvent({ target: body, pointerType: 'mouse', pointerId: 23, clientX: 230, clientY: 220 }));
+
+    assert.equal(panel.style.left, '130px');
+});

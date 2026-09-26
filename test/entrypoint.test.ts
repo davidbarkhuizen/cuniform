@@ -97,6 +97,32 @@ test("entrypoint still initializes when the optional drag panel is missing", () 
     });
 });
 
+test("entrypoint scopes the touch drag to the panel's grip", () => {
+    withFakeDom(demoElements(), dom => {
+        quietly(() => entrypoint(...IDS));
+
+        assert.equal(dom.elements.panelDragHandle.style.touchAction, 'none', "the grip owns the touch drag");
+        assert.notEqual(
+            dom.elements.selectionInfoPanel.style.touchAction,
+            'none',
+            "the panel body must stay touch-scrollable"
+        );
+    });
+});
+
+test("entrypoint falls back to the whole panel when the grip is missing", () => {
+    withFakeDom(demoElements(['panelDragHandle']), dom => {
+        const result = quietly(() => entrypoint(...IDS));
+
+        assert.ok(result);
+        assert.equal(
+            dom.elements.selectionInfoPanel.style.touchAction,
+            'none',
+            "without a grip the panel itself is the touch surface"
+        );
+    });
+});
+
 test("entrypoint reports failure when any required element is missing", () => {
     for (const missing of ['body', 'export_canvas_link', 'reset_link', 'selectedNodeInfoLabel', 'selectedNodeInfoList', 'currentGraphLabel', 'cameraConsole']) {
         withFakeDom(demoElements([missing]), dom => {

@@ -8,6 +8,9 @@ const CAMERA_CONSOLE_ID = 'cameraConsole';
 
 const CURRENT_GRAPH_LABEL_ID = 'currentGraphLabel';
 
+/** The panel's touch grip; without it the whole panel is the touch drag surface. */
+const PANEL_DRAG_HANDLE_ID = 'panelDragHandle';
+
 export const entrypoint = (
     selectionInfoPanelID: string,
     canvasElementID: string,
@@ -64,7 +67,7 @@ export const entrypoint = (
     const selectionInfoPanel = e(selectionInfoPanelID);
 
     if (selectionInfoPanel)
-        new DragController(selectionInfoPanel);
+        new DragController(selectionInfoPanel, e(PANEL_DRAG_HANDLE_ID));
     else
         console.error(`could not find selection info panel for ID: ${selectionInfoPanelID}`);
 

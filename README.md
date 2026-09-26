@@ -56,8 +56,10 @@ The graph **chooser** is not part of the panel: it is a modal dialog built in
 panel and the context menu. The two overlays can never be open at once.
 
 The panel is opaque and high-contrast so it stays readable over the graph, and
-the whole panel can be dragged out of the way. The console is excluded from that
-drag: a press that starts on a button never reaches the panel's drag handle.
+it can be dragged out of the way: with a mouse anywhere on the panel, or with a
+touch on the grip at its top, so the panel body stays scrollable. The console is
+excluded from that drag: a press that starts on a button never reaches the
+panel's drag surface.
 
 ## Interaction
 
@@ -85,11 +87,14 @@ drag: a press that starts on a button never reaches the panel's drag handle.
   it about the view axis. Unlike the middle-drag guard, an explicit axis rotation
   is free to carry the view through a pole.
 - **Right-click** — opens a context menu with `export`, `reset` and
-  `clear selection`. The native browser menu is suppressed.
+  `clear selection`. The native browser menu is suppressed. On macOS
+  `Ctrl+click` is the same gesture.
 - **Shift+F10** (or the context-menu key) — opens the same actions menu from
   the keyboard. Its entries are buttons: Tab or the arrow keys move between
   them, Enter or Space activates one, and Escape closes the menu.
-- **Drag the overlay panel** — the panel itself is movable, by mouse or by touch.
+- **Drag the overlay panel** — by mouse or pen, anywhere on the panel; by touch,
+  by the grip at its top. The grip is the only touch drag surface, so the panel
+  body stays scrollable.
 - **Graph chooser** — opens on first run and on every `reset`, and it is the only
   way a new graph is created. Step one picks a **random** graph or a
   **molecule**:

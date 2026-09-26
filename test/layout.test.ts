@@ -58,6 +58,19 @@ test("the panel's fixed menu comes before the selected-node section", () => {
     }
 });
 
+test("the panel's touch grip is inside the panel and precedes the menu", () => {
+    const panel = panelMarkup(readWeb("index.html"));
+
+    const handle = panel.indexOf('id="panelDragHandle"');
+    const menu = panel.indexOf('class="overlayMenu"');
+
+    assert.notEqual(handle, -1, "the panel needs a drag grip");
+    assert.ok(handle < menu, "the grip belongs at the top of the panel");
+
+    const css = readWeb("stylez.css");
+    assert.match(cssRule(css, ".panelDragHandle"), /cursor\s*:\s*move/, "the grip is a drag handle");
+});
+
 test("the current-graph line sits under the title inside the menu section", () => {
     const panel = panelMarkup(readWeb("index.html"));
 

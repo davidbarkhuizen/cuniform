@@ -375,6 +375,7 @@ export function demoElements(omit: string[] = []): Record<string, FakeElement> {
         export_canvas_link: new FakeElement('A'),
         reset_link: new FakeElement('A'),
         selectionInfoPanel: new FakeElement('DIV'),
+        panelDragHandle: new FakeElement('DIV'),
         selectedNodeInfoLabel: new FakeElement('LABEL'),
         selectedNodeInfoList: new FakeElement('UL'),
         currentGraphLabel: new FakeElement('DIV'),
@@ -540,6 +541,8 @@ export async function withUIControllerAsync<T>(
 export interface FakeMouseEvent {
     button: number; clientX: number; clientY: number;
     shiftKey: boolean;
+    /** True for the macOS context-menu gesture, which is a primary press. */
+    ctrlKey: boolean;
     /** The event target, so a delegated handler can be exercised. */
     target: unknown;
     /** The click count; 0 marks a keyboard or assistive-technology click. */
@@ -550,7 +553,7 @@ export interface FakeMouseEvent {
 // Mouse-event stand-in that records whether `preventDefault()` was called.
 export function mouseEvent(props: Partial<FakeMouseEvent> = {}): MouseEvent {
     const event: FakeMouseEvent = {
-        button: 0, clientX: 0, clientY: 0, shiftKey: false,
+        button: 0, clientX: 0, clientY: 0, shiftKey: false, ctrlKey: false,
         target: null, detail: 1,
         defaultPrevented: false,
         preventDefault: () => { event.defaultPrevented = true; },
@@ -580,6 +583,8 @@ export function wheelEvent(props: Partial<FakeWheelEvent> = {}): WheelEvent {
 export interface FakePointerEvent {
     button: number; clientX: number; clientY: number;
     pointerId: number;
+    /** 'mouse', 'pen' or 'touch'; only a touch is held to the drag handle. */
+    pointerType: string;
     /** The event target, so a delegated handler can be exercised. */
     target: unknown;
     propagationStopped: boolean;
@@ -591,7 +596,7 @@ export interface FakePointerEvent {
 // whether a handler stopped the event before it reached an ancestor's listener.
 export function pointerEvent(props: Partial<FakePointerEvent> = {}): PointerEvent {
     const event: FakePointerEvent = {
-        button: 0, clientX: 0, clientY: 0, pointerId: 1,
+        button: 0, clientX: 0, clientY: 0, pointerId: 1, pointerType: 'mouse',
         target: null,
         propagationStopped: false,
         defaultPrevented: false,
