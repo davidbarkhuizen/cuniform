@@ -101,6 +101,10 @@ canvas whose aspect ratio differs from the model square never stretches the
 layout. Callers get a mapping for a concrete canvas by asking for
 `Viewport.forCanvas(canvasW, canvasH)`, then calling `toCanvas()` / `toModel()`.
 
+Selection is the one measurement deliberately taken in canvas space rather than
+model space: the hit radius is a fixed number of screen pixels, so a click means
+the same target size at every canvas scale and `devicePixelRatio`.
+
 ### Constants
 
 All tuning lives in [`src/K.ts`](src/K.ts):
@@ -116,7 +120,7 @@ All tuning lives in [`src/K.ts`](src/K.ts):
 | `timeStep` | `0.1` | integration gain, **not** seconds |
 | `friction` | `0.9` | per-step velocity retained |
 | `timerTickPeriodMS` | `50` | one simulation step per tick |
-| `minimumNodeSelectionRadius` | `15.0` | click hit radius, model units |
+| `minimumNodeSelectionRadiusPx` | `15.0` | click hit radius, CSS pixels |
 
 Keep `timeStep / (1 - friction)` near `1`: that ratio is the terminal per-step
 displacement under a constant force, and it is a real stability constraint, not a

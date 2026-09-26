@@ -27,9 +27,14 @@ export const K = {
     },
 
     ui: {
-        // 2.5% of the model width, matching the reference's 15.0 in a
-        // 600-unit world.
-        minimumNodeSelectionRadius : 15.0,
+        /**
+         * Click hit radius in CSS pixels, independent of canvas size and
+         * devicePixelRatio. Replaces the reference model's 15.0-model-unit
+         * radius: a constant screen target is what "click the node" should
+         * mean, and the model-space version scaled with the viewport (10 px to
+         * 50 px across realistic windows).
+         */
+        minimumNodeSelectionRadiusPx : 15.0,
     },
 
     space: {
