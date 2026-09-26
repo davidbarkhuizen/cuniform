@@ -23,23 +23,37 @@ acceptance criterion.
 
 ## Status after the physics alignment
 
-`PHYSICS_ALIGNMENT_PLAN.md` was executed in five focused PRs (`#22`–`#26`).
+`PHYSICS_ALIGNMENT_PLAN.md` was executed in five focused PRs (`#22`–`#26`);
+PRs `#28`–`#29` then added a `cli` entry point, which is why 6.1 and 6.8 read
+partially done below.
 
-**Done:**
+Every phase heading and table row below carries a per-item status:
 
-| Item | Landed as |
+| Marker | Meaning |
 | --- | --- |
-| 0.1 solver purity (no `window` in the solver) | PR #22 |
-| 0.4 `typecheck` / `test` / `ci` scripts | PR #22 |
-| 1.1 unstable integration | PR #23 |
-| 1.2 mis-scaled force constants and world | PRs #23, #24 |
-| 1.3 misleading `displacementAtNode` comment | PR #23 |
-| 3.1 position dedup never worked | PR #26 |
-| 3.2 complete graph, argument ignored | PR #26 |
-| 5.1 `window.state` read out of the solver | PR #22 (UI globals remain) |
-| 5.3 dead branch in the spring force | PR #23 |
+| ✅ | Done |
+| ⬜ | Open |
+| ◐ | Partially done |
+| ➖ | Superseded — no longer needed as written |
+| 🔒 | Deliberately not done |
 
-**Deliberately not done:**
+**Completed by the alignment work:** 0.1, 0.2, 0.4, 1.1, 1.2, 1.3, 3.1, 3.2,
+5.1 (solver side), 5.3, 6.6, and effectively 6.9.
+
+**Still open:** Phase 2 (2.1–2.3), Phase 4 (4.1–4.3), 5.2, 5.4, and Phase 6
+items 6.2, 6.3, 6.4, 6.5, 6.7, 6.8, 6.10. 6.1 is half done — `test` was
+replaced with a real runner in PR #22, but `dev` still runs `nodemon` with no
+entry target.
+
+**Resolved differently:** 0.3 — no reusable DOM stub was written, because the
+solver was made DOM-free instead, so the tests need no stub at all
+(`test/support/physics.ts`).
+
+**Reclassified, not a defect:** 5.5 (drag jump) matches the reference's own
+pointer handling (`PHYSICS_ALIGNMENT_PLAN.md` §3.2 item 10); it is a UX
+preference, so it stays unimplemented.
+
+**Deliberately deferred (not alignment work):**
 
 - **1.2's `r2 + eps` softening.** The reference keeps the exact `r == 0` guard
   and nothing more, so the guard is retained. Softening is parked as a
@@ -47,8 +61,8 @@ acceptance criterion.
 - **5.2 spring force is O(V·E).** Still true; an adjacency list is a
   performance change, not a physics-alignment one.
 
-**Still open from this document:** Phases 2, 4 and 6 (drag controller,
-entrypoint, rendering, data-model and tooling items), plus 5.2.
+Statuses last verified against `main` (`7f8c8f1`), where `npm test` passes all
+34 tests.
 
 ### Corrections to the diagnoses above
 
@@ -81,12 +95,12 @@ entrypoint, rendering, data-model and tooling items), plus 5.2.
 nonexistent `test` binary, and the simulation reads `window.state` directly, so
 it cannot be exercised headlessly.
 
-| # | Change | File |
-|---|---|---|
-| 0.1 | Remove the `window.state` read from the solver so `ForceDirectedGraph.iterate` is pure w.r.t. injected state (see 5.1). Until then, tests stub the global. | `src/ForceDirectedGraph.ts` |
-| 0.2 | Add `node:test` specs run through the already-present `ts-node`. No new dependencies. | `package.json`, `test/*.test.ts` |
-| 0.3 | Extract the DOM/canvas stubs used during review into a reusable harness. | `test/helpers/dom.ts` |
-| 0.4 | Add scripts: `typecheck` (`tsc --noEmit`), `test` (`ts-node --test`), `ci` (typecheck + build + test). | `package.json` |
+| # | Change | File | Status |
+|---|---|---|---|
+| 0.1 | Remove the `window.state` read from the solver so `ForceDirectedGraph.iterate` is pure w.r.t. injected state (see 5.1). Until then, tests stub the global. | `src/ForceDirectedGraph.ts` | ✅ PR #22 |
+| 0.2 | Add `node:test` specs run through the already-present `ts-node`. No new dependencies. | `package.json`, `test/*.test.ts` | ✅ PR #22 (compiled with `tsc`, not `ts-node` — see `PHYSICS_ALIGNMENT_PLAN.md` §5 Phase 0.2) |
+| 0.3 | Extract the DOM/canvas stubs used during review into a reusable harness. | `test/helpers/dom.ts` | ➖ Superseded — the solver was made DOM-free, so no stub is needed (`test/support/physics.ts`) |
+| 0.4 | Add scripts: `typecheck` (`tsc --noEmit`), `test` (`ts-node --test`), `ci` (typecheck + build + test). | `package.json` | ✅ PR #22 |
 
 **Acceptance:** `npm run ci` passes on the unfixed tree *except* for the tests
 that assert the corrected behaviour (those are added in Phase 1 and must fail
@@ -94,9 +108,9 @@ first).
 
 ---
 
-## Phase 1 — The solver (highest priority)
+## Phase 1 — The solver (highest priority) — ✅ Complete
 
-### 1.1 Unstable integration
+### 1.1 Unstable integration — ✅ Done (PR #23)
 
 - **Where:** `src/ForceDirectedGraph.ts:276-290` (`displacementAtNode`), `:325-334` (apply loop)
 - **Defect:** net force is used directly as a position delta. No mass, no
@@ -131,7 +145,7 @@ first).
   - node spread `stddev(x) > 200` and `stddev(y) > 100` (not a blob);
   - mean edge length within `[0.5, 2.0] × equilibriumDisplacement`.
 
-### 1.2 Repulsion and rest length are mis-scaled for the world
+### 1.2 Repulsion and rest length are mis-scaled for the world — ✅ Done (PRs #23, #24, via the reference constants rather than the provisional values below)
 
 - **Where:** `src/K.ts:5-7` vs `K.space.W_0/H_0`
 - **Defect:** with `equilibriumDisplacement = 40` in a 2000×1232 world, even a
@@ -152,16 +166,16 @@ first).
 - **Acceptance:** the blob test above passes *and* the rendered graph visibly
   fills the canvas.
 
-### 1.3 Remove the misleading doc comment
+### 1.3 Remove the misleading doc comment — ✅ Done (PR #23)
 
 - **Where:** `src/ForceDirectedGraph.ts:278` — `// ERROR - DISPLACEMENT IS ! USING VELOCITY`
 - **Fix:** delete once 1.1 is done; the comment describes the bug being fixed.
 
 ---
 
-## Phase 2 — Runtime-breaking defects
+## Phase 2 — Runtime-breaking defects — ⬜ Open
 
-### 2.1 Panel dragging assigns a literal string
+### 2.1 Panel dragging assigns a literal string — ⬜ Open
 
 - **Where:** `src/DragController.ts:49-50`
 - **Defect:** `` `$(this.dragY + this.startTop)` `` — the `$` sits outside the
@@ -180,7 +194,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 - **Consider:** `DragController` sets `draggable = true` on the panel, which
   makes text selection inside the panel awkward. Verify this is still wanted.
 
-### 2.2 App refuses to start without an unused feature
+### 2.2 App refuses to start without an unused feature — ⬜ Open
 
 - **Where:** `src/entrypoint.ts:32-33`
 - **Defect:** hard requirement on `window.Worker`, but no worker is ever
@@ -191,7 +205,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
   branch. Keep the `context2d == null` check (that one is real).
 - **Acceptance:** entrypoint initializes with `window.Worker` undefined.
 
-### 2.3 Missing return value / dead error handling
+### 2.3 Missing return value / dead error handling — ⬜ Open
 
 - **Where:** `src/entrypoint.ts:9,21-26,60`
 - **Defect:** declared `: boolean` but the success path falls off the end and
@@ -203,9 +217,9 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 
 ---
 
-## Phase 3 — Graph construction correctness
+## Phase 3 — Graph construction correctness — ✅ Complete
 
-### 3.1 Deduplication never works
+### 3.1 Deduplication never works — ✅ Done (PR #26)
 
 - **Where:** `src/GraphFactory.ts:16-19`
 - **Defect:** `used.indexOf({x, y})` compares object references, so it is
@@ -221,7 +235,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
     converge.
 - **Acceptance:** test asserting all initial positions are unique for n=100.
 
-### 3.2 `generateGraph` produces a complete graph and ignores its argument
+### 3.2 `generateGraph` produces a complete graph and ignores its argument — ✅ Done (PR #26)
 
 - **Where:** `src/GraphFactory.ts:33,45-57`
 - **Defect:** the doc promises at most `maxEdgesPerVertexPerPass` edges per node;
@@ -236,9 +250,9 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 
 ---
 
-## Phase 4 — Rendering and data-model correctness
+## Phase 4 — Rendering and data-model correctness — ⬜ Open
 
-### 4.1 Edge highlighting is a no-op
+### 4.1 Edge highlighting is a no-op — ⬜ Open (still both branches assign `COLOUR_DEFAULT`)
 
 - **Where:** `src/ForceDirectedGraph.ts:66-83`
 - **Defect:** both branches of the selection check assign `COLOUR_DEFAULT`;
@@ -249,7 +263,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 - **Acceptance:** render test asserting the stroke colour used for an incident
   edge differs from a non-incident edge.
 
-### 4.2 `removeNode` can delete the wrong vertex
+### 4.2 `removeNode` can delete the wrong vertex — ⬜ Open (no `indexOf` guard; the truncated bare-string throw is still there)
 
 - **Where:** `src/Graph.ts:13-32`
 - **Defect:** no `indexOf` guard. For a tag not in the graph, `splice(-1, 1)`
@@ -261,7 +275,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 - **Acceptance:** test that removing a foreign tag leaves the vertex list
   untouched; test that removing a real node also removes its edges.
 
-### 4.3 `neighbours` returns duplicates and self-loops
+### 4.3 `neighbours` returns duplicates and self-loops — ⬜ Open (`hasEdge` was added in PR #26, but `neighbours` still repeats per edge)
 
 - **Where:** `src/Graph.ts:45-59`
 - **Fix:** dedupe; the UI list currently repeats a neighbour once per edge.
@@ -269,9 +283,9 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 
 ---
 
-## Phase 5 — Architecture and performance
+## Phase 5 — Architecture and performance — ◐ Partial
 
-### 5.1 Break the `window` globals out of the core
+### 5.1 Break the `window` globals out of the core — ✅ Done, solver side (PRs #22, #25)
 
 - **Where:** `src/UIController.ts` (`window.state`, `window.fdg`),
   `src/ForceDirectedGraph.ts:327`
@@ -284,13 +298,13 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
   debugging if desired.
 - **Acceptance:** the Phase 1 solver test runs with no DOM stub at all.
 
-### 5.2 Spring force is O(V·E)
+### 5.2 Spring force is O(V·E) — ⬜ Open (`netSpringForceAtNode` still scans every edge per node)
 
 - **Where:** `src/ForceDirectedGraph.ts:186-258`
 - **Fix:** iterate the node's incident edges via an adjacency list built once
   per graph mutation, not all edges per node. Prerequisite for scaling past K10.
 
-### 5.3 Dead branch in the spring force
+### 5.3 Dead branch in the spring force — ✅ Done (PR #23, as `k*(r - l)` along `unit(A → other)`, not by simple deletion — see the corrections above)
 
 - **Where:** `src/ForceDirectedGraph.ts:228-249`
 - **Defect:** the `tag_A`/`tag_B` swap based on `scalar_force`'s sign followed by
@@ -298,7 +312,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
   already computed at `:212-213` and discarded.
 - **Fix:** delete the swap; reuse the existing deltas.
 
-### 5.4 Remove dead locals and parameters
+### 5.4 Remove dead locals and parameters — ⬜ Open (`box_side`, `node_label_vert_spacing`, `selectionInfoPanelID`, `State.b1Down`/`b2Down`/`lastB0DragPos`, `Tag.xy`, the `Tag`/`Graph` `toString` stubs all remain)
 
 - **Where:** `box_side` (`ForceDirectedGraph.ts:85`), `here` (`:311`),
   `node_label_vert_spacing` (`:52`), `selectionInfoPanelID` (unused — see 6.3),
@@ -308,7 +322,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
   not, remove the fields and the `onMouseDown`/`onMouseUp`/`onMouseOut` handling
   for them.
 
-### 5.5 Node dragging jumps the node center to the cursor
+### 5.5 Node dragging jumps the node center to the cursor — 🔒 By design (matches the reference's pointer handling; kept as-is)
 
 - **Where:** `src/UIController.ts:44-63`
 - **Defect:** the selected node is placed at the mouse position with no grab
@@ -321,38 +335,47 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 
 ---
 
-## Phase 6 — Configuration, tooling, hygiene
+## Phase 6 — Configuration, tooling, hygiene — ⬜ Open (6.6 done, 6.1 partial)
 
-| # | Change | File |
-|---|---|---|
-| 6.1 | `"test": "test"` invokes a nonexistent binary; `"dev": "nodemon"` has no entry target. Replace with real scripts (Phase 0.4). | `package.json` |
-| 6.2 | Remove unused `@types/express`; declare `@types/node` (used for `NodeJS.Timeout`) or drop the Node type (6.4). | `package.json` |
-| 6.3 | `selectionInfoPanelID` is accepted and passed but never used — `updateSelectionInfo` hardcodes `getElementById` calls. Either thread the ID through or drop the parameter. Add null checks for the two hardcoded elements. | `entrypoint.ts`, `UIController.ts:188-199` |
-| 6.4 | `timer: NodeJS.Timeout` pulls Node typings into a browser project. Use `ReturnType<typeof setInterval>`. | `UIController.ts:16` |
-| 6.5 | Enable `strict`, `strictNullChecks`, `noUnusedLocals`, `noUnusedParameters` — these surface 8 real findings today and would have caught 2.3. | `tsconfig.json` |
-| 6.6 | Add `"skipLibCheck": true` or pin `@types/node`; the hoisted version produces 40+ spurious errors against TS 4.9.5. | `tsconfig.json` / `package.json` |
-| 6.7 | Set `mode` explicitly (currently warns and silently falls back to `production`, hiding stack traces in a dev-oriented script). | `webpack.config.js` |
-| 6.8 | Stop hardcoding `/usr/bin/google-chrome`; separate build from launch so CI can build. | `build-and-run.sh` |
-| 6.9 | `.gitignore` lists `**.js`, `**.js.map`, `**.d.ts` but `dist/main.js.map` and `dist/src/*.d.ts` are already tracked, so the rules do nothing. Either `git rm --cached` the build output or drop the rules and commit deliberately. | `.gitignore` |
-| 6.10 | Add `devicePixelRatio` scaling so the canvas is not blurry on HiDPI displays. | `UIController.initialize` |
+| # | Change | File | Status |
+|---|---|---|---|
+| 6.1 | `"test": "test"` invokes a nonexistent binary; `"dev": "nodemon"` has no entry target. Replace with real scripts (Phase 0.4). | `package.json` | ◐ `test` fixed in PR #22; `dev` still `nodemon` with no target |
+| 6.2 | Remove unused `@types/express`; declare `@types/node` (used for `NodeJS.Timeout`) or drop the Node type (6.4). | `package.json` | ⬜ Open |
+| 6.3 | `selectionInfoPanelID` is accepted and passed but never used — `updateSelectionInfo` hardcodes `getElementById` calls. Either thread the ID through or drop the parameter. Add null checks for the two hardcoded elements. | `entrypoint.ts`, `UIController.ts:188-199` | ⬜ Open |
+| 6.4 | `timer: NodeJS.Timeout` pulls Node typings into a browser project. Use `ReturnType<typeof setInterval>`. | `UIController.ts:16` | ⬜ Open |
+| 6.5 | Enable `strict`, `strictNullChecks`, `noUnusedLocals`, `noUnusedParameters` — these surface 8 real findings today and would have caught 2.3. | `tsconfig.json` | ⬜ Open |
+| 6.6 | Add `"skipLibCheck": true` or pin `@types/node`; the hoisted version produces 40+ spurious errors against TS 4.9.5. | `tsconfig.json` / `package.json` | ✅ `skipLibCheck` added in PR #22 |
+| 6.7 | Set `mode` explicitly (currently warns and silently falls back to `production`, hiding stack traces in a dev-oriented script). | `webpack.config.js` | ⬜ Open |
+| 6.8 | Stop hardcoding `/usr/bin/google-chrome`; separate build from launch so CI can build. | `build-and-run.sh` | ◐ `./cli build` (PR #28) separates build from launch; the hardcoded Chrome path remains in `build-and-run.sh` |
+| 6.9 | `.gitignore` lists `**.js`, `**.js.map`, `**.d.ts` but `dist/main.js.map` and `dist/src/*.d.ts` are already tracked, so the rules do nothing. Either `git rm --cached` the build output or drop the rules and commit deliberately. | `.gitignore` | ➖ Resolved — no build output is tracked any more (`dist/` holds only `index.html` and `stylez.css`); the rules are inert but harmless |
+| 6.10 | Add `devicePixelRatio` scaling so the canvas is not blurry on HiDPI displays. | `UIController.initialize` | ⬜ Open |
 
 ---
 
 ## Suggested PR sequence
 
-1. **PR 1 — Phase 1 only.** Solver rewrite + `K.physics` retune + the Phase 0
-   harness minimal enough to run the convergence test. Highest risk; land alone.
-2. **PR 2 — Phase 2 + 3.** Small, independent runtime/graph-construction fixes.
-3. **PR 3 — Phase 4 + 5.4.** Rendering and data-model correctness plus dead code.
-4. **PR 4 — Phase 5.1–5.3.** Architecture and performance refactor (behaviour-preserving).
-5. **PR 5 — Phase 6.** Tooling, strictness, hygiene.
+The original sequence is spent: PR 1 (Phase 1 + harness) and the graph-construction
+half of PR 2 landed as `#22`–`#26`, and PR 4's solver work landed as `#22`/`#25`.
+What remains is:
+
+1. **PR — Phase 2.** The three runtime-breaking defects (drag string, `Worker`
+   requirement, missing return). Small and independent.
+2. **PR — Phase 4 + 5.4.** Edge highlighting, `removeNode`, `neighbours`, and the
+   dead-locals sweep.
+3. **PR — 5.2 + 6.10.** Adjacency list for the spring pass and HiDPI scaling
+   (both touch rendering/`iterate`, so they pair naturally).
+4. **PR — Phase 6 remainder.** Strictness, dependency and script hygiene.
 
 ## Open decisions for the maintainer
 
-- **1.1:** hand-rolled semi-implicit Euler vs. Fruchterman–Reingold temperature
-  schedule. Recommendation: FR if the force model resists tuning.
-- **3.1:** keep the (currently broken) unique-position constraint, or drop it for
-  a jittered-grid seeding strategy?
-- **5.4:** are middle/right mouse buttons and multi-select intended features, or
-  dead scaffolding to delete?
-- **6.9:** should `dist/` build output stay in the repository at all?
+- **1.1 — settled.** The reference integrator (damped semi-implicit Euler with
+  `FRICTION`/`TIME_STEP`) was adopted in PR #23. No Fruchterman–Reingold
+  temperature schedule was added; it remains a Phase 6 extension in
+  `PHYSICS_ALIGNMENT_PLAN.md`.
+- **3.1 — settled.** The uniqueness constraint was kept, fixed by value
+  comparison, and given a 1000-attempt cap (PR #26). Jittered-grid seeding was
+  not adopted.
+- **5.4 — open.** Are middle/right mouse buttons and multi-select intended
+  features, or dead scaffolding to delete? Still unanswered.
+- **6.9 — settled.** No `dist/` build output is tracked any more; only the
+  hand-authored `index.html` and `stylez.css` remain.
