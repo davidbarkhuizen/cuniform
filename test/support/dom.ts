@@ -52,6 +52,9 @@ export class FakeElement {
     width = 0;
     height = 0;
     innerHTML = '';
+    /** Anchor-only fields, so an export download can be observed. */
+    href = '';
+    download = '';
     children: FakeElement[] = [];
     /** Overrides what getBoundingClientRect() returns. */
     rect: FakeRect = rect();
@@ -60,6 +63,13 @@ export class FakeElement {
 
     constructor(tagName = 'DIV') {
         this.tagName = tagName;
+    }
+
+    /** Number of times click() has been called directly. */
+    clickCount = 0;
+
+    click() {
+        this.clickCount++;
     }
 
     addEventListener(type: string, fn: Listener) {
@@ -184,6 +194,10 @@ export interface FakeDom {
     intervals: Array<{ id: number; fn: (...args: any[]) => void }>;
     /** Listeners registered on `window`, so viewport events can be fired. */
     windowListeners: Map<string, Listener[]>;
+    /** Every element createElement() has built, in creation order. */
+    createdElements: FakeElement[];
+    /** Object-URL traffic, so a blob: export can be observed. */
+    objectUrls: { created: string[]; revoked: string[] };
     restore: () => void;
 }
 
@@ -204,13 +218,35 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
         setInterval: global.setInterval,
         clearInterval: global.clearInterval,
         confirm: global.confirm,
+        URL: global.URL,
     };
 
     const intervals: Array<{ id: number; fn: (...args: any[]) => void }> = [];
 
+    const createdElements: FakeElement[] = [];
+
     const documentStub = {
         getElementById: (id: string) => elements[id] ?? null,
-        createElement: (tag: string) => new FakeElement(tag.toUpperCase()),
+        createElement: (tag: string) => {
+            const element = new FakeElement(tag.toUpperCase());
+            createdElements.push(element);
+            return element;
+        },
+    };
+
+    // Object URLs are recorded rather than created: the test only needs to
+    // know that a blob: URL was minted, handed to a download, and released.
+    const objectUrls: { created: string[]; revoked: string[] } = { created: [], revoked: [] };
+
+    const urlStub = {
+        createObjectURL: (_blob: unknown): string => {
+            const url = `blob:cuniform/${objectUrls.created.length + 1}`;
+            objectUrls.created.push(url);
+            return url;
+        },
+        revokeObjectURL: (url: string): void => {
+            objectUrls.revoked.push(url);
+        },
     };
 
     const windowListeners: Map<string, Listener[]> = new Map();
@@ -234,6 +270,7 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
     global.document = documentStub;
     global.window = windowStub;
     global.confirm = () => false;
+    global.URL = urlStub as unknown as typeof URL;
     global.setInterval = (fn: (...args: any[]) => void) => {
         const id = intervals.length + 1;
         intervals.push({ id, fn });
@@ -252,12 +289,15 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
         elements,
         intervals,
         windowListeners,
+        createdElements,
+        objectUrls,
         restore: () => {
             global.document = previous.document;
             global.window = previous.window;
             global.setInterval = previous.setInterval;
             global.clearInterval = previous.clearInterval;
             global.confirm = previous.confirm;
+            global.URL = previous.URL;
         },
     };
 }

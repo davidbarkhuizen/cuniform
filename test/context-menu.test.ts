@@ -8,10 +8,12 @@ import {
     FakeDom,
     FakeElement,
     demoElements,
+    installFakeDom,
     mouseEvent,
     newUIController,
     withFakeDom,
 } from "./support/dom";
+import { readSource } from "./support/files";
 
 interface Fixture {
     dom: FakeDom;
@@ -31,6 +33,31 @@ function withController<T>(fn: (ui: Fixture) => T): T {
 
         return fn({ dom, elements, canvas, controller });
     });
+}
+
+/**
+ * Like withController(), but keeps the fake DOM installed until the callback
+ * settles. Export defers its object-URL revocation to a timer, so a caller that
+ * awaits it must not have had the fake URL namespace restored underneath it.
+ */
+async function withControllerAsync<T>(fn: (ui: Fixture) => Promise<T> | T): Promise<T> {
+    const elements = demoElements();
+    const dom = installFakeDom(elements);
+
+    try {
+        const canvas = elements.canvas as FakeCanvas;
+        const controller = newUIController(elements);
+        controller.initialize();
+
+        return await fn({ dom, elements, canvas, controller });
+    } finally {
+        dom.restore();
+    }
+}
+
+/** Let every pending setTimeout(..., 0) callback run. */
+function flushDeferred() {
+    return new Promise(resolve => setTimeout(resolve, 0));
 }
 
 function rightClick(canvas: FakeCanvas, x = 250, y = 150) {
@@ -151,18 +178,61 @@ test("clear selection deselects every node and resets the info panel", () => {
     });
 });
 
-test("export opens the canvas PNG data URL", () => {
-    withController(({ dom, controller }) => {
-        const opened: string[] = [];
-        dom.window.open = (url: string): null => {
-            opened.push(url);
-            return null;
-        };
-
+test("export navigates to a blob: URL, not a data: URL", async () => {
+    await withControllerAsync(async ({ dom, controller }) => {
         entry(controller, 'export').dispatch('click');
 
-        assert.deepEqual(opened, ['data:image/png;base64,FAKE']);
+        assert.equal(dom.objectUrls.created.length, 1, "export should mint exactly one object URL");
+        assert.ok(
+            dom.objectUrls.created[0].startsWith('blob:'),
+            `expected a blob: URL, got ${dom.objectUrls.created[0]}`
+        );
+        assert.ok(
+            !dom.objectUrls.created.some(url => url.startsWith('data:')),
+            "a data: URL is blocked by browsers and must never be a transport"
+        );
+
+        await flushDeferred();
     });
+});
+
+test("export triggers a download named cuniform.png", async () => {
+    await withControllerAsync(async ({ dom, controller }) => {
+        entry(controller, 'export').dispatch('click');
+
+        const anchor = dom.createdElements.filter(e => e.tagName === 'A').pop();
+
+        assert.ok(anchor, "export should create an anchor to carry the download");
+        assert.equal(anchor!.download, 'cuniform.png');
+        assert.equal(anchor!.href, dom.objectUrls.created[0], "the anchor must point at the object URL");
+        assert.equal(anchor!.clickCount, 1, "the anchor must be clicked to start the download");
+
+        await flushDeferred();
+    });
+});
+
+test("export revokes the object URL it created", async () => {
+    await withControllerAsync(async ({ dom, controller }) => {
+        entry(controller, 'export').dispatch('click');
+
+        assert.deepEqual(dom.objectUrls.revoked, [], "revocation must be deferred, not synchronous");
+
+        // The revoke runs from setTimeout(..., 0), so let the macrotask run
+        // while the fake URL namespace is still installed.
+        await flushDeferred();
+
+        assert.deepEqual(dom.objectUrls.revoked, dom.objectUrls.created);
+    });
+});
+
+test("UIController exports through an object URL, never a data: URL", () => {
+    const source = readSource("UIController.ts");
+
+    // The original bug: window.open(canvas.toDataURL(...)) opens a window that
+    // no current browser permits to navigate. The scheme is the contract.
+    assert.ok(!/\bwindow\.open\b/.test(source), "export must not use window.open");
+    assert.ok(/\bURL\.createObjectURL\b/.test(source), "export must build an object URL");
+    assert.ok(/\bURL\.revokeObjectURL\b/.test(source), "the object URL must be released");
 });
 
 test("reset asks for confirmation before rebuilding", () => {
