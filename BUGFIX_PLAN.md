@@ -41,12 +41,13 @@ Every phase heading and table row below carries a per-item status:
 5.1 (solver side), 5.3, 6.6, and effectively 6.9.
 
 **Completed since:** Phase 2 (2.1–2.3) in PR #31; Phase 4 (4.1–4.3) and the safe
-half of 5.4 in PR #32.
+half of 5.4 in PR #32; the 5.4 button features (middle-drag pan, right-click
+context menu) in PR #33.
 
-**Still open:** 5.2, the button/`selectionInfoPanelID` remainder of 5.4, and
-Phase 6 items 6.2, 6.3, 6.4, 6.5, 6.7, 6.8, 6.10. 6.1 is half done — `test` was
-replaced with a real runner in PR #22, but `dev` still runs `nodemon` with no
-entry target.
+**Still open:** 5.2, the `selectionInfoPanelID` half of 5.4 (tracked as 6.3),
+and Phase 6 items 6.2, 6.3, 6.4, 6.5, 6.7, 6.8, 6.10. 6.1 is half done — `test`
+was replaced with a real runner in PR #22, but `dev` still runs `nodemon` with
+no entry target.
 
 **Resolved differently:** 0.3 — no reusable DOM stub was written, because the
 solver was made DOM-free instead, so the tests need no stub at all
@@ -317,7 +318,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
   already computed at `:212-213` and discarded.
 - **Fix:** delete the swap; reuse the existing deltas.
 
-### 5.4 Remove dead locals and parameters — ◐ Partially done (PR #32)
+### 5.4 Remove dead locals and parameters — ✅ Done (PRs #32, #33)
 
 - **Where:** `box_side` (`ForceDirectedGraph.ts:85`), `here` (`:311`),
   `node_label_vert_spacing` (`:52`), `selectionInfoPanelID` (unused — see 6.3),
@@ -328,9 +329,11 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
   for them.
 - **Resolved (PR #32):** `box_side`, `node_label_vert_spacing`, `Tag.xy` and the
   `Tag`/`Graph` `toString` stubs are gone (`here` no longer exists).
-- **Maintainer decision:** middle/right-button tracking **is** planned, so those
-  fields stay and are implemented as real behaviour in the button-interaction
-  PR rather than deleted. `selectionInfoPanelID` is resolved under 6.3.
+- **Maintainer decision:** middle/right-button tracking **is** wanted, so those
+  fields stayed and are now real behaviour (PR #33): middle-drag pans the graph
+  and right-click opens a context menu. `lastB0DragPos` was replaced by
+  `State.lastMiddleDragPos`, which the pan actually reads.
+- **Still open here:** `selectionInfoPanelID` — resolved under 6.3.
 
 ### 5.5 Node dragging jumps the node center to the cursor — 🔒 By design (matches the reference's pointer handling; kept as-is)
 
@@ -373,7 +376,7 @@ What remains is:
 2. **PR — Phase 4 + 5.4.** Edge highlighting, `removeNode`, `neighbours`, and the
    dead-locals sweep. **Landed as #32.**
 3. **PR — 5.4 button features.** Middle-drag pans the graph; right-click opens a
-   context menu (reset / export / clear selection).
+   context menu (reset / export / clear selection). **Landed as #33.**
 4. **PR — 5.2 + 6.10.** Adjacency list for the spring pass and HiDPI scaling
    (both touch rendering/`iterate`, so they pair naturally).
 5. **PR — Phase 6 remainder.** Strictness, dependency and script hygiene.
