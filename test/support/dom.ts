@@ -449,6 +449,7 @@ export function newUIController(
 
 export interface FakeMouseEvent {
     button: number; clientX: number; clientY: number;
+    shiftKey: boolean;
     defaultPrevented: boolean; preventDefault: () => void;
 }
 
@@ -460,13 +461,33 @@ export interface FakeMouseEvent {
  */
 export function mouseEvent(props: Partial<FakeMouseEvent> = {}): MouseEvent {
     const event: FakeMouseEvent = {
-        button: 0, clientX: 0, clientY: 0,
+        button: 0, clientX: 0, clientY: 0, shiftKey: false,
         defaultPrevented: false,
         preventDefault: () => { event.defaultPrevented = true; },
         ...props,
     };
 
     return event as unknown as MouseEvent;
+}
+
+export interface FakeWheelEvent {
+    deltaY: number; clientX: number; clientY: number;
+    defaultPrevented: boolean; preventDefault: () => void;
+}
+
+/**
+ * A wheel-event stand-in for the dolly. `deltaY` is what the handler reads;
+ * the coordinates are carried so a caller can build a realistic event.
+ */
+export function wheelEvent(props: Partial<FakeWheelEvent> = {}): WheelEvent {
+    const event: FakeWheelEvent = {
+        deltaY: 0, clientX: 0, clientY: 0,
+        defaultPrevented: false,
+        preventDefault: () => { event.defaultPrevented = true; },
+        ...props,
+    };
+
+    return event as unknown as WheelEvent;
 }
 
 export interface FakePointerEvent {

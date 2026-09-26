@@ -5,10 +5,10 @@ import { GraphFactory } from "./GraphFactory";
 import { K } from "./K";
 import { point, Point2D } from "./Point2D";
 import { point3 } from "./Point3D";
+import { Projector } from "./Projector";
 import { render } from "./Renderer";
 import { handleNodeSelectionAttempt } from "./Selection";
 import { State } from "./State";
-import { Viewport } from "./Viewport";
 
 /**
  * Builds the graph a fresh (or reset) controller simulates. Supplied by the
@@ -117,53 +117,111 @@ export class UIController {
 
 		if (this.state.b0Down) {
 
-			// Left-drag: every selected node follows the cursor exactly. The
-			// drag plane is still 2D here, so the node's z is carried through
-			// unchanged.
+			// Left-drag: every selected node follows the cursor in the view
+			// plane through its own current depth. A screen point is a ray in
+			// 3D, so the plane through the node's depth is the policy that is
+			// exactly invertible, matches the pixel under the cursor, and never
+			// teleports the node in depth. A culled node has no usable depth,
+			// so it drags on the near plane.
 			const mxy = this.getMousePos(this.canvas, event);
-			const phasePos = Viewport.forCanvas(this.width, this.height).toModel(mxy);
+			const projector = this.projector();
 
 			for (const vertex of this.solver.graph.vertices) {
-				if (vertex.isSelected)
-					vertex.position = point3(phasePos.x, phasePos.y, vertex.position.z);
+
+				if (!vertex.isSelected)
+					continue;
+
+				const depth = projector.isCulled(vertex.depth)
+					? projector.camera.nearPlane
+					: vertex.depth;
+
+				vertex.position = projector.unproject(mxy, depth);
 			}
 		}
 		else if (this.state.b1Down) {
 
-			// Middle-drag: pan the whole graph.
-			this.panTo(this.getMousePos(this.canvas, event));
+			// Middle-drag orbits; Shift+middle-drag pans the camera target.
+			// The modifier is read on every move, so it can be pressed or
+			// released mid-drag.
+			const mxy = this.getMousePos(this.canvas, event);
+
+			if (event.shiftKey)
+				this.panCameraTo(mxy);
+			else
+				this.orbitTo(mxy);
 		}
 	};
 
 	/**
-	 * Translate every node by the cursor delta, converted from canvas space to
-	 * model space. Repulsion and springs are translation invariant, so panning
-	 * shifts the layout without disturbing the forces.
+	 * Orbit the camera by the pointer delta since the anchor. The live camera
+	 * lives in State, so a reset() rebuilds the graph without losing the angle.
 	 */
-	panTo = (mxy: Point2D) => {
+	orbitTo = (mxy: Point2D) => {
 
 		const last = this.state.lastMiddleDragPos;
 
-		// First move of a pan establishes the anchor; there is no delta yet.
+		// First move of a gesture establishes the anchor; there is no delta yet.
 		if (last == null) {
 			this.state.lastMiddleDragPos = mxy;
 			return;
 		}
 
-		const viewport = Viewport.forCanvas(this.width, this.height);
-		const now = viewport.toModel(mxy);
-		const before = viewport.toModel(last);
+		this.state.camera.orbit(mxy.x - last.x, mxy.y - last.y);
+		this.state.lastMiddleDragPos = mxy;
+	};
 
-		const dx = now.x - before.x;
-		const dy = now.y - before.y;
+	/**
+	 * Shift+middle-drag pans the camera target (D4). The pointer delta is
+	 * converted to projected-plane model units and unprojected at the target's
+	 * depth, so the model under the cursor tracks the cursor. Node positions are
+	 * never touched, so a pan cannot perturb the simulation.
+	 */
+	panCameraTo = (mxy: Point2D) => {
 
-		for (const vertex of this.solver.graph.vertices) {
-			vertex.position.x += dx;
-			vertex.position.y += dy;
+		const last = this.state.lastMiddleDragPos;
+
+		// First move of a gesture establishes the anchor; there is no delta yet.
+		if (last == null) {
+			this.state.lastMiddleDragPos = mxy;
+			return;
 		}
+
+		const projector = this.projector();
+
+		// The target's depth is `distance`, so this unprojects onto the plane
+		// through the target - the plane a pan should slide.
+		const depth = this.state.camera.distance;
+
+		const now = projector.unproject(mxy, depth);
+		const before = projector.unproject(last, depth);
+
+		this.state.camera.panBy(
+			point3(now.x - before.x, now.y - before.y, now.z - before.z)
+		);
 
 		this.state.lastMiddleDragPos = mxy;
 	};
+
+	/**
+	 * Wheel dollies the camera. `focalLength` is constant by design, so the
+	 * wheel changes only the distance, clamped above the near plane.
+	 */
+	onWheel = (event: WheelEvent) => {
+
+		const notches = event.deltaY > 0 ? 1 : event.deltaY < 0 ? -1 : 0;
+
+		if (notches !== 0)
+			this.state.camera.dolly(notches);
+
+		// The canvas fills the viewport; never let the wheel scroll the page
+		// out from under the graph.
+		event.preventDefault();
+	};
+
+	/** The projection for the current canvas size and live camera. */
+	projector(): Projector {
+		return Projector.forCanvas(this.width, this.height, this.state.camera);
+	}
 
 	onMouseDown = (event: MouseEvent) => {
 
@@ -180,13 +238,13 @@ export class UIController {
 			const selectionChanged = handleNodeSelectionAttempt(
 				this.solver.graph,
 				mxy,
-				Viewport.forCanvas(this.width, this.height)
+				this.projector()
 			);
 			if (selectionChanged == true)
 				this.updateSelectionInfo();
 		}
 		else if (event.button == 1) {
-			// Middle button starts a pan; prevent the browser's autoscroll.
+			// Middle button starts an orbit or pan; prevent autoscroll.
 			this.state.b1Down = true;
 			this.state.lastMiddleDragPos = mxy;
 			event.preventDefault();
@@ -322,11 +380,13 @@ export class UIController {
 
 	onTimerTick = () => {
 		// Advance the physics, then draw. The solver is told which node is
-		// pinned via a predicate, so it never reads browser state itself.
+		// pinned via a predicate, so it never reads browser state itself; the
+		// camera reaches it only as a value object, so it stays DOM-free.
 		this.solver.step(
 			this.width,
 			this.height,
-			tag => tag.isSelected && this.state.b0Down
+			tag => tag.isSelected && this.state.b0Down,
+			this.projector()
 		);
 		render(this.context2D, this.solver.graph);
 	};
@@ -361,6 +421,7 @@ export class UIController {
 		bind(this.canvas, "mouseout", this.onMouseOut);
 		bind(this.canvas, "contextmenu", this.onContextMenu);
 		bind(this.canvas, "keydown", this.onKeyDown);
+		bind(this.canvas, "wheel", this.onWheel);
 
 		// export link
 		//

@@ -17,7 +17,7 @@ import {
 import { readSource } from "./support/files";
 
 /** Every listener initialize() attaches to the canvas. */
-const CANVAS_EVENTS = ['mousemove', 'mousedown', 'mouseup', 'mouseout', 'contextmenu', 'keydown'];
+const CANVAS_EVENTS = ['mousemove', 'mousedown', 'mouseup', 'mouseout', 'contextmenu', 'keydown', 'wheel'];
 
 /** The fake element behind an HTMLElement the controller hands back. */
 function el(element: HTMLElement): FakeElement {
