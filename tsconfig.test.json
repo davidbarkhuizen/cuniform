@@ -1,0 +1,14 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "target": "es2019",
+        "outDir": "./.test-build",
+        "rootDir": ".",
+        "declaration": false,
+        "sourceMap": false,
+        "removeComments": false,
+        "esModuleInterop": true,
+        "types": ["node"]
+    },
+    "include": ["src", "test"]
+}

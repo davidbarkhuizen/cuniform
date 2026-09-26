@@ -47,7 +47,7 @@ export class ForceDirectedGraph {
 		return this.reverse(xy, K.space.W_0, K.space.H_0, canvasWidth, canvasHeight);
 	};
 
-	drawToContext(
+	render(
         context: CanvasRenderingContext2D, 
         node_label_vert_spacing: number = 0
     ) {
@@ -289,7 +289,19 @@ export class ForceDirectedGraph {
 
 	};
 
-	iterate(context: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number) {
+	/**
+	 * Advance the simulation by exactly one step. Physics only: this method
+	 * reads no DOM global and does no drawing, so it can be run headlessly.
+	 *
+	 * `isPinned` reports nodes the user is dragging; a pinned node keeps the
+	 * position written by the pointer handler and its integrated displacement
+	 * is discarded. Drawing is a separate call to `render()`.
+	 */
+	step(
+		canvasWidth: number,
+		canvasHeight: number,
+		isPinned: (tag: Tag) => boolean = () => false
+	) {
 
 		/*
 		for each node
@@ -308,8 +320,6 @@ export class ForceDirectedGraph {
 			this.graph.vertices[i].netElectrostaticForce = this.netElectrostaticForceAtNode(this.graph.vertices[i]);
 		}
 
-		var here = true;
-
 		for( i = 0; i < this.graph.vertices.length; i++) {
 			this.graph.vertices[i].netSpringForce = this.netSpringForceAtNode(this.graph.vertices[i]);
 		}
@@ -324,7 +334,7 @@ export class ForceDirectedGraph {
 		//
 		for(i = 0; i < this.graph.vertices.length; i++) {
 			var tag = this.graph.vertices[i];
-			if (tag.isSelected && window.state.b0Down) {
+			if (isPinned(tag)) {
 			} 
 			else {
 				var displacement = tag.displacement;
@@ -341,9 +351,6 @@ export class ForceDirectedGraph {
 			var node = this.graph.vertices[i];
 			node.translatedPosition = this.translate(node.position, K.space.W_0, K.space.H_0, canvasWidth, canvasHeight);
 		}
-		// CALL RENDERING METHOD
-		//
-		this.drawToContext(context);
 	};
 
 	enforcePositionLimits(rightMargin: number, minorMargin: number) {
