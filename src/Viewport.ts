@@ -2,13 +2,14 @@ import { K } from "./K";
 import { point, Point2D } from "./Point2D";
 
 /**
- * Model <-> canvas mapping.
+ * Projected-plane <-> canvas mapping.
  *
- * The scale is uniform on both axes so a canvas whose aspect ratio differs from
- * the model square never stretches the layout, and the y axis is flipped so
- * increasing model y moves up the canvas. Owning the four numbers here (rather
- * than threading them through every mapping call) is what keeps the scale
- * formula in exactly one place.
+ * Its input is the projector's output: still in model units, but already
+ * divided by view depth. The scale is uniform on both axes so a canvas whose
+ * aspect ratio differs from the model square never stretches the layout, and the
+ * y axis is flipped so increasing projected y moves up the canvas. Owning the
+ * four numbers here (rather than threading them through every mapping call) is
+ * what keeps the scale formula in exactly one place.
  */
 export class Viewport {
 

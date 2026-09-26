@@ -2,7 +2,8 @@
 
 | | |
 | --- | --- |
-| **Status** | Planned |
+| **Status** | Implemented |
+| **Landed** | PRs #63–#66; `main` green at 201 tests |
 | **Area** | new `src/Point3D.ts`, new `src/Projector.ts`, `src/Tag.ts`, `src/GraphFactory.ts`, `src/ForceDirectedGraph.ts`, `src/Renderer.ts`, `src/Selection.ts`, `src/UIController.ts`, `src/State.ts`, `src/K.ts`, `src/Viewport.ts`, `README.md`, `test/**` |
 | **Depends on** | nothing outstanding — H1 and M1–M6 are landed and `main` is green |
 | **Blocks** | nothing |
@@ -437,7 +438,7 @@ sites across `src/` and `test/`.
 | Depth sort cost | `O((N + E) log(N + E))` per frame, new but negligible at `order = 11`; recorded in the README Complexity section |
 | Rebound gestures surprise users | Pan moves to Shift+middle and this is documented in the README and the canvas `aria-label`; the context menu is untouched |
 | `Math.hypot(a, b, c)` is slower than 2-arg | Accept to preserve the call-count test; noted in the README next to the existing repulsion scaling note |
-| Rotated cube overflows the default framing | Accepted and documented, consistent with "nothing clamps a node to the model square"; the wheel dolly fits it, and auto-fit is rejected to keep the scale stable |
+| Rotated cube overflows the default framing | Accepted and documented, consistent with "nothing clamps a node to the model cube"; the wheel dolly fits it, and auto-fit is rejected to keep the scale stable |
 | Camera state leaking into the solver | `step()` takes a value object and stays DOM-free; the extended architecture guard fails the build if `Projector` grows a DOM reference |
 
 ## 8. Out of scope

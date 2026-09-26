@@ -12,10 +12,12 @@ import { readSource } from "./support/files";
 
 const W0 = K.space.W_0;
 const H0 = K.space.H_0;
+const D0 = K.space.D_0;
 
-test("the model space is the reference 600x600 square", () => {
+test("the model space is the reference 600 cube", () => {
     assert.equal(W0, 600);
     assert.equal(H0, 600);
+    assert.equal(D0, 600);
     assert.equal(K.ui.minimumNodeSelectionRadiusPx, 15.0);
 });
 
@@ -93,13 +95,13 @@ test("the retired mapping wrappers and test-only solver methods stay retired", (
     assert.ok(!/displacementAtNode/.test(solver), "displacement lives on Tag, not the solver");
 });
 
-test("nothing clamps a node to the model square", () => {
+test("nothing clamps a node to the model cube", () => {
     const graph = new Graph();
-    const far = new Tag({ x: 5000, y: -5000, z: 0 }, "far");
+    const far = new Tag({ x: 5000, y: -5000, z: 5000 }, "far");
     graph.addNode(far);
 
     const solver = new ForceDirectedGraph(graph);
     solver.step(800, 600);
 
-    assert.deepEqual(far.position, { x: 5000, y: -5000, z: 0 }, "an isolated node must be free to drift");
+    assert.deepEqual(far.position, { x: 5000, y: -5000, z: 5000 }, "an isolated node must be free to drift");
 });
