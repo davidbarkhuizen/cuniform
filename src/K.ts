@@ -127,5 +127,33 @@ export const K = {
         // Reference demo: DEMO_GRAPH_SIZE = 11, DEMO_GRAPH_BRANCHING_CONST = 2.
         order : 11,
         branching : 2
-    }
+    },
+
+    chooser: {
+        // Bounds for the random-graph branch of the chooser. `initialConditions`
+        // above stays the wizard's default and the first-run placeholder; these
+        // are only what the parameter form will accept.
+        //
+        // maxOrder is capped because repulsion is O(N^2) per 50 ms tick and
+        // every node draws a label. minOrder is 2 because a graph on one node
+        // has no edges and no meaningful branching.
+        minOrder : 2,
+        maxOrder : 64,
+        // maxBranching is the practical cap; the hard limit is always order - 1,
+        // enforced in parseRandomSpec().
+        minBranching : 1,
+        maxBranching : 8,
+    },
+
+    molecule: {
+        // A molecule is seeded on a phyllotaxis spiral spaced at the spring
+        // rest length (equilibriumDisplacement, above), so neighbours start
+        // outside the repulsion guard and already near the separation the
+        // springs want. Keeping the value equal to the rest length is the point,
+        // so the two are documented together rather than derived at runtime.
+        seedSpacing : 30,
+        // Depth offset amplitude for the seed. Enough that the spiral is not a
+        // plane, small enough that it does not control the layout.
+        seedDepthJitter : 4.5,
+    },
 };
