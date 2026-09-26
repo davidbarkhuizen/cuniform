@@ -87,6 +87,22 @@ test("the canvas is focusable and carries fallback content", () => {
     assert.ok(fallback.length > 0, "the canvas needs text for browsers without canvas support");
 });
 
+test("the canvas accessible label names the 3D view and the mouse gestures", () => {
+    // The camera gestures are mouse-only, so the label is the only place a
+    // non-visual user can learn that the view is 3D and how to move it.
+    const html = readWeb("index.html");
+
+    const start = html.indexOf("<canvas");
+    const tag = html.slice(start, html.indexOf(">", start));
+    const label = /aria-label="([^"]+)"/.exec(tag)?.[1] ?? "";
+
+    assert.match(label, /3D/, "the label should say the view is 3D");
+    assert.match(label, /orbit/i, "the label should describe the orbit gesture");
+    assert.match(label, /Shift\+middle-drag/i, "the label should describe the pan gesture");
+    assert.match(label, /wheel to zoom/i, "the label should describe the dolly gesture");
+    assert.match(label, /Shift\+F10/, "the label should keep the actions-menu hint");
+});
+
 // -------------------------------------------------------------------- css
 
 test("the canvas container fills the viewport and the canvas fills it", () => {

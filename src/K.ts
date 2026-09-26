@@ -87,11 +87,18 @@ export const K = {
         // Perspective node size: radiusPx = NODE_RADIUS * focalLength / depth,
         // clamped to this range so a node at the near plane cannot blow up and
         // a far node cannot vanish. The selection ring scales identically.
+        //
+        // At the default distance a node in the 600^3 world projects at a depth
+        // of roughly 724..1324, so the unclamped radius spans about 3.9..7.1px:
+        // a visible size gradient, with the clamp only engaging while dollying.
         minNodeRadiusPx : 2.0,
         maxNodeRadiusPx : 12.0,
         // Depth fade range: maxAlpha at the nearest drawn depth, minAlpha at
-        // the farthest. Applied to nodes and edges alike.
-        minAlpha : 0.25,
+        // the farthest. Applied to nodes and edges alike. A settled layout
+        // spans a narrower depth band than the initial cube, so the far end is
+        // kept above a quarter opacity to stay legible against the near-black
+        // canvas while still reading as depth.
+        minAlpha : 0.35,
         maxAlpha : 1.0,
     },
 

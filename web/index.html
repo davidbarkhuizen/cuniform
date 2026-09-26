@@ -19,10 +19,12 @@
 			<!--
 				The canvas is focusable so Shift+F10 can open the actions menu
 				from the keyboard, and the text inside it is the fallback for a
-				browser that cannot render canvas at all.
+				browser that cannot render canvas at all. The label names the 3D
+				view and the orbit/pan/zoom gestures, which are otherwise mouse
+				only.
 			-->
 			<canvas id="canvas" tabindex="0" role="img"
-				aria-label="Force-directed graph. Press Shift+F10 for actions.">
+				aria-label="Force-directed graph in 3D. Left-drag to select and drag a node, middle-drag to orbit, Shift+middle-drag to pan, wheel to zoom. Press Shift+F10 for actions.">
 				Your browser does not support the canvas element, so the graph cannot be drawn.
 			</canvas>
 
