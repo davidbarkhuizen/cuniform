@@ -74,14 +74,15 @@ drag: a press that starts on a button never reaches the panel's drag handle.
 - **Wheel** — dollies the camera (zooms). The focal length is constant, so only
   the camera distance changes; it is clamped above the near plane.
 - **Camera console** — three rows, one per camera axis, each with a clockwise
-  and an anticlockwise button. A press applies one small step (1° by default)
-  and **holding turns the view continuously**: one more step per simulation
-  tick, so the rotation is as smooth as the render and never jumps. The buttons
-  are real buttons, so Tab reaches them and Enter or Space starts and stops a
-  keyboard hold. Anticlockwise is the right-hand positive sense about that axis:
-  on screen, x tilts the view about the horizontal, y turns it about the
-  vertical, and z rolls it about the view axis. Unlike the middle-drag guard, an
-  explicit axis rotation is free to carry the view through a pole.
+  and an anticlockwise button. A press applies one small step — one simulation
+  tick's worth, 3° at the default 60°/s — and **holding turns the view
+  continuously**: one more step per simulation tick, so the rotation is as
+  smooth as the render and never jumps. The buttons are real buttons, so Tab
+  reaches them and Enter or Space starts and stops a keyboard hold.
+  Anticlockwise is the right-hand positive sense about that axis: on screen, x
+  tilts the view about the horizontal, y turns it about the vertical, and z rolls
+  it about the view axis. Unlike the middle-drag guard, an explicit axis rotation
+  is free to carry the view through a pole.
 - **Right-click** — opens a context menu with `export`, `reset` and
   `clear selection`. The native browser menu is suppressed.
 - **Shift+F10** (or the context-menu key) — opens the same actions menu from
