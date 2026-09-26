@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
+import { K } from "../src/K";
 import { render } from "../src/Renderer";
 import { Tag } from "../src/Tag";
 import { UIController } from "../src/UIController";
@@ -136,6 +137,9 @@ test("pointer mapping is unaffected by devicePixelRatio", () => {
 
         const node: Tag = graph.vertices[0];
         node.isSelected = true;
+        // A visible node, as a step() would have cached; the drag then slides
+        // on the node's own z = 0 plane rather than the culled fallback.
+        node.depth = K.camera.distance;
         controller.state.b0Down = true;
 
         // A 750x750 canvas over the 600x600 model scales by 1.25, so the canvas

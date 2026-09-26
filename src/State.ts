@@ -1,3 +1,4 @@
+import { Camera } from './Camera';
 import { Point2D } from './Point2D';
 
 export class State {
@@ -7,11 +8,17 @@ export class State {
     public b2Down: boolean;
 
     /**
-     * Canvas-space pointer position at the previous middle-button move, used to
-     * translate the graph by the cursor delta while panning. Null when no pan
-     * is in progress.
+     * Canvas-space pointer position at the previous middle-button move, used as
+     * the anchor for the current middle-drag gesture - orbit or pan. Null when
+     * no middle drag is in progress.
      */
     public lastMiddleDragPos: Point2D | null;
+
+    /**
+     * The live view camera. Owned here beside the button flags so a reset()
+     * rebuilds the graph without losing the user's viewing angle.
+     */
+    public readonly camera: Camera = new Camera();
 
 	constructor(
 	) {

@@ -3,14 +3,17 @@ import assert from "node:assert/strict";
 
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
+import { K } from "../src/K";
 import { Tag } from "../src/Tag";
 import { UIController } from "../src/UIController";
+import { assertClose } from "./support/assert";
 import {
     FakeCanvas,
     FakeDom,
     demoElements,
     mouseEvent,
     newUIController,
+    wheelEvent,
     withFakeDom,
 } from "./support/dom";
 
@@ -26,7 +29,13 @@ interface PanFixture {
 
 /**
  * Two nodes in a 600x600 model mapped onto a 600x600 canvas, so one canvas
- * unit is one model unit.
+ * unit is one model unit. Depth is set to the camera distance, which is what a
+ * step() would have cached for this flat scene, so the nodes are visible and a
+ * drag has a real plane to slide on.
+ *
+ * The behaviour change from the old pan tests: middle-drag no longer
+ * translates the nodes. It orbits the camera, and Shift+middle-drag moves the
+ * camera target instead (plan D2/D4).
  */
 function withFixture<T>(fn: (ui: PanFixture) => T): T {
     const elements = demoElements();
@@ -37,6 +46,8 @@ function withFixture<T>(fn: (ui: PanFixture) => T): T {
     const graph = new Graph();
     const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
     const b = new Tag({ x: 100, y: 100, z: 0 }, "b");
+    a.depth = K.camera.distance;
+    b.depth = K.camera.distance;
     graph.addNode(a);
     graph.addNode(b);
     graph.addEdge(a, b);
@@ -49,52 +60,57 @@ function withFixture<T>(fn: (ui: PanFixture) => T): T {
     });
 }
 
-test("middle-drag translates every node by the cursor delta", () => {
+// ------------------------------------------------------------------ orbiting
+
+test("middle-drag orbits the camera and leaves node positions untouched", () => {
     withFixture(({ controller, a, b }) => {
-        // Panning is selection-independent: b is selected and still moves.
-        b.isSelected = true;
+        const beforeA = { ...a.position };
+        const beforeB = { ...b.position };
 
         controller.onMouseDown(mouseEvent({ button: 1, clientX: 100, clientY: 100 }));
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 150, clientY: 120 }));
 
-        // Canvas +x is model +x; canvas +y is model -y (the y axis is flipped).
-        assert.equal(a.position.x, 50);
-        assert.equal(a.position.y, -20);
-        assert.equal(b.position.x, 150);
-        assert.equal(b.position.y, 80);
+        const rate = K.camera.orbitRadiansPerPixel;
+        assertClose(controller.state.camera.yaw, 50 * rate, 1e-12, "yaw");
+        assertClose(controller.state.camera.pitch, 20 * rate, 1e-12, "pitch");
+
+        assert.deepEqual({ ...a.position }, beforeA, "orbit must not touch the physics model");
+        assert.deepEqual({ ...b.position }, beforeB, "orbit must not touch the physics model");
     });
 });
 
-test("successive middle moves accumulate the pan", () => {
-    withFixture(({ controller, a }) => {
+test("successive middle moves accumulate the orbit", () => {
+    withFixture(({ controller }) => {
         controller.onMouseDown(mouseEvent({ button: 1, clientX: 100, clientY: 100 }));
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 150, clientY: 120 }));
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 200, clientY: 120 }));
 
-        assert.equal(a.position.x, 100);
-        assert.equal(a.position.y, -20);
+        const rate = K.camera.orbitRadiansPerPixel;
+        assertClose(controller.state.camera.yaw, 100 * rate, 1e-12, "yaw");
+        assertClose(controller.state.camera.pitch, 20 * rate, 1e-12, "pitch");
     });
 });
 
-test("the first middle move only anchors the pan and moves nothing", () => {
+test("the first middle move only anchors the gesture and moves nothing", () => {
     withFixture(({ controller, a, b }) => {
-        // Simulate a pan already marked down without an anchor.
+        // Simulate a middle drag already marked down without an anchor.
         controller.state.b1Down = true;
 
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 400, clientY: 300 }));
 
         assert.deepEqual({ ...a.position }, { x: 0, y: 0, z: 0 });
         assert.deepEqual({ ...b.position }, { x: 100, y: 100, z: 0 });
+        assert.equal(controller.state.camera.yaw, K.camera.yaw);
         assert.deepEqual({ ...controller.state.lastMiddleDragPos }, { x: 400, y: 300 });
     });
 });
 
-test("releasing the middle button clears the pan anchor and stops panning", () => {
-    withFixture(({ controller, a }) => {
+test("releasing the middle button clears the anchor and stops the gesture", () => {
+    withFixture(({ controller }) => {
         controller.onMouseDown(mouseEvent({ button: 1, clientX: 100, clientY: 100 }));
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 150, clientY: 120 }));
 
-        const paused = { x: a.position.x, y: a.position.y, z: a.position.z };
+        const pausedYaw = controller.state.camera.yaw;
 
         controller.onMouseUp(mouseEvent({ button: 1, clientX: 150, clientY: 120 }));
 
@@ -103,7 +119,7 @@ test("releasing the middle button clears the pan anchor and stops panning", () =
 
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 300, clientY: 300 }));
 
-        assert.deepEqual({ ...a.position }, paused);
+        assert.equal(controller.state.camera.yaw, pausedYaw);
     });
 });
 
@@ -119,7 +135,81 @@ test("middle mousedown records the anchor and prevents autoscroll", () => {
     });
 });
 
-test("left-drag still moves only the selected node to the cursor", () => {
+// ---------------------------------------------------------- camera-target pan
+
+test("Shift+middle-drag moves the camera target, not the nodes", () => {
+    withFixture(({ controller, a, b }) => {
+        const beforeA = { ...a.position };
+        const beforeB = { ...b.position };
+
+        controller.onMouseDown(mouseEvent({ button: 1, clientX: 100, clientY: 100 }));
+        controller.onMouseMove(mouseEvent({ button: 1, clientX: 150, clientY: 120, shiftKey: true }));
+
+        // One canvas unit is one model unit and the camera is the identity, so
+        // the +50/-20 canvas delta is a +50/-20 model target move on the target
+        // plane. Node positions are never written.
+        assertClose(controller.state.camera.target.x, 50, 1e-9, "target x");
+        assertClose(controller.state.camera.target.y, -20, 1e-9, "target y");
+        assertClose(controller.state.camera.target.z, 0, 1e-9, "target z");
+
+        assert.deepEqual({ ...a.position }, beforeA, "pan must not touch the physics model");
+        assert.deepEqual({ ...b.position }, beforeB, "pan must not touch the physics model");
+    });
+});
+
+test("successive Shift+middle moves accumulate the camera pan", () => {
+    withFixture(({ controller }) => {
+        controller.onMouseDown(mouseEvent({ button: 1, clientX: 100, clientY: 100 }));
+        controller.onMouseMove(mouseEvent({ button: 1, clientX: 150, clientY: 120, shiftKey: true }));
+        controller.onMouseMove(mouseEvent({ button: 1, clientX: 200, clientY: 120, shiftKey: true }));
+
+        assertClose(controller.state.camera.target.x, 100, 1e-9, "target x");
+        assertClose(controller.state.camera.target.y, -20, 1e-9, "target y");
+    });
+});
+
+// ------------------------------------------------------------------- dolly
+
+test("the wheel dollies the camera distance and prevents page scroll", () => {
+    withFixture(({ controller }) => {
+        const event = wheelEvent({ deltaY: -100 });
+
+        controller.onWheel(event);
+
+        assertClose(
+            controller.state.camera.distance,
+            K.camera.distance / K.camera.dollyPerWheelNotch,
+            1e-9,
+            "a notch in should move the camera closer"
+        );
+        assert.equal(event.defaultPrevented, true, "the wheel must not scroll the page");
+    });
+});
+
+test("the dolly is clamped above the near plane", () => {
+    withFixture(({ controller }) => {
+        for (let i = 0; i < 200; i++)
+            controller.onWheel(wheelEvent({ deltaY: -100 }));
+
+        assert.equal(controller.state.camera.distance, K.camera.minDistance);
+        assert.ok(
+            K.camera.minDistance > K.camera.nearPlane,
+            "the target plane must never be inside the near plane"
+        );
+    });
+});
+
+test("a wheel event with no delta is a no-op", () => {
+    withFixture(({ controller }) => {
+        controller.onWheel(wheelEvent({ deltaY: 0 }));
+
+        assert.equal(controller.state.camera.distance, K.camera.distance);
+    });
+});
+
+// --------------------------------------------------------------- node drag
+
+test("left-drag unprojects the cursor at the node's depth", () => {
     withFixture(({ controller, a, b }) => {
         a.isSelected = true;
         controller.state.b0Down = true;
@@ -128,6 +218,51 @@ test("left-drag still moves only the selected node to the cursor", () => {
 
         assert.deepEqual({ ...a.position }, { x: 100, y: 0, z: 0 });
         assert.deepEqual({ ...b.position }, { x: 100, y: 100, z: 0 });
+    });
+});
+
+test("view-plane drag preserves the node's depth and tracks the cursor", () => {
+    withFixture(({ controller, a }) => {
+        a.position = { x: 0, y: 0, z: 200 };
+        a.depth = K.camera.distance + 200;
+        a.isSelected = true;
+        controller.state.b0Down = true;
+
+        controller.onMouseMove(mouseEvent({ button: 0, clientX: 400, clientY: 300 }));
+
+        assert.equal(a.position.z, 200, "depth must be preserved through a drag");
+        assertClose(
+            controller.projector().toCanvas(a.position).x,
+            400,
+            1e-9,
+            "the node must land under the cursor"
+        );
+        assertClose(
+            controller.projector().toCanvas(a.position).y,
+            300,
+            1e-9,
+            "the node must land under the cursor"
+        );
+    });
+});
+
+test("a culled selected node drags on the near plane", () => {
+    withFixture(({ controller, a }) => {
+        a.depth = 0; // never projected: inside the near plane
+        a.isSelected = true;
+        controller.state.b0Down = true;
+
+        controller.onMouseMove(mouseEvent({ button: 0, clientX: 400, clientY: 300 }));
+
+        assertClose(
+            controller.projector().project(a.position).depth,
+            K.camera.nearPlane,
+            1e-9,
+            "a culled node falls back to the near plane as its drag depth"
+        );
+        assert.ok(
+            Number.isFinite(a.position.x) && Number.isFinite(a.position.y) && Number.isFinite(a.position.z)
+        );
     });
 });
 
@@ -161,13 +296,34 @@ test("a middle move while the left button is up does not follow the node-drag pa
 
         controller.onMouseMove(mouseEvent({ button: 0, clientX: 400, clientY: 300 }));
 
-        // b1Down pans from the anchor; the selected node is not teleported.
+        // b1Down orbits from the anchor; the selected node is not teleported.
         assert.deepEqual({ ...a.position }, { x: 0, y: 0, z: 0 });
         assert.deepEqual({ ...controller.state.lastMiddleDragPos }, { x: 400, y: 300 });
     });
 });
 
-test("mouseout releases every button and the pan anchor", () => {
+// ------------------------------------------------------------- camera lifetime
+
+test("a reset rebuilds the graph without losing the viewing angle", () => {
+    withFixture(({ controller }) => {
+        controller.state.camera.orbit(40, 15);
+        controller.state.camera.dolly(2);
+
+        const yaw = controller.state.camera.yaw;
+        const pitch = controller.state.camera.pitch;
+        const distance = controller.state.camera.distance;
+
+        controller.initialize();
+
+        assert.equal(controller.state.camera.yaw, yaw, "yaw must survive a reset");
+        assert.equal(controller.state.camera.pitch, pitch, "pitch must survive a reset");
+        assert.equal(controller.state.camera.distance, distance, "zoom must survive a reset");
+    });
+});
+
+// ------------------------------------------------------------------- teardown
+
+test("mouseout releases every button and the gesture anchor", () => {
     withFixture(({ controller }) => {
         controller.state.b0Down = true;
         controller.state.b1Down = true;
@@ -198,8 +354,11 @@ test("handlers run on a controller that was never initialized", () => {
         delete dom.window.fdg;
 
         assert.doesNotThrow(() => controller.onMouseOut());
-        assert.doesNotThrow(() => controller.panTo({ x: 10, y: 10 }));
-        assert.doesNotThrow(() => controller.panTo({ x: 20, y: 20 }));
+        assert.doesNotThrow(() => controller.orbitTo({ x: 10, y: 10 }));
+        assert.doesNotThrow(() => controller.orbitTo({ x: 20, y: 20 }));
+        assert.doesNotThrow(() => controller.panCameraTo({ x: 10, y: 10 }));
+        assert.doesNotThrow(() => controller.panCameraTo({ x: 20, y: 20 }));
+        assert.doesNotThrow(() => controller.onWheel(wheelEvent({ deltaY: 100 })));
         assert.doesNotThrow(() => controller.onTimerTick());
     });
 });
