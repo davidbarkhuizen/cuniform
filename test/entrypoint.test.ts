@@ -95,6 +95,32 @@ test("entrypoint still initializes when the optional drag panel is missing", () 
     }
 });
 
+test("entrypoint reports failure when a selection info element is missing", () => {
+    for (const missing of ['selectedNodeInfoLabel', 'selectedNodeInfoList']) {
+        const dom = installFakeDom(demoElements([missing]));
+        try {
+            let result: boolean | undefined;
+            quietly(() => {
+                result = entrypoint(...IDS);
+            });
+
+            assert.equal(result, false, `missing ${missing} should fail startup`);
+            assert.equal(dom.intervals.length, 0, "nothing should be scheduled on failure");
+        } finally {
+            dom.restore();
+        }
+    }
+});
+
+test("UIController no longer looks up the selection info elements by hardcoded ID", () => {
+    const source = readFileSync(
+        join(__dirname, "..", "..", "src", "UIController.ts"),
+        "utf8"
+    );
+
+    assert.ok(!/getElementById/.test(source), "selection-info lookup moved to the entrypoint");
+});
+
 test("entrypoint no longer requires the unused Worker feature", () => {
     const source = readFileSync(
         join(__dirname, "..", "..", "src", "entrypoint.ts"),

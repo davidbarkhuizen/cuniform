@@ -5,7 +5,7 @@
 ## Running
 
     ./cli install        # npm install
-    ./cli run            # build, then open dist/index.html in Chrome
+    ./cli run            # build, then open dist/index.html in a browser
 
 `cli` is the single entry point for common tasks; `./cli help` lists every
 subcommand. With no recognised option it prints usage.
@@ -19,11 +19,23 @@ subcommand. With no recognised option it prints usage.
     ./cli clean          # remove build artefacts
 
 Each wraps the equivalent npm script (`npm run typecheck`, `npm test`,
-`npm run ci`, `npm run start`).
+`npm run ci`, `npm run start`). `npm run dev` rebuilds while you edit, and
+`BROWSER=... ./cli run` (or `bash build-and-run.sh --build-only`) controls how
+the demo is launched.
 
 The simulation is deliberately decoupled from the browser: `ForceDirectedGraph.step()`
 is pure physics and touches neither `window` nor the canvas, so the whole model can
 be exercised headlessly in `test/`.
+
+## Interaction
+
+- **Left-click / left-drag** — selects the nearest node within the hit radius
+  (listing its neighbours in the info panel) and drags it. A dragged node is
+  pinned: it keeps the position the pointer writes and has its velocity zeroed.
+- **Middle-drag** — pans the whole graph by the cursor delta.
+- **Right-click** — opens a context menu with `export`, `reset` and
+  `clear selection`. The native browser menu is suppressed.
+- **Drag the info panel** — the panel itself is movable.
 
 ## Physics
 
@@ -92,10 +104,12 @@ length), and an underdamped mode decays by `sqrt(friction) ~= 0.9487` per step.
 
 ### Complexity
 
-Repulsion is all-pairs, `O(N^2)`, and the spring pass scans the edge list once per
-node, `O(N*E)`. There is no spatial subdivision and no cut-off radius. This is
-fine at demo scale (`initialConditions.order` is 11) and is the first thing to
-change for a large graph.
+Repulsion is all-pairs, `O(N^2)`. The spring pass walks each node's incident
+edges from an adjacency list that `Graph` maintains alongside its edge list, so
+it is `O(N + E)` rather than `O(N*E)`. There is no spatial subdivision and no
+cut-off radius, so repulsion still dominates at scale; this is fine at demo
+scale (`initialConditions.order` is 11) and is the first thing to change for a
+large graph.
 
 ## Known limitations
 
