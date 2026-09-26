@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
 import { K } from "../src/K";
+import { CameraView, defaultCameraView } from "../src/Projector";
 import { render } from "../src/Renderer";
 import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
@@ -59,11 +60,15 @@ function withDepths(depths: number[], labels: string[] = []) {
     return { graph, nodes };
 }
 
-function draw(graph: Graph): FakeContext2D {
+function drawWith(graph: Graph, camera: CameraView): FakeContext2D {
     const context = new FakeContext2D();
     context.canvas = { width: 800, height: 600 };
-    render(context as unknown as CanvasRenderingContext2D, graph);
+    render(context as unknown as CanvasRenderingContext2D, graph, camera);
     return context;
+}
+
+function draw(graph: Graph): FakeContext2D {
+    return drawWith(graph, defaultCameraView());
 }
 
 /** The fill radius for a lone node at `depth`. */
@@ -172,13 +177,14 @@ test("render reproduces the pre-refactor draw sequence exactly", () => {
     );
 });
 
-test("render takes no optional label-spacing parameter", () => {
-    // Regression for 5.4: the unused second parameter was removed. The
-    // extracted signature is render(context, graph) and nothing more; label
-    // spacing lives only in K.label.
+test("render takes the context, the graph and the camera, and no label-spacing parameter", () => {
+    // Regression for 5.4: the unused label-spacing parameter was removed. The
+    // signature is render(context, graph, camera); label spacing lives only in
+    // K.label, and the camera is what keeps the cull/focal math in step with
+    // the projection.
     const { graph } = build();
 
-    assert.equal(render.length, 2);
+    assert.equal(render.length, 3);
     assert.equal(K.label.horizontalSpacing, 5);
     assert.equal(K.label.verticalSpacing, 5);
     assert.doesNotThrow(() => draw(graph));
@@ -319,4 +325,37 @@ test("a node just inside the near plane is still drawn", () => {
     const context = draw(graph);
 
     assert.deepEqual(context.textLabels, ["inside"]);
+});
+
+// ------------------------------------------------- the camera argument
+
+test("render culls against the near plane of the camera it is given", () => {
+    // The renderer must read the cull boundary from the same camera the caller
+    // projected with, not from the K defaults, or drawing and hit-testing can
+    // disagree about the boundary.
+    const { graph } = withDepths([100], ["solo"]);
+
+    assert.deepEqual(draw(graph).textLabels, ["solo"], "the default near plane (50) draws depth 100");
+
+    // A near plane above the depth culls it; one below it still draws it.
+    const raised = { ...defaultCameraView(), nearPlane: 200 };
+    const lowered = { ...defaultCameraView(), nearPlane: 10 };
+
+    assert.deepEqual(drawWith(graph, raised).textLabels, [], "a raised near plane must cull depth 100");
+    assert.deepEqual(drawWith(graph, lowered).textLabels, ["solo"], "a lowered near plane still draws it");
+});
+
+test("render sizes nodes with the focal length of the camera it is given", () => {
+    // Same coupling for the depth cue: the radius formula's focal length must
+    // be the camera's, or a custom-camera frame is sized for a different lens.
+    const { graph } = withDepths([K.camera.distance], ["solo"]);
+
+    const base = drawWith(graph, defaultCameraView()).fillRadii[0];
+    const zoomed = drawWith(
+        graph,
+        { ...defaultCameraView(), focalLength: K.camera.focalLength * 2 }
+    ).fillRadii[0];
+
+    assertClose(base, NODE_RADIUS, 1e-9, "at the camera distance the cue is the marker radius");
+    assertClose(zoomed, NODE_RADIUS * 2, 1e-9, "the doubled focal length must double the radius");
 });

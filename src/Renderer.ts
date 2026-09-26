@@ -1,5 +1,6 @@
 import { Graph } from "./Graph";
 import { K } from "./K";
+import { CameraView, isDepthCulled } from "./Projector";
 
 /** Node markers are a filled dot; the selection ring is a larger stroke. */
 const NODE_RADIUS = 5;
@@ -26,6 +27,10 @@ interface DrawItem {
  * transform; this clears the backing store in device space and draws in CSS
  * pixels.
  *
+ * `camera` is the one that produced each node's cached depth, so the cull
+ * boundary and the focal length here cannot drift from the projection: the
+ * caller passes the same camera it handed to `step()`.
+ *
  * The graph is painted with the painter's algorithm over edges *and* nodes:
  * one list is built, sorted farthest-first, and drawn in that order, so a near
  * node covers the edge behind it. Node size and opacity follow the view depth
@@ -34,7 +39,7 @@ interface DrawItem {
  * A pure function, not a class: the renderer holds no state between frames, so
  * there is nothing for it to own.
  */
-export function render(context: CanvasRenderingContext2D, graph: Graph): void {
+export function render(context: CanvasRenderingContext2D, graph: Graph, camera: CameraView): void {
 
 	const selected_node = graph.selectedVertex();
 
@@ -45,16 +50,15 @@ export function render(context: CanvasRenderingContext2D, graph: Graph): void {
 	context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 	context.restore();
 
-	const nearPlane = K.camera.nearPlane;
-	const focalLength = K.camera.focalLength;
+	const { nearPlane, focalLength } = camera;
 
 	// Culling. A node at or inside the near plane is not drawn and not
 	// selectable; the camera never reaches the physics, so it still exerts and
 	// feels force. An edge is skipped if either endpoint is culled - there is
 	// no near-plane clipping in this implementation.
-	const nodes = graph.vertices.filter(node => !(node.depth <= nearPlane));
+	const nodes = graph.vertices.filter(node => !isDepthCulled(node.depth, nearPlane));
 	const edges = graph.edges.filter(
-		edge => !(edge.v1.depth <= nearPlane) && !(edge.v2.depth <= nearPlane)
+		edge => !isDepthCulled(edge.v1.depth, nearPlane) && !isDepthCulled(edge.v2.depth, nearPlane)
 	);
 
 	// The depth-fade range is measured over everything actually drawn, so the
