@@ -5,6 +5,7 @@ import { Camera } from "../src/Camera";
 import { K } from "../src/K";
 import { apply, fromYawPitch, identity, Mat3, multiply, rotX, rotY, rotZ } from "../src/Mat3";
 import { point3 } from "../src/Point3D";
+import { defaultCameraView } from "../src/Projector";
 import { assertClose, assertMatClose } from "./support/assert";
 
 test("a fresh camera is the identity orientation at the K defaults", () => {
@@ -15,6 +16,28 @@ test("a fresh camera is the identity orientation at the K defaults", () => {
     assert.equal(camera.focalLength, K.camera.focalLength);
     assert.equal(camera.nearPlane, K.camera.nearPlane);
     assert.deepEqual(camera.target, { x: 0, y: 0, z: 0 });
+});
+
+test("a fresh camera and defaultCameraView() describe the same view", () => {
+    // The constructor, reset() and Projector.defaultCameraView() all describe
+    // "the default camera"; pin them to one another so they cannot drift.
+    const camera = new Camera();
+    const view = defaultCameraView();
+
+    assert.deepEqual(camera.orientation, view.orientation);
+    assert.deepEqual(camera.target, view.target);
+    assert.equal(camera.distance, view.distance);
+    assert.equal(camera.focalLength, view.focalLength);
+    assert.equal(camera.nearPlane, view.nearPlane);
+
+    camera.orbit(30, 20);
+    camera.dolly(2);
+    camera.panBy(point3(5, 5, 5));
+    camera.reset();
+
+    assert.deepEqual(camera.orientation, view.orientation, "reset must return to the same default");
+    assert.deepEqual(camera.target, view.target, "reset must return to the same default");
+    assert.equal(camera.distance, view.distance, "reset must return to the same default");
 });
 
 test("orbit scales the pointer delta by the configured rate", () => {

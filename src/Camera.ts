@@ -1,7 +1,7 @@
 import { K } from "./K";
-import { axisAngle, identity, Mat3, multiply, rotX, rotY, rotZ } from "./Mat3";
+import { axisAngle, Mat3, multiply, rotX, rotY, rotZ } from "./Mat3";
 import { point3, Point3D } from "./Point3D";
-import { CameraView } from "./Projector";
+import { CameraView, defaultCameraView } from "./Projector";
 
 /** The camera axis a console button rotates about. */
 export type CameraAxis = 'x' | 'y' | 'z';
@@ -63,22 +63,27 @@ function pitchAxis(orientation: Mat3): Point3D {
  */
 export class Camera implements CameraView {
 
+    // Assigned by applyPose(), which the constructor calls and reset() reuses.
+    // The definite assignment assertions are what let that be their only home.
     /** World -> camera rotation. The identity is the default 1:1 view. */
-    orientation: Mat3;
+    orientation!: Mat3;
 
-    target: Point3D;
-    distance: number;
+    target!: Point3D;
+    distance!: number;
 
     /** Constant by design: the wheel dollies `distance`, never this. */
     readonly focalLength: number;
     readonly nearPlane: number;
 
     constructor() {
-        this.orientation = identity();
-        this.target = point3(0, 0, 0);
-        this.distance = K.camera.distance;
-        this.focalLength = K.camera.focalLength;
-        this.nearPlane = K.camera.nearPlane;
+        const defaults = defaultCameraView();
+
+        // The focal length and near plane are fixed for the camera's life; the
+        // pose is restorable, so it comes from the same home as reset().
+        this.focalLength = defaults.focalLength;
+        this.nearPlane = defaults.nearPlane;
+
+        this.applyPose(defaults);
     }
 
     /** The look direction's elevation, the angle the turntable guard bounds. */
@@ -162,8 +167,17 @@ export class Camera implements CameraView {
 
     /** Back to the default orientation and framing. */
     reset(): void {
-        this.orientation = identity();
-        this.target = point3(0, 0, 0);
-        this.distance = K.camera.distance;
+        this.applyPose(defaultCameraView());
+    }
+
+    /**
+     * Write the mutable pose - orientation, target and distance - from one
+     * camera view. The constructor and reset() share it, so "the default
+     * camera" has exactly one definition (`defaultCameraView()`).
+     */
+    private applyPose(view: CameraView): void {
+        this.orientation = view.orientation;
+        this.target = point3(view.target.x, view.target.y, view.target.z);
+        this.distance = view.distance;
     }
 }
