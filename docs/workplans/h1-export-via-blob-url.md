@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Finding** | H1, high — export navigates to a `data:` URL |
-| **Status** | Planned |
+| **Status** | Done in #50 |
 | **Area** | `src/UIController.ts`, `test/support/dom.ts`, `test/context-menu.test.ts` |
 | **Depends on** | nothing |
 | **Blocks** | nothing |
