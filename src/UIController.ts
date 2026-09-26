@@ -68,9 +68,9 @@ export class UIController {
     contextMenu: ContextMenu | null = null;
 
     /**
-     * Logical (CSS-pixel) canvas size. All model <-> canvas mapping uses these
-     * so pointer coordinates stay correct when the backing store is scaled for
-     * a HiDPI display.
+     * Logical (CSS-pixel) canvas size. All projected-plane <-> canvas mapping
+     * uses these so pointer coordinates stay correct when the backing store is
+     * scaled for a HiDPI display.
      */
     width: number = 0;
     height: number = 0;
