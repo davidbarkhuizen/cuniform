@@ -12,6 +12,25 @@ declare global {
     }
 }
 
+/**
+ * The canvas as a PNG Blob. Browsers refuse top-frame navigation to a `data:`
+ * URL, so the canvas image has to be carried by a `blob:` object URL instead;
+ * this builds the Blob that object URL points at. Module scope because it is a
+ * pure canvas -> bytes conversion with no controller state behind it.
+ */
+function pngBlob(canvas: HTMLCanvasElement): Blob {
+	const [header, base64] = canvas.toDataURL('image/png').split(',');
+	const mime = /:(.*?);/.exec(header)?.[1] ?? 'image/png';
+
+	const binary = atob(base64);
+	const bytes = new Uint8Array(binary.length);
+
+	for (let i = 0; i < binary.length; i++)
+		bytes[i] = binary.charCodeAt(i);
+
+	return new Blob([bytes], { type: mime });
+}
+
 export class UIController {
 
     timer: ReturnType<typeof setInterval> | null = null;
@@ -209,9 +228,19 @@ export class UIController {
 		// default navigation has to be suppressed or the page reloads.
 		event?.preventDefault();
 
-		window.open(
-			this.canvas.toDataURL('image/png')
-		);
+		// A `data:` URL cannot be opened by top-frame navigation in any current
+		// browser, so the PNG is downloaded from an object URL instead: no
+		// popup, no blank tab and no blocked navigation.
+		const url = URL.createObjectURL(pngBlob(this.canvas));
+
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = 'cuniform.png';
+		link.click();
+
+		// Revoking synchronously can cancel the download in some browsers; one
+		// task's delay lets the navigation start first.
+		setTimeout(() => URL.revokeObjectURL(url), 0);
 	};
 
 	onReset = (event?: MouseEvent) => {
