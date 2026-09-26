@@ -21,8 +21,8 @@ export const K = {
         // evaluated at max(r, minimumInteractionRadius), so the force is
         // bounded while the direction stays exact. Every r >= this value is
         // untouched, so the reference law is unchanged over the range the
-        // reference (and the tests) actually exercise; see
-        // PHYSICS_ALIGNMENT_PLAN.md §5 Phase 6.
+        // reference (and the tests) actually exercise. A deliberate
+        // non-reference extension.
         minimumInteractionRadius : 10.0,
     },
 
