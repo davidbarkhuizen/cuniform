@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
 import { K } from "../src/K";
+import { Projector } from "../src/Projector";
 import { Tag } from "../src/Tag";
 import { Viewport } from "../src/Viewport";
 import { assertClose } from "./support/assert";
@@ -56,15 +57,27 @@ test("toModel is the exact inverse of toCanvas, at any canvas aspect ratio", () 
     }
 });
 
-test("step() caches translatedPosition through the same Viewport mapping", () => {
+test("step() caches translatedPosition and depth through the projector", () => {
     const graph = new Graph();
     const a = new Tag({ x: 100, y: -40, z: 0 }, "a");
     graph.addNode(a);
 
     const fdg = new ForceDirectedGraph(graph);
-    fdg.step(800, 600);
+    const projector = Projector.forCanvas(800, 600);
 
-    assert.deepEqual(a.translatedPosition, Viewport.forCanvas(800, 600).toCanvas(a.position));
+    fdg.step(800, 600, () => false, projector);
+
+    // The cache is written from the post-step position, so re-projecting that
+    // same position must reproduce it exactly.
+    const expected = projector.project(a.position);
+
+    assert.deepEqual(a.translatedPosition, projector.viewport.toCanvas(expected.screen));
+    assert.equal(a.depth, expected.depth);
+    assert.deepEqual(
+        a.translatedPosition,
+        Viewport.forCanvas(800, 600).toCanvas(a.position),
+        "the default identity camera still reduces to the 2D mapping"
+    );
 });
 
 test("the retired mapping wrappers and test-only solver methods stay retired", () => {
