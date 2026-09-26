@@ -106,6 +106,31 @@ test("bracket atoms keep the element and discard the rest", () => {
     assert.equal(pyrrole.ringClosures, 1);
 });
 
+test("a bracket atom keeps a two-letter lowercase (aromatic) element", () => {
+    // Selenium and arsenic are written lowercase in aromatic notation; truncating
+    // them to one letter would silently yield sulfur/carbon instead of failing.
+    assert.deepEqual(parseSmiles("c1cc[se]c1").atoms, ["c", "c", "c", "se", "c"]);
+    assert.deepEqual(parseSmiles("c1cc[as]c1").atoms, ["c", "c", "c", "as", "c"]);
+    assert.deepEqual(parseSmiles("[si]").atoms, ["si"]);
+
+    // The two-letter aromatic atom keeps the aromatic default bond order.
+    assert.ok(
+        parseSmiles("c1cc[se]c1").bonds.every(bond => bond.order === 4),
+        "the selenophene ring is aromatic"
+    );
+
+    // The uppercase forms are distinct elements, not the aromatic pair.
+    assert.deepEqual(parseSmiles("C[Se]").atoms, ["C", "Se"]);
+    assert.equal(parseSmiles("C[Se]").bonds[0].order, 1, "uppercase Se is not aromatic");
+});
+
+test("the organic subset's two-letter symbols are one atom, not two", () => {
+    const topology = parseSmiles("ClCBr");
+
+    assert.deepEqual(topology.atoms, ["Cl", "C", "Br"]);
+    assert.deepEqual(topology.bonds.map(bond => bond.order), [1, 1]);
+});
+
 test("a leading isotope number in a bracket atom is skipped", () => {
     assert.deepEqual(parseSmiles("[13CH4]").atoms, ["C"]);
 });
