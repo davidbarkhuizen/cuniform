@@ -28,7 +28,7 @@ squash-merged into `main`:
 | 3 — world and canvas | [#24](https://github.com/davidbarkhuizen/cuniform/pull/24) | `600x600` model, boundary clamp removed, uniform scale |
 | 4 — pipeline purity | [#25](https://github.com/davidbarkhuizen/cuniform/pull/25) | order-independence and Jacobi tests |
 | 5 — graph seeding | [#26](https://github.com/davidbarkhuizen/cuniform/pull/26) | sparse generation, dedup fix, reference initial conditions |
-| 6 — documentation (the §8 "PR 6") | [#27](https://github.com/davidbarkhuizen/cuniform/pull/27) | README physics summary, `BUGFIX_PLAN.md` corrections |
+| 6 — documentation (the §8 "PR 6") | [#27](https://github.com/davidbarkhuizen/cuniform/pull/27) | README physics summary, corrections to the earlier defect inventory |
 
 Measured outcomes: a single edge settles at `r = 65.4563` (doc §9 predicts
 `65.46`), a 10-node graph's mean per-step travel over the final 100 of 2000 ticks
@@ -232,7 +232,7 @@ neighbour. Measured with `l = 40`, `k = 0.1`, tag at origin and neighbour at
 So compressed edges never push. This is a real physics divergence, not a
 dead-code artefact.
 
-> **This contradicts `BUGFIX_PLAN.md` §5.3**, which claims the swap "cancels out
+> **This contradicts the earlier review**, which claimed the swap "cancels out
 > exactly" and that deleting it is behaviour-preserving, leaving
 > `deltaX = x_tag - x_other`. Deleting the swap simply inverts the whole law
 > (repulsion when stretched, attraction when compressed). Neither form matches
@@ -329,12 +329,12 @@ The empty branch discards the integrated position, which matches the reference's
 "pin". But the reference also sets `tag.velocity = (0.0, 0.0)` in that branch
 (doc §7; `force_directed_graph.py:248-251`) so releasing the mouse does not fling
 the node with accumulated momentum. Once a velocity exists (item 1) this branch
-must zero it. The `window.state` read is also the blocker called out in
-`BUGFIX_PLAN.md` §5.1.
+must zero it. The `window.state` read was also flagged in the earlier review as
+the main blocker to headless testing.
 
 Note: the reference also places the node centre directly at the reversed pointer
 position (`graphical_event_manager.py:126-127`), with no grab offset, so
-`BUGFIX_PLAN.md` §5.5 (drag jump) is faithful reference behaviour, **not** a
+the earlier review's drag-jump item is faithful reference behaviour, **not** a
 physics-alignment defect. And the reference gates the drag on the middle button
 (`b1_down`), cuniform on the left (`b0Down`); either is a UI choice, not physics.
 
@@ -349,9 +349,9 @@ node — sparse, typically 10–20 edges for 10 nodes. Because spring force is n
 degree-normalised (doc §4.2), a `K10` where every node has degree 9 is a
 qualitatively different system, and the doc's §9 equilibrium table no longer
 describes it. Graph generation must be fixed before layout quality can be
-judged. (This is `BUGFIX_PLAN.md` §3.2.)
+judged. (The earlier review raised this too.)
 
-The dedup defect (`BUGFIX_PLAN.md` §3.1, `GraphFactory.ts:16-19`) is real —
+The dedup defect (`GraphFactory.ts:16-19`) is real —
 `indexOf` on a fresh object literal is always `-1` — but is currently masked:
 continuous uniform sampling made all **200/200** positions unique in a 200-node
 run. Low priority; fix opportunistically.
@@ -371,24 +371,27 @@ run. Low priority; fix opportunistically.
 
 ---
 
-## 4. Corrections to `BUGFIX_PLAN.md`
+## 4. Corrections to the earlier defect inventory
 
-`BUGFIX_PLAN.md` is a good defect inventory, but three of its physics
-conclusions must be corrected before it is used as the basis for this
-refactor.
+> The document this section corrects was an earlier defect inventory that has
+> since been completed and removed from the repository. Its corrections are kept
+> here because they explain why the physics errors were misdiagnosed.
 
-1. **§5.3 is wrong.** It states the `tag_A`/`tag_B` swap "cancels out exactly"
-   and is "equivalent to `deltaX = x_tag - x_other`", so deleting it is
-   behaviour-preserving. Measured behaviour: the swap makes the spring **always
-   attractive**; deleting it inverts the law. The reference form is
-   `scalar = k(r − l)` with the unit vector `A → other` and no swap. Fixing this
-   is a **behaviour change**, and needs its own acceptance test.
-2. **§1.1's arithmetic is misleading.** It says the current update reduces to
-   `r += -200·(r - 40)`; `200` is `scalarForceConstant`, the *repulsion*
-   coefficient. The per-edge spring gain is `springConstant = 0.1` (up to ~0.9
-   for a degree-9 node in `K10`). The instability is real — measured above — but
-   the stated cause and number are not the mechanism.
-3. **§1.1's proposed fix diverges from the reference.** It proposes
+That inventory was a good defect list, but three of its physics conclusions
+must be corrected before it could be used as the basis for this refactor.
+
+1. **The spring-sign diagnosis is wrong.** It states the `tag_A`/`tag_B` swap
+   "cancels out exactly" and is "equivalent to `deltaX = x_tag - x_other`", so
+   deleting it is behaviour-preserving. Measured behaviour: the swap makes the
+   spring **always attractive**; deleting it inverts the law. The reference form
+   is `scalar = k(r − l)` with the unit vector `A → other` and no swap. Fixing
+   this is a **behaviour change**, and needs its own acceptance test.
+2. **The instability arithmetic is misleading.** It says the current update
+   reduces to `r += -200·(r - 40)`; `200` is `scalarForceConstant`, the
+   *repulsion* coefficient. The per-edge spring gain is `springConstant = 0.1`
+   (up to ~0.9 for a degree-9 node in `K10`). The instability is real — measured
+   above — but the stated cause and number are not the mechanism.
+3. **The proposed integrator fix diverges from the reference.** It proposes
    `mass`, `dt`, `damping`, `maxSpeed`, `maxForce`, and pseudocode
    `v += F/mass*dt; v *= (1-damping); v = clamp; p += v*dt`. The reference has
    no mass, no speed or force clamp, and applies `TIME_STEP` **once**, inside
@@ -396,9 +399,10 @@ refactor.
    pseudocode applies `dt` a second time on the position update. For an
    alignment task, use `FRICTION`/`TIME_STEP`, not a damper-plus-double-dt.
    Fruchterman–Reingold temperature remains available as a Phase 6 extension.
-4. **§5.5 is not a physics defect.** Direct cursor-to-node assignment matches
-   the reference.
-5. **§3.1 dedup** is currently masked by continuous sampling (200/200 unique).
+4. **The drag-jump item is not a physics defect.** Direct cursor-to-node
+   assignment matches the reference.
+5. **The dedup defect is currently masked** by continuous sampling (200/200
+   unique).
 
 ---
 
@@ -406,7 +410,7 @@ refactor.
 
 Ordered so that each phase is independently verifiable, and so that retuning
 (Phase 3) happens only after the integrator (Phase 1) and force laws (Phase 2)
-are correct — otherwise tuning masks bugs, as `BUGFIX_PLAN.md` itself warns.
+are correct — otherwise tuning masks bugs, as the earlier inventory itself warned.
 
 ### Phase 0 — Headless harness and baseline
 
@@ -484,7 +488,7 @@ leaves one step's resulting positions bit-identical.
 
 ### Phase 5 — Graph seeding (prerequisite for judging layout)
 
-Cross-references `BUGFIX_PLAN.md` §3.1–3.2.
+Covers the graph-construction defects raised in the earlier review.
 
 | # | Change | File |
 | --- | --- | --- |
@@ -550,7 +554,7 @@ Decision 1 is settled; the rest remain open.
 4. **`displacement` field.** Collapse it into `velocity` (doc §12.8
    recommendation) or keep both to mirror the reference field-for-field?
 5. **Graph seeding.** Keep the reference's sparse random generation, or adopt
-   the jittered-grid seeding floated in `BUGFIX_PLAN.md` §3.1? The former is
+   the jittered-grid seeding floated in the earlier review? The former is
    required to reproduce doc §9's numbers; the latter is a genuine improvement
    but a divergence.
 6. **Test runner.** Upgrade the incompatible `ts-node`/`typescript` pair, or
@@ -571,8 +575,9 @@ Focused PRs, per the working agreement. Each builds on up-to-date `main`.
 4. **PR 4 — Phase 4.** Pipeline separation, `window.state` removal,
    order-independence test.
 5. **PR 5 — Phase 5.** Sparse graph generation and constants.
-6. **PR 6 —** update `BUGFIX_PLAN.md` per §4 (or fold the corrections into
-   PR 2's description), and update `README.md` with the physics summary.
+6. **PR 6 —** correct the earlier defect inventory per §4 (or fold the
+   corrections into PR 2's description), and update `README.md` with the physics
+   summary.
 
 Phases 1 and 2 may be split if the spring-sign change is felt to deserve its
 own reviewable diff; it is the only change that outright changes layout
