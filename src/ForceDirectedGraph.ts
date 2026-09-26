@@ -168,7 +168,7 @@ export class ForceDirectedGraph {
 			var sin_theta = deltaY / r;
 			var cos_theta = deltaX / r;
 
-			var scalar_force = K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge / (r * r);
+			var scalar_force = K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge / Math.pow(r, K.physics.repulsionExponent);
 
 			var Fy = scalar_force * sin_theta;
 			var Fx = scalar_force * cos_theta;
@@ -212,7 +212,7 @@ export class ForceDirectedGraph {
 			var x_other = other_tag.position.x;
 			var y_other = other_tag.position.y;
 
-			var r2 = Math.pow((x_tag - x_other), 2) + Math.pow(y_tag - y_other, 2);
+			var r2 = Math.pow((x_other - x_tag), 2) + Math.pow(y_other - y_tag, 2);
 			var r = Math.sqrt(r2);
 
 			if(r == 0)
@@ -223,27 +223,14 @@ export class ForceDirectedGraph {
 			var k = K.physics.springConstant;
 			var l = K.physics.equilibriumDisplacement;
 
-			var scalar_force = -k * (l - r);
+			// Hooke's law: k*(r - l) is positive when the spring is stretched
+			// (r > l) so the node is pulled toward its neighbour, and negative
+			// when compressed (r < l) so it is pushed away.
+			var scalar_force = k * (r - l);
 
-			// DISTINGUISH BETWEEN PUSH & PULL VECTORS
-            //
-            
-            let tag_A: Tag;
-            let tag_B: Tag;
-
-			if(scalar_force < 0) {
-				tag_A = tag;
-				tag_B = other_tag;
-			} else {
-				tag_A = other_tag;
-				tag_B = tag;
-			}
-
-			var deltaX = tag_A.position.x - tag_B.position.x;
-			var deltaY = tag_A.position.y - tag_B.position.y;
-
-			var sin_theta = deltaY / r;
-			var cos_theta = deltaX / r;
+			// Unit vector pointing from this node toward the neighbour.
+			var cos_theta = (x_other - x_tag) / r;
+			var sin_theta = (y_other - y_tag) / r;
 
 			var Fy = scalar_force * sin_theta;
 			var Fx = scalar_force * cos_theta;
@@ -273,20 +260,43 @@ export class ForceDirectedGraph {
 		};
 	};
 
+	/**
+	 * Damped, semi-implicit Euler:
+	 *
+	 *   v_new = v_old * FRICTION + F_net * TIME_STEP
+	 *
+	 * Velocity is updated before position (see step()), which is what makes
+	 * the integration symplectic and keeps stiff springs stable.
+	 */
+	velocityAtTag(tag: Tag) {
+
+		var f = this.netForceAtNode(tag);
+
+		// RECORD PREVIOUS VELOCITY
+		//
+		var vx_old = tag.velocity.x;
+		var vy_old = tag.velocity.y;
+
+		var friction = K.physics.friction;
+		var time_step = K.physics.timeStep;
+
+		// NEW V = (OLD V * FRICTION) + (CURRENT NET FORCE * TIME_STEP)
+		//
+		var vx_new = (vx_old * friction) + f.x * time_step;
+		var vy_new = (vy_old * friction) + f.y * time_step;
+
+		return {
+			x : vx_new,
+			y : vy_new
+		};
+	};
+
+	/**
+	 * Per-step displacement. velocityAtTag() has already applied FRICTION and
+	 * TIME_STEP, so this is just the node's current velocity (see Tag.displacement).
+	 */
 	displacementAtNode(tag: Tag) {
-
-		// ERROR - DISPLACEMENT IS ! USING VELOCITY
-
-		var e = tag.netElectrostaticForce;
-		var s = tag.netSpringForce;
-		
-		const nX = e.x + s.x;
-		const nY = e.y + s.y;
-		
-		const displacement = {x:nX, y:nY};
-
-		return displacement
-
+		return tag.velocity;
 	};
 
 	/**
@@ -307,7 +317,8 @@ export class ForceDirectedGraph {
 		for each node
 		calc net electrostatic force
 		calc net spring force
-		calc displacement [impulse]
+		calc velocity
+		calc displacement [== velocity]
 		effect displacements
 		*/
 
@@ -324,17 +335,21 @@ export class ForceDirectedGraph {
 			this.graph.vertices[i].netSpringForce = this.netSpringForceAtNode(this.graph.vertices[i]);
 		}
 
-		// CALC DISPLACEMENT
+		// CALC VELOCITY
 		//
 		for(i = 0; i < this.graph.vertices.length; i++) {
-			this.graph.vertices[i].displacement = this.displacementAtNode(this.graph.vertices[i]);
+			this.graph.vertices[i].velocity = this.velocityAtTag(this.graph.vertices[i]);
 		}
 
 		// ADJUST POSITION
 		//
+		// Displacement is the velocity computed above, so no separate pass is
+		// needed. A dragged node keeps the position the pointer handler wrote
+		// and has its velocity zeroed, so releasing the mouse does not fling it.
 		for(i = 0; i < this.graph.vertices.length; i++) {
 			var tag = this.graph.vertices[i];
 			if (isPinned(tag)) {
+				tag.velocity = { x : 0, y : 0 };
 			} 
 			else {
 				var displacement = tag.displacement;
