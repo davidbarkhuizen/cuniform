@@ -11,6 +11,7 @@ import {
     keyEvent,
     withFakeDom,
 } from "./support/dom";
+import { readSource } from "./support/files";
 
 /** The fake element behind an HTMLElement the wizard hands back. */
 function el(element: HTMLElement): FakeElement {
@@ -264,7 +265,7 @@ test("typing in the search box filters the tags, the count and the empty state",
 
         assert.equal(wizard.countLabel.innerHTML, `0 of ${wizard.tags.length}`);
         assert.equal(el(wizard.emptyLabel).style.display, "block");
-        assert.match(wizard.emptyLabel.innerHTML, /zzzznotamolecule/);
+        assert.match(wizard.emptyLabel.innerHTML, /no molecule matches/);
     });
 });
 
@@ -509,6 +510,17 @@ test("Tab wraps at both ends of the visible controls", () => {
 
         assert.deepEqual(seen, ["cancel"], "Shift+Tab wraps backwards from the first control");
     });
+});
+
+test("the wizard never echoes the search text into markup", () => {
+    // Text read from an input is data, not markup: writing it back through
+    // innerHTML is the js/xss-through-dom sink CodeQL flags.
+    for (const line of readSource("GraphWizard.ts").split("\n")) {
+        if (!line.includes("innerHTML"))
+            continue;
+
+        assert.ok(!line.includes("query"), `the query must not reach innerHTML: ${line.trim()}`);
+    }
 });
 
 test("Tab skips the disabled generate button", () => {

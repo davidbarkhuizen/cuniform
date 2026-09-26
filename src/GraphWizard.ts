@@ -404,9 +404,9 @@ export class GraphWizard {
         this.countLabel.innerHTML = `${visible} of ${this.tags.length}`;
 
         if (visible === 0) {
-            this.emptyLabel.innerHTML = query.trim() === ""
-                ? "no molecules"
-                : `no molecule matches "${query}"`;
+            // Deliberately a static message: the query is not echoed into the
+            // markup, so text read from an input can never reach innerHTML.
+            this.emptyLabel.innerHTML = "no molecule matches that search";
             this.emptyLabel.style.display = "block";
         }
         else {
