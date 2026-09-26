@@ -14,34 +14,34 @@
 	
 	<body id="body" class="documentBody">
 		
-		<div class="column-container">
+		<div class="canvas-container">
 
-			<div class="column-container">
-				<div class="mainLabel">
-					cuniform
-				</div>
-				<div style="font-size: smaller;">
-					force directed graphs in javascript
-				</div>
-			</div>
-	
-			<br/>
+			<canvas id="canvas">
+			</canvas>
 
-			<div>
-	
-				<div>
-					<a id="export_canvas_link" class="main_menu_option" href="">export</a>
-					<a id="reset_link" class="main_menu_option" href="">reset</a>
-				</div>
-				
-				<div class="canvas-container">
-					<canvas id="canvas">
-					</canvas>
-					<div id="selectionInfoPanel" class="selectionInfoPanel">
-						<label id="selectedNodeInfoLabel"></label>
-						<br/>
-						<ul id="selectedNodeInfoList"></ul>
+			<!--
+				The single piece of chrome: a floating panel holding the fixed
+				menu (title, export, reset) and the currently selected node.
+			-->
+			<div id="selectionInfoPanel" class="selectionInfoPanel">
+
+				<div class="overlayMenu">
+					<div class="mainLabel">
+						cuniform
 					</div>
+					<div class="menuOptions">
+						<a id="export_canvas_link" class="main_menu_option" href="">export</a>
+						<a id="reset_link" class="main_menu_option" href="">reset</a>
+					</div>
+				</div>
+
+				<div class="selectionSection">
+					<div class="sectionHeading">
+						currently selected node
+					</div>
+					<label id="selectedNodeInfoLabel"></label>
+					<br/>
+					<ul id="selectedNodeInfoList"></ul>
 				</div>
 			</div>
 		</div>

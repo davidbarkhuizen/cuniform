@@ -119,6 +119,8 @@ export class FakeContext2D {
     strokes: string[] = [];
     /** fillStyle captured at each fill() call, in order. */
     fills: string[] = [];
+    /** fillStyle captured at each fillText() call, in order. */
+    texts: string[] = [];
     /** Arguments captured at each setTransform() call, in order. */
     transforms: number[][] = [];
     /** Arguments captured at each clearRect() call, in order. */
@@ -132,9 +134,12 @@ export class FakeContext2D {
     moveTo() {}
     lineTo() {}
     arc() {}
-    fillText() {}
     save() {}
     restore() {}
+
+    fillText(..._args: any[]) {
+        this.texts.push(String(this.fillStyle));
+    }
 
     stroke() {
         this.strokes.push(String(this.strokeStyle));
@@ -172,6 +177,8 @@ export interface FakeDom {
     window: any;
     elements: Record<string, FakeElement>;
     intervals: Array<{ id: number; fn: (...args: any[]) => void }>;
+    /** Listeners registered on `window`, so viewport events can be fired. */
+    windowListeners: Map<string, Listener[]>;
     restore: () => void;
 }
 
@@ -201,11 +208,22 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
         createElement: (tag: string) => new FakeElement(tag.toUpperCase()),
     };
 
+    const windowListeners: Map<string, Listener[]> = new Map();
+
     const windowStub = {
         pageXOffset: 0,
         pageYOffset: 0,
         devicePixelRatio: 1,
         open: (): null => null,
+        addEventListener: (type: string, fn: Listener) => {
+            const list = windowListeners.get(type) ?? [];
+            list.push(fn);
+            windowListeners.set(type, list);
+        },
+        removeEventListener: (type: string, fn: Listener) => {
+            const list = windowListeners.get(type) ?? [];
+            windowListeners.set(type, list.filter(f => f !== fn));
+        },
     };
 
     global.document = documentStub;
@@ -228,6 +246,7 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
         window: windowStub,
         elements,
         intervals,
+        windowListeners,
         restore: () => {
             global.document = previous.document;
             global.window = previous.window;

@@ -46,6 +46,18 @@ export const K = {
         fontFamily : '10pt Arial',    
     },
 
+    colours: {
+        // Rendering palette, tuned for the near-black canvas. Nodes are bright
+        // so they read as the foreground; edges are deliberately dimmer so a
+        // dense graph does not turn into a solid mesh, and the selected node
+        // and its incident edges share one high-contrast highlight colour.
+        nodeDefault : '#39d98a',
+        nodeSelected : '#ffd400',
+        label : '#e8f4ff',
+        edgeDefault : '#4b5b70',
+        edgeIncident : '#ffd400',
+    },
+
     initialConditions: {
         // Reference demo: DEMO_GRAPH_SIZE = 11, DEMO_GRAPH_BRANCHING_CONST = 2.
         order : 11,

@@ -3,8 +3,14 @@ import assert from "node:assert/strict";
 
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
+import { K } from "../src/K";
 import { Tag } from "../src/Tag";
 import { FakeContext2D } from "./support/dom";
+
+const NODE_DEFAULT = K.colours.nodeDefault;
+const NODE_SELECTED = K.colours.nodeSelected;
+const EDGE_DEFAULT = K.colours.edgeDefault;
+const EDGE_INCIDENT = K.colours.edgeIncident;
 
 /**
  * A path a - b - c - d, so selecting any interior node has two incident edges
@@ -46,10 +52,10 @@ test("an edge incident to the selected node is highlighted distinctly", () => {
     const context = render(fdg);
     const strokes = edgeStrokes(context, 3);
 
-    assert.equal(strokes[0], 'red', "a-b is incident to the selection");
+    assert.equal(strokes[0], EDGE_INCIDENT, "a-b is incident to the selection");
     assert.notEqual(strokes[0], strokes[1], "the incident edge must differ from the rest");
-    assert.equal(strokes[1], 'green');
-    assert.equal(strokes[2], 'green');
+    assert.equal(strokes[1], EDGE_DEFAULT);
+    assert.equal(strokes[2], EDGE_DEFAULT);
 
     // The extra stroke is the selected node's ring, not another edge.
     assert.equal(context.strokes.length, 4);
@@ -59,7 +65,7 @@ test("both edges incident to an interior selected node are highlighted", () => {
     const { fdg, c } = build();
     c.isSelected = true;
 
-    assert.deepEqual(edgeStrokes(render(fdg), 3), ['green', 'red', 'red']);
+    assert.deepEqual(edgeStrokes(render(fdg), 3), [EDGE_DEFAULT, EDGE_INCIDENT, EDGE_INCIDENT]);
 });
 
 test("with no selection every edge uses the default colour", () => {
@@ -67,7 +73,7 @@ test("with no selection every edge uses the default colour", () => {
 
     const context = render(fdg);
 
-    assert.deepEqual(context.strokes, ['green', 'green', 'green']);
+    assert.deepEqual(context.strokes, [EDGE_DEFAULT, EDGE_DEFAULT, EDGE_DEFAULT]);
 });
 
 test("the selected node is filled with the selected colour", () => {
@@ -77,7 +83,24 @@ test("the selected node is filled with the selected colour", () => {
     const { fills } = render(fdg);
 
     // One fill per vertex, in vertex order a, b, c, d.
-    assert.deepEqual(fills, ['green', 'red', 'green', 'green']);
+    assert.deepEqual(fills, [NODE_DEFAULT, NODE_SELECTED, NODE_DEFAULT, NODE_DEFAULT]);
+});
+
+test("nodes, edges and labels each use a distinct colour", () => {
+    // The default node must not disappear into the mesh of edges beneath it,
+    // and the label must stay legible against both.
+    assert.notEqual(NODE_DEFAULT, EDGE_DEFAULT);
+    assert.notEqual(K.colours.label, NODE_DEFAULT);
+    assert.notEqual(K.colours.label, EDGE_DEFAULT);
+});
+
+test("labels are drawn in the label colour, not the node fill", () => {
+    const { fdg } = build();
+
+    const context = render(fdg);
+
+    // One label per vertex, in vertex order.
+    assert.deepEqual(context.texts, [K.colours.label, K.colours.label, K.colours.label, K.colours.label]);
 });
 
 test("render takes no optional label-spacing parameter", () => {
