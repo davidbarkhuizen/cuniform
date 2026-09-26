@@ -15,6 +15,12 @@ export class ForceDirectedGraph {
         this.graph = graph;
     }
 
+	/**
+	 * Model -> canvas. The scale is uniform on both axes,
+	 * min(w1/w0, h1/h0), so the layout is never stretched anisotropically when
+	 * the canvas aspect ratio differs from the model square. The y axis is
+	 * flipped so increasing model y moves up the canvas.
+	 */
 	translate(
         xy: Point2D, 
         w0: number, 
@@ -23,8 +29,10 @@ export class ForceDirectedGraph {
         h1: number
     ) {
 
-		var x1 = (w1 / 2.0) + xy.x * (w1 / w0);
-		var y1 = (h1 / 2.0) - xy.y * (h1 / h0);
+		var scale = Math.min(w1 / w0, h1 / h0);
+
+		var x1 = (w1 / 2.0) + xy.x * scale;
+		var y1 = (h1 / 2.0) - xy.y * scale;
 
 		return {
 			x : x1,
@@ -32,10 +40,13 @@ export class ForceDirectedGraph {
 		};
 	};
 
+	/** Exact inverse of translate(): canvas -> model. */
 	reverse(xy: Point2D, w0: number, h0: number, w1: number, h1: number) {
 
-		var x0 = (xy.x - (w1 / 2.0)) * (w0 / w1);
-		var y0 = ((h1 / 2.0) - xy.y) * (h0 / h1);
+		var scale = Math.min(w1 / w0, h1 / h0);
+
+		var x0 = (xy.x - (w1 / 2.0)) / scale;
+		var y0 = ((h1 / 2.0) - xy.y) / scale;
 
 		return {
 			x : x0,
@@ -358,31 +369,12 @@ export class ForceDirectedGraph {
 			}
 		}
 
-		this.enforcePositionLimits(K.space.rightMargin, K.space.minorMargin);
-
 		// TRANSLATE TO CANVAS
 		//
 		for( i = 0; i < this.graph.vertices.length; i++) {
 			var node = this.graph.vertices[i];
 			node.translatedPosition = this.translate(node.position, K.space.W_0, K.space.H_0, canvasWidth, canvasHeight);
 		}
-	};
-
-	enforcePositionLimits(rightMargin: number, minorMargin: number) {
-		
-		for (let i = 0; i < this.graph.vertices.length; i++) {
-			var node = this.graph.vertices[i];
-
-			if (node.position.x < - ((K.space.W_0 / 2) - minorMargin))
-				node.position.x = - ((K.space.W_0 / 2) - minorMargin);
-			else if (node.position.x > ((K.space.W_0 / 2) - rightMargin))
-				node.position.x = (K.space.W_0 / 2) - rightMargin;
-
-			if (node.position.y < - ((K.space.H_0 / 2) - minorMargin))
-				node.position.y = - ((K.space.H_0 / 2) - minorMargin);
-			else if (node.position.y > ((K.space.H_0 / 2) - minorMargin))
-				node.position.y = (K.space.H_0 / 2) - minorMargin;
-		}		
 	};
 
 	handleNodeSelectionAttempt(canvasPos: Point2D, canvasWidth: number, canvasHeight: number) {
