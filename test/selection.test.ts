@@ -85,7 +85,7 @@ test("the nearer of two nodes inside the hit radius wins", () => {
     const { graph, a, b } = build();
 
     // Model (8, 0) is 8 from a and 2 from b; both are inside the 15-unit radius.
-    assert.ok(K.ui.minimumNodeSelectionRadius > 8, "both nodes must be in range");
+    assert.ok(K.ui.minimumNodeSelectionRadiusPx > 8, "both nodes must be in range");
 
     handleNodeSelectionAttempt(graph, canvasAt(8, 0), VIEWPORT);
 
@@ -138,7 +138,7 @@ test("a click outside the hit radius of every node clears rather than selects", 
 });
 
 test("the hit radius is exclusive at exactly the selection radius", () => {
-    const r = K.ui.minimumNodeSelectionRadius;
+    const r = K.ui.minimumNodeSelectionRadiusPx;
     const { graph, a } = single();
 
     assert.equal(handleNodeSelectionAttempt(graph, canvasAt(r, 0), VIEWPORT), false, "exactly r is outside");
@@ -157,4 +157,43 @@ test("selecting a second node replaces the first rather than adding to it", () =
     assert.equal(b.isSelected, true);
     assert.equal(a.isSelected, false);
     assert.equal(graph.selectedVertex(), b);
+});
+
+test("the hit radius is 15 screen pixels at any canvas scale", () => {
+    // The click is built from the node's own mapped canvas position plus a
+    // pixel offset, so the test states a screen distance directly and cannot
+    // accidentally re-derive it in model units. Under the old model-space
+    // radius the 300px case would need 28 model units and the 1200px case only
+    // 7, so both would disagree with the 600px case.
+    for (const size of [300, 600, 1200]) {
+        const viewport = Viewport.forCanvas(size, size);
+        const scale = size / W;
+
+        const hit = single();
+        const at = viewport.toCanvas(hit.a.position);
+        assert.equal(
+            handleNodeSelectionAttempt(hit.graph, { x: at.x + 14, y: at.y }, viewport),
+            true,
+            `14 px should hit at scale ${scale}`
+        );
+        assert.equal(hit.a.isSelected, true, `14 px should select at scale ${scale}`);
+
+        const miss = single();
+        const missAt = viewport.toCanvas(miss.a.position);
+        assert.equal(
+            handleNodeSelectionAttempt(miss.graph, { x: missAt.x + 16, y: missAt.y }, viewport),
+            false,
+            `16 px should miss at scale ${scale}`
+        );
+        assert.equal(miss.a.isSelected, false, `16 px should not select at scale ${scale}`);
+    }
+});
+
+test("a zero-size viewport selects nothing and does not throw", () => {
+    const { graph, a } = single();
+
+    assert.doesNotThrow(() => {
+        assert.equal(handleNodeSelectionAttempt(graph, { x: 0, y: 0 }, Viewport.forCanvas(0, 0)), false);
+    });
+    assert.equal(a.isSelected, false);
 });

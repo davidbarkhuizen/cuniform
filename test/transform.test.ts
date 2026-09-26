@@ -15,7 +15,7 @@ const H0 = K.space.H_0;
 test("the model space is the reference 600x600 square", () => {
     assert.equal(W0, 600);
     assert.equal(H0, 600);
-    assert.equal(K.ui.minimumNodeSelectionRadius, 15.0);
+    assert.equal(K.ui.minimumNodeSelectionRadiusPx, 15.0);
 });
 
 test("toCanvas maps the model origin to the canvas centre", () => {

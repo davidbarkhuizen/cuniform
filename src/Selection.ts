@@ -11,6 +11,9 @@ import { Viewport } from "./Viewport";
  * selection is cleared and the hit node is toggled - so clicking a selected
  * node deselects it, and clicking empty space clears the selection.
  *
+ * The hit radius is a screen-space constant, so "click the node" means the same
+ * number of pixels at every canvas scale.
+ *
  * Returns whether anything changed, which the pointer handler uses to decide
  * whether the info panel needs repainting.
  *
@@ -23,17 +26,23 @@ export function handleNodeSelectionAttempt(
 	viewport: Viewport
 ): boolean {
 
-	const model = viewport.toModel(canvasPos);
+	// A collapsed viewport (a hidden canvas) maps every node onto the centre,
+	// which would make the "nearest" pick arbitrary. Select nothing instead.
+	if (viewport.w1 <= 0 || viewport.h1 <= 0)
+		return false;
 
-	// Best distance so far, seeded with the squared hit radius so only a
-	// node inside it can win.
-	let best = K.ui.minimumNodeSelectionRadius * K.ui.minimumNodeSelectionRadius;
+	// Best distance so far, seeded with the squared hit radius so only a node
+	// inside it can win. Measured in canvas space, from node.position rather
+	// than the step-cached translatedPosition, which can lag a pointer-written
+	// drag position by up to a tick.
+	let best = K.ui.minimumNodeSelectionRadiusPx * K.ui.minimumNodeSelectionRadiusPx;
 	let closest: Tag | null = null;
 
 	for (const node of graph.vertices) {
 
-		const deltaX = node.position.x - model.x;
-		const deltaY = node.position.y - model.y;
+		const at = viewport.toCanvas(node.position);
+		const deltaX = at.x - canvasPos.x;
+		const deltaY = at.y - canvasPos.y;
 		const r2 = deltaX * deltaX + deltaY * deltaY;
 
 		// Strictly closer, so the first of two equidistant nodes wins.
