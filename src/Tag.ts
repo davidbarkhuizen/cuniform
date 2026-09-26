@@ -9,7 +9,6 @@ function popUnusedTagIdx(): number {
 
 export class Tag {
 
-    xy: Point2D;
     idx: number;
     label: string;
     position : Point2D;
@@ -20,7 +19,6 @@ export class Tag {
     isSelected: boolean = false;
 
     constructor(xy: Point2D, label: string) {
-        this.xy = xy;
         this.idx = popUnusedTagIdx();
         this.label = label;
 
@@ -59,24 +57,4 @@ export class Tag {
     get displacement(): Point2D {
         return this.velocity;
     }
-	
-	toString() {
-		return "Tag" + this.idx.toString();
-
-		/*
-		 s = ('%i = %s' % (this.idx, this.label)) + '\n'
-		 s = s + ('(x,y) = (%f,%f)' % (this.position.x, this.position.y)) + '\n'
-
-		 (Fx, Fy) = this.netElectrostaticForce
-		 s = s + ('electro-static Fx, Fy = %f, %f' % (Fx, Fy)) + '\n'
-
-		 (Fx, Fy) = this.netSpringForce
-		 s = s + ('spring Fx, Fy = %f, %f' % (Fx, Fy)) + '\n'
-
-		 (dx, dy) = this.displacement
-		 s = s + ('displacement dx, dy = %f, %f' % (dx, dy)) + '\n'
-
-		 return s
-		 */
-	};
 };

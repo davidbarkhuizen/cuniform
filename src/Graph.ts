@@ -11,33 +11,21 @@ export class Graph {
 	};
 
 	removeNode(tag: Tag) {
-		
-		// remove vertex
-		//
-		var vIdx = this.vertices.indexOf(tag);
-		this.vertices.splice(vIdx, 1);
-		
-		// remove adjcant edges
-		
-		var toRemove = [];
-		for (let i = 0; i < this.edges.length; i ++)
-			if ((this.edges[i].v1 == tag) || (this.edges[i].v2 == tag))
-				toRemove.push(this.edges[i]); 
-	
-		while (toRemove.length > 0) {
-			var idx = this.edges.indexOf(toRemove[0]);
-			this.edges.splice(idx, 1);
-			toRemove.splice(0,1);
-		}	
-	};
 
-	toString() {
-		return "No Rep";
+		// splice(-1, 1) removes the last vertex, so a tag that is not in the
+		// graph must be rejected before the list is touched.
+		var vIdx = this.vertices.indexOf(tag);
+
+		if (vIdx === -1)
+			return;
+
+		this.vertices.splice(vIdx, 1);
+		this.edges = this.edges.filter(edge => (edge.v1 !== tag) && (edge.v2 !== tag));
 	};
 
 	addEdge(v1: Tag, v2: Tag) {
-		if((this.vertices.indexOf(v1) == -1) || (this.vertices.indexOf(v2) == -1))
-			throw "one of the vertices in the edge requested to add, is not actually an ";
+		if((this.vertices.indexOf(v1) === -1) || (this.vertices.indexOf(v2) === -1))
+			throw new Error("Graph.addEdge: both vertices must already be in the graph");
 
 		this.edges.push({ v1, v2});
 	};
@@ -46,26 +34,32 @@ export class Graph {
 	hasEdge(v1: Tag, v2: Tag) {
 		for (let i = 0; i < this.edges.length; i++) {
 			var e = this.edges[i];
-			if ((e.v1 == v1 && e.v2 == v2) || (e.v1 == v2 && e.v2 == v1))
+			if ((e.v1 === v1 && e.v2 === v2) || (e.v1 === v2 && e.v2 === v1))
 				return true;
 		}
 		return false;
 	};
 
+	/**
+	 * The distinct neighbours of `v`, one entry per adjacent vertex. Duplicate
+	 * edges and self-loops never produce a repeated entry.
+	 */
 	neighbours(v: Tag) {
-		
-		var set = [];
-		
+		var out: Array<Tag> = [];
+
 		for (let i = 0; i < this.edges.length; i++) {
+
 			var edge = this.edges[i];
-			if (edge.v1 == v) {
-				set.push(edge.v2);
-			} else if (edge.v2 == v) {
-				set.push(edge.v1);
-			}
+			var other = edge.v1 === v ? edge.v2 : (edge.v2 === v ? edge.v1 : null);
+
+			if (other === null || other === v)
+				continue;
+
+			if (out.indexOf(other) === -1)
+				out.push(other);
 		}
-		
-		return set;
+
+		return out;
 	};
 
 };

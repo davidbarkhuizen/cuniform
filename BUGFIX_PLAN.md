@@ -40,11 +40,13 @@ Every phase heading and table row below carries a per-item status:
 **Completed by the alignment work:** 0.1, 0.2, 0.4, 1.1, 1.2, 1.3, 3.1, 3.2,
 5.1 (solver side), 5.3, 6.6, and effectively 6.9.
 
-**Completed since:** Phase 2 (2.1–2.3) in PR #31.
+**Completed since:** Phase 2 (2.1–2.3) in PR #31; Phase 4 (4.1–4.3) and the safe
+half of 5.4 in PR #32.
 
-**Still open:** Phase 4 (4.1–4.3), 5.2, 5.4, and Phase 6 items 6.2, 6.3, 6.4,
-6.5, 6.7, 6.8, 6.10. 6.1 is half done — `test` was replaced with a real runner
-in PR #22, but `dev` still runs `nodemon` with no entry target.
+**Still open:** 5.2, the button/`selectionInfoPanelID` remainder of 5.4, and
+Phase 6 items 6.2, 6.3, 6.4, 6.5, 6.7, 6.8, 6.10. 6.1 is half done — `test` was
+replaced with a real runner in PR #22, but `dev` still runs `nodemon` with no
+entry target.
 
 **Resolved differently:** 0.3 — no reusable DOM stub was written, because the
 solver was made DOM-free instead, so the tests need no stub at all
@@ -253,9 +255,9 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 
 ---
 
-## Phase 4 — Rendering and data-model correctness — ⬜ Open
+## Phase 4 — Rendering and data-model correctness — ✅ Complete
 
-### 4.1 Edge highlighting is a no-op — ⬜ Open (still both branches assign `COLOUR_DEFAULT`)
+### 4.1 Edge highlighting is a no-op — ✅ Done (PR #32)
 
 - **Where:** `src/ForceDirectedGraph.ts:66-83`
 - **Defect:** both branches of the selection check assign `COLOUR_DEFAULT`;
@@ -266,7 +268,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 - **Acceptance:** render test asserting the stroke colour used for an incident
   edge differs from a non-incident edge.
 
-### 4.2 `removeNode` can delete the wrong vertex — ⬜ Open (no `indexOf` guard; the truncated bare-string throw is still there)
+### 4.2 `removeNode` can delete the wrong vertex — ✅ Done (PR #32)
 
 - **Where:** `src/Graph.ts:13-32`
 - **Defect:** no `indexOf` guard. For a tag not in the graph, `splice(-1, 1)`
@@ -278,7 +280,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 - **Acceptance:** test that removing a foreign tag leaves the vertex list
   untouched; test that removing a real node also removes its edges.
 
-### 4.3 `neighbours` returns duplicates and self-loops — ⬜ Open (`hasEdge` was added in PR #26, but `neighbours` still repeats per edge)
+### 4.3 `neighbours` returns duplicates and self-loops — ✅ Done (PR #32)
 
 - **Where:** `src/Graph.ts:45-59`
 - **Fix:** dedupe; the UI list currently repeats a neighbour once per edge.
@@ -315,7 +317,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
   already computed at `:212-213` and discarded.
 - **Fix:** delete the swap; reuse the existing deltas.
 
-### 5.4 Remove dead locals and parameters — ⬜ Open (`box_side`, `node_label_vert_spacing`, `selectionInfoPanelID`, `State.b1Down`/`b2Down`/`lastB0DragPos`, `Tag.xy`, the `Tag`/`Graph` `toString` stubs all remain)
+### 5.4 Remove dead locals and parameters — ◐ Partially done (PR #32)
 
 - **Where:** `box_side` (`ForceDirectedGraph.ts:85`), `here` (`:311`),
   `node_label_vert_spacing` (`:52`), `selectionInfoPanelID` (unused — see 6.3),
@@ -324,6 +326,11 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 - **Fix:** delete. Resolve whether middle/right-button tracking is planned; if
   not, remove the fields and the `onMouseDown`/`onMouseUp`/`onMouseOut` handling
   for them.
+- **Resolved (PR #32):** `box_side`, `node_label_vert_spacing`, `Tag.xy` and the
+  `Tag`/`Graph` `toString` stubs are gone (`here` no longer exists).
+- **Maintainer decision:** middle/right-button tracking **is** planned, so those
+  fields stay and are implemented as real behaviour in the button-interaction
+  PR rather than deleted. `selectionInfoPanelID` is resolved under 6.3.
 
 ### 5.5 Node dragging jumps the node center to the cursor — 🔒 By design (matches the reference's pointer handling; kept as-is)
 
@@ -364,10 +371,12 @@ What remains is:
 1. **PR — Phase 2.** The three runtime-breaking defects (drag string, `Worker`
    requirement, missing return). Small and independent. **Landed as #31.**
 2. **PR — Phase 4 + 5.4.** Edge highlighting, `removeNode`, `neighbours`, and the
-   dead-locals sweep.
-3. **PR — 5.2 + 6.10.** Adjacency list for the spring pass and HiDPI scaling
+   dead-locals sweep. **Landed as #32.**
+3. **PR — 5.4 button features.** Middle-drag pans the graph; right-click opens a
+   context menu (reset / export / clear selection).
+4. **PR — 5.2 + 6.10.** Adjacency list for the spring pass and HiDPI scaling
    (both touch rendering/`iterate`, so they pair naturally).
-4. **PR — Phase 6 remainder.** Strictness, dependency and script hygiene.
+5. **PR — Phase 6 remainder.** Strictness, dependency and script hygiene.
 
 ## Open decisions for the maintainer
 
@@ -378,7 +387,8 @@ What remains is:
 - **3.1 — settled.** The uniqueness constraint was kept, fixed by value
   comparison, and given a 1000-attempt cap (PR #26). Jittered-grid seeding was
   not adopted.
-- **5.4 — open.** Are middle/right mouse buttons and multi-select intended
-  features, or dead scaffolding to delete? Still unanswered.
+- **5.4 — settled.** Middle/right-button tracking is wanted: the middle button
+  pans the graph and the right button opens a context menu (reset / export /
+  clear selection). Implemented as the button-interaction PR rather than deleted.
 - **6.9 — settled.** No `dist/` build output is tracked any more; only the
   hand-authored `index.html` and `stylez.css` remain.
