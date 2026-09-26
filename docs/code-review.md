@@ -7,23 +7,22 @@ A whole-repository review of `main` at `c205a22`, covering all of `src/`, all of
 `./cli build` bundles and `dist/main.js` was byte-identical to a fresh build.
 
 The review found **one user-visible defect** and **six maintainability/correctness
-risks**. Every high and medium finding has a remediation workplan under
-[`workplans/`](workplans/); the low-severity items are inventoried at the end as
-backlog and are deliberately not planned.
+risks**. Every high and medium finding was remediated; the low-severity items are
+inventoried at the end as backlog and were deliberately not planned.
 
 ## Findings
 
-| ID | Severity | Finding | Location | Workplan |
-| --- | --- | --- | --- | --- |
-| H1 | **High** | Export navigates to a `data:` URL, which modern browsers block | `src/UIController.ts:206-215` | [h1-export-via-blob-url.md](workplans/h1-export-via-blob-url.md) |
-| M1 | Medium | `UIController` is a service locator over `window.state` / `window.fdg` | `src/UIController.ts` (throughout) | [m1-inject-uicontroller-dependencies.md](workplans/m1-inject-uicontroller-dependencies.md) |
-| M2 | Medium | `ForceDirectedGraph` is physics + rendering + selection + mapping in one class | `src/ForceDirectedGraph.ts` | [m2-split-solver-render-selection.md](workplans/m2-split-solver-render-selection.md) |
-| M3 | Medium | Three public methods have no `src/` caller; only tests keep them alive | `ForceDirectedGraph.wrapTranslate`, `ForceDirectedGraph.displacementAtNode`, `Graph.removeNode` | [m3-resolve-test-only-api.md](workplans/m3-resolve-test-only-api.md) |
-| M4 | Medium | Forces are cached as mutable `Tag` fields, so a force read can be silently empty (already made one test vacuous) | `src/Tag.ts:14-19`, `src/ForceDirectedGraph.ts:206-217` | [m4-local-force-state.md](workplans/m4-local-force-state.md) |
-| M5 | Medium | Hit radius is in model units, so clickability scales with the window | `src/ForceDirectedGraph.ts:340`, `src/K.ts:29-33` | [m5-screen-space-hit-radius.md](workplans/m5-screen-space-hit-radius.md) |
-| M6 | Medium | The repulsion pass evaluates every unordered pair twice | `src/ForceDirectedGraph.ts:137-166, 284-285` | [m6-symmetric-repulsion-pass.md](workplans/m6-symmetric-repulsion-pass.md) |
+| ID | Severity | Finding | Location |
+| --- | --- | --- | --- |
+| H1 | **High** | Export navigates to a `data:` URL, which modern browsers block | `src/UIController.ts:206-215` |
+| M1 | Medium | `UIController` is a service locator over `window.state` / `window.fdg` | `src/UIController.ts` (throughout) |
+| M2 | Medium | `ForceDirectedGraph` is physics + rendering + selection + mapping in one class | `src/ForceDirectedGraph.ts` |
+| M3 | Medium | Three public methods have no `src/` caller; only tests keep them alive | `ForceDirectedGraph.wrapTranslate`, `ForceDirectedGraph.displacementAtNode`, `Graph.removeNode` |
+| M4 | Medium | Forces are cached as mutable `Tag` fields, so a force read can be silently empty (already made one test vacuous) | `src/Tag.ts:14-19`, `src/ForceDirectedGraph.ts:206-217` |
+| M5 | Medium | Hit radius is in model units, so clickability scales with the window | `src/ForceDirectedGraph.ts:340`, `src/K.ts:29-33` |
+| M6 | Medium | The repulsion pass evaluates every unordered pair twice | `src/ForceDirectedGraph.ts:137-166, 284-285` |
 
-## Invariants every remediation PR must preserve
+## Invariants
 
 These are the acceptance floor. A PR that relaxes one of them is wrong, not
 merely risky. They are all enforced by existing tests except where noted.
@@ -41,51 +40,35 @@ merely risky. They are all enforced by existing tests except where noted.
    the test harness is dependency-free by design (`test/support/dom.ts`).
 5. **Every PR is green on its own.** `npm run ci` passes; ideally `./cli build`
    too, with the manual interaction matrix re-run when UI behaviour changes.
-6. **Test counts do not fall**, with one sanctioned exception: M3 deliberately
-   removes tests that certify dead code, and that reduction must be called out
-   explicitly in its PR.
+6. **Test counts do not fall**, with one sanctioned exception, exercised by M3:
+   removing tests that certify dead code, with the reduction called out
+   explicitly in the PR.
 7. **No re-indentation.** `src/` mixes tabs and spaces within individual files;
    a repo-wide reformat would bury every real diff. Touch only the lines the
    change needs.
 
-## Recommended sequence
+## Remediation outcome
 
-The workplans are ordered so each lands against a settled `main`, following the
-same one-PR-per-finding discipline the DRY remediation used.
-
-```
-H1  export via blob URL          independent, user-visible   ──► first
-M1  inject UIController deps     touches UIController        ──► before M2
-M3  resolve test-only API        small, mostly deletion      ──► with/after M2
-M2  split solver/render/selection touches ForceDirectedGraph ──► before M4, M6
-M5  screen-space hit radius      independent                 ──► anywhere after M2
-M4  local force state            solver internals            ──► after M2
-M6  symmetric repulsion pass     solver hot loop             ──► last
-```
-
-M1 before M2 because both rewrite `UIController.onTimerTick`; doing them in the
-other order means resolving the same conflict twice. M3 overlaps M2 on the
-mapping helpers (`wrapTranslate` / `wrapReverse`) and can be folded into the M2
-PR if the two diffs prove inseparable. M4 and M6 both reshape `step()` and must
-be sequenced, not parallelised.
-
-### Remediation outcome
-
-All seven workplans landed, each as its own focused PR, in the order above:
+All seven findings landed, each as its own focused PR, in the recommended order
+(H1, M1, M3, M2, M5, M4, M6) — M1 before M2 because both rewrite
+`UIController.onTimerTick`, M3 before M2 so the M2 diff stayed a pure move, and
+M4 before M6 because both reshape `step()`.
 
 | Finding | PR |
 | --- | --- |
-| H1 export via blob URL | #50 |
-| M1 inject `UIController` dependencies | #51 |
-| M3 resolve test-only API | #52 |
-| M2 split solver / render / selection | #53 |
-| M5 screen-space hit radius | #54 |
-| M4 local force state | #55 |
-| M6 symmetric repulsion pass | #56 |
+| H1 export via blob URL | [#50](https://github.com/davidbarkhuizen/cuniform/pull/50) |
+| M1 inject `UIController` dependencies | [#51](https://github.com/davidbarkhuizen/cuniform/pull/51) |
+| M3 resolve test-only API | [#52](https://github.com/davidbarkhuizen/cuniform/pull/52) |
+| M2 split solver / render / selection | [#53](https://github.com/davidbarkhuizen/cuniform/pull/53) |
+| M5 screen-space hit radius | [#54](https://github.com/davidbarkhuizen/cuniform/pull/54) |
+| M4 local force state | [#55](https://github.com/davidbarkhuizen/cuniform/pull/55) |
+| M6 symmetric repulsion pass | [#56](https://github.com/davidbarkhuizen/cuniform/pull/56) |
 
-`npm run ci` is green at **138 tests**. The suite was 129 at review time; M3's
-sanctioned six-test reduction (invariant 6) is more than offset by the guards
-and regression tests added along the way, and every other step raised the count.
+The per-finding workplans that drove this were retired once complete, matching
+how the earlier DRY plan was handled. `npm run ci` is green at **138 tests**: the
+suite was 129 at review time, M3's sanctioned six-test reduction (invariant 6) is
+more than offset by the guards and regression tests added along the way, and every
+other step raised the count.
 
 ---
 
