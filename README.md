@@ -1,6 +1,6 @@
 # cuniform
 
-2d force-directed graphs in typescript, drawn on a canvas.
+2D force-directed graphs in TypeScript, drawn on a canvas.
 
 ## Running
 
@@ -18,10 +18,10 @@ subcommand. With no recognised option it prints usage.
     ./cli build          # webpack bundle only
     ./cli clean          # remove build artefacts
 
-Each wraps the equivalent npm script (`npm run typecheck`, `npm test`,
-`npm run ci`, `npm run start`). `npm run dev` rebuilds while you edit, and
-`BROWSER=... ./cli run` (or `bash build-and-run.sh --build-only`) controls how
-the demo is launched.
+Except for `clean`, each delegates to the matching npm script (`npm run
+typecheck`, `npm test`, `npm run ci`, `npm run start`, `npm install`). `npm run
+dev` rebuilds while you edit, and `BROWSER=... ./cli run` (or
+`bash build-and-run.sh --build-only`) controls how the demo is launched.
 
 `web/` holds the hand-maintained shell (`index.html`, `stylez.css`); it loads
 the generated `dist/main.js`. `dist/` is build output only and is ignored by
@@ -61,7 +61,7 @@ the whole panel can be dragged out of the way.
 ## Physics
 
 The model is a port of the reference implementation documented in
-[`pygforce/force-directed-graph-physics.md`](../pygforce/force-directed-graph-physics.md).
+[`pygforce/force-directed-graph-physics.md`](https://github.com/davidbarkhuizen/pygforce/blob/master/force-directed-graph-physics.md).
 It is a damped relaxation, not an energy minimisation:
 
 - **Repulsion** — every node repels every other node, all pairs:
@@ -152,7 +152,8 @@ large graph.
 ## Known limitations
 
 - Unconnected nodes and detached components drift away indefinitely: nothing is
-  centripetal, matching the reference. "Centre the graph" remains a backlog item.
+  centripetal, matching the reference. A centring force would keep them in view,
+  but none is implemented.
 - No cooling schedule and no velocity clamp. The `r -> 0` repulsion singularity
   is bounded by `minimumInteractionRadius`, but that still permits a single
   bounded step of up to `k*q^2 / minimumInteractionRadius^1.9` model units when
@@ -163,4 +164,5 @@ large graph.
   (Kamada–Kawai) per-pair rest lengths are not used.
 
 These are deliberate divergences from the reference model rather than defects.
-Of them, only the `r -> 0` singularity guard is implemented.
+The `r -> 0` singularity guard and the coincident-centre tie-break described
+above are the only non-reference behaviour implemented so far.
