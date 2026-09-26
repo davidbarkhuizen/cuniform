@@ -17,15 +17,17 @@ export const K = {
     },
 
     ui: {
-        minimumNodeSelectionRadius : 50.0,
+        // 2.5% of the model width, matching the reference's 15.0 in a
+        // 600-unit world.
+        minimumNodeSelectionRadius : 15.0,
     },
 
     space: {
-        W_0 : 2000,
-        H_0 : 2000/1.618,
-    
-        rightMargin : 50,
-        minorMargin : 15,    
+        // Model (phase) space: a square 600x600 world centred on the origin, so
+        // coordinates run roughly -300..+300. The reference has no boundary
+        // handling and nothing here clamps a node to this square either.
+        W_0 : 600,
+        H_0 : 600,
     },
 
     label: {

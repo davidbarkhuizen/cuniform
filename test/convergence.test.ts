@@ -12,8 +12,8 @@ const ANALYTIC_EQUILIBRIUM = 65.46;
 
 test("a single edge settles at the analytic equilibrium distance", () => {
     const graph = new Graph();
-    const a = new Tag({ x: -500, y: 0 }, "a");
-    const b = new Tag({ x: 500, y: 0 }, "b");
+    const a = new Tag({ x: -200, y: 0 }, "a");
+    const b = new Tag({ x: 200, y: 0 }, "b");
     graph.addNode(a);
     graph.addNode(b);
     graph.addEdge(a, b);
