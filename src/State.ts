@@ -7,7 +7,13 @@ export class State {
     public b2Down: boolean;
     
     public b0ClickPos: Point2D;
-    public lastB0DragPos: Point2D;
+
+    /**
+     * Canvas-space pointer position at the previous middle-button move, used to
+     * translate the graph by the cursor delta while panning. Null when no pan
+     * is in progress.
+     */
+    public lastMiddleDragPos: Point2D | null;
     
     public curPos: Point2D;
 
@@ -18,7 +24,7 @@ export class State {
 		this.b2Down = false; 
 		
 		this.b0ClickPos = new Point2D(0, 0);
-		this.lastB0DragPos = new Point2D(0,0)
+		this.lastMiddleDragPos = null;
 		
 		this.curPos = new Point2D(0, 0);
 	}

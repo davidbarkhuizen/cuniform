@@ -150,6 +150,10 @@ export class FakeCanvas extends FakeElement {
     getContext(kind: string): FakeContext2D | null {
         return kind === '2d' ? this.context : null;
     }
+
+    toDataURL(): string {
+        return 'data:image/png;base64,FAKE';
+    }
 }
 
 export interface FakeDom {
@@ -176,6 +180,7 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
         window: global.window,
         setInterval: global.setInterval,
         clearInterval: global.clearInterval,
+        confirm: global.confirm,
     };
 
     const intervals: Array<{ id: number; fn: (...args: any[]) => void }> = [];
@@ -189,10 +194,12 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
         pageXOffset: 0,
         pageYOffset: 0,
         devicePixelRatio: 1,
+        open: (): null => null,
     };
 
     global.document = documentStub;
     global.window = windowStub;
+    global.confirm = () => false;
     global.setInterval = (fn: (...args: any[]) => void) => {
         const id = intervals.length + 1;
         intervals.push({ id, fn });
@@ -215,6 +222,7 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
             global.window = previous.window;
             global.setInterval = previous.setInterval;
             global.clearInterval = previous.clearInterval;
+            global.confirm = previous.confirm;
         },
     };
 }

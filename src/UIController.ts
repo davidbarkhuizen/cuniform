@@ -1,3 +1,4 @@
+import { ContextMenu } from "./ContextMenu";
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { GraphFactory } from "./GraphFactory";
 import { K } from "./K";
@@ -14,12 +15,14 @@ declare global {
 export class UIController {
 
     timer: NodeJS.Timeout = null;
-    
+
     body: HTMLElement;
     canvas: HTMLCanvasElement;
     context2D: CanvasRenderingContext2D;
     exportElement: HTMLElement;
     resetElement: HTMLElement;
+
+    contextMenu: ContextMenu | null = null;
 
 	constructor(
         body: HTMLElement,
@@ -35,35 +38,69 @@ export class UIController {
 		this.resetElement = resetElement;
 	}
 
-	onMouseOut = (event: MouseEvent) => {
+	onMouseOut = () => {
 		window.state.b0Down = false;
 		window.state.b1Down = false;
 		window.state.b2Down = false;
+		window.state.lastMiddleDragPos = null;
 	};
 
 	onMouseMove = (event: MouseEvent) => {
-		/*
-		record mouse movement, calc deltas
-		call self.force_directed_graph.move(d_x, d_y, d_z), passing deltas
-		*/
+
 		if (window.state.b0Down) {
-		
+
+			// Left-drag: the selected node follows the cursor exactly.
 			const mxy = this.getMousePos(this.canvas, event);
 			const phasePos = window.fdg.wrapReverse(mxy, this.canvas.width, this.canvas.height);
-			window.state.lastB0DragPos = mxy;
-			
+
 			window.fdg.graph.vertices
-				.filter(vertex => (vertex.isSelected == true))
+				.filter(vertex => vertex.isSelected)
 				.forEach(
 					vertex => {
 						vertex.position = {x:phasePos.x, y:phasePos.y};
 					}
 				)
 		}
-	};	
+		else if (window.state.b1Down) {
+
+			// Middle-drag: pan the whole graph.
+			this.panTo(this.getMousePos(this.canvas, event));
+		}
+	};
+
+	/**
+	 * Translate every node by the cursor delta, converted from canvas space to
+	 * model space. Repulsion and springs are translation invariant, so panning
+	 * shifts the layout without disturbing the forces.
+	 */
+	panTo = (mxy: Point2D) => {
+
+		const last = window.state.lastMiddleDragPos;
+
+		// First move of a pan establishes the anchor; there is no delta yet.
+		if (last == null) {
+			window.state.lastMiddleDragPos = mxy;
+			return;
+		}
+
+		const now = window.fdg.wrapReverse(mxy, this.canvas.width, this.canvas.height);
+		const before = window.fdg.wrapReverse(last, this.canvas.width, this.canvas.height);
+
+		const dx = now.x - before.x;
+		const dy = now.y - before.y;
+
+		for (const vertex of window.fdg.graph.vertices) {
+			vertex.position.x += dx;
+			vertex.position.y += dy;
+		}
+
+		window.state.lastMiddleDragPos = mxy;
+	};
 
 	onMouseDown = (event: MouseEvent) => {
-	
+
+		this.hideContextMenu();
+
 		var mxy = this.getMousePos(
 			this.canvas, 
 			event
@@ -77,11 +114,41 @@ export class UIController {
 			if (selectionChanged == true)
 				this.updateSelectionInfo();
 		}
-		else if (event.button == 1)
+		else if (event.button == 1) {
+			// Middle button starts a pan; prevent the browser's autoscroll.
 			window.state.b1Down = true;
-		else if (event.button == 2)
-			window.state.b2Down = true;	
+			window.state.lastMiddleDragPos = mxy;
+			event.preventDefault();
+		}
+		else if (event.button == 2) {
+			window.state.b2Down = true;
+		}
 	}
+
+	/**
+	 * Right-click. The native browser menu is always suppressed; ours is shown
+	 * only while the right button is actually held, so a programmatic
+	 * contextmenu event cannot open it.
+	 */
+	onContextMenu = (event: MouseEvent) => {
+
+		event.preventDefault();
+
+		if (!window.state.b2Down)
+			return;
+
+		this.openContextMenu(event.clientX, event.clientY);
+	};
+
+	openContextMenu = (x: number, y: number) => {
+		if (this.contextMenu)
+			this.contextMenu.open(x, y);
+	};
+
+	hideContextMenu = () => {
+		if (this.contextMenu)
+			this.contextMenu.hide();
+	};
 	
 	getMousePos = (cnvs: HTMLCanvasElement, evt: MouseEvent) => {
 
@@ -110,8 +177,10 @@ export class UIController {
 			window.state.b0Down = false;
 			this.updateSelectionInfo();
 		}
-		else if (event.button == 1)
+		else if (event.button == 1) {
 			window.state.b1Down = false;
+			window.state.lastMiddleDragPos = null;
+		}
 		else if (event.button == 2)
 			window.state.b2Down = false;
 	}
@@ -124,20 +193,28 @@ export class UIController {
 		);
 	};
 
-	onReset = (event: MouseEvent) => {
+	onReset = (event?: MouseEvent) => {
 	
 		const reset = confirm('Reset.\nAre You Sure ?');
+
+		event?.preventDefault();
+
 		if (reset == true) {
 			this.terminate()
 			this.initialize()
 		}
 
-		event.preventDefault();
-
 		return false
 	};
 
-	onTimerTick = (event: any) => {
+	clearSelection = () => {
+		window.fdg.graph.vertices.forEach(vertex => {
+			vertex.isSelected = false;
+		});
+		this.updateSelectionInfo();
+	};
+
+	onTimerTick = () => {
 		// Advance the physics, then draw. The solver is told which node is
 		// pinned via a predicate, so it never reads browser state itself.
 		window.fdg.step(
@@ -168,6 +245,7 @@ export class UIController {
 		canvas.removeEventListener("mousedown", this.onMouseDown, false);
 		canvas.removeEventListener("mouseup", this.onMouseUp, false);
 		canvas.removeEventListener("mouseout", this.onMouseOut, false);	
+		canvas.removeEventListener("contextmenu", this.onContextMenu, false);
 	}
 	
 	registerEventListeners = (
@@ -190,7 +268,19 @@ export class UIController {
 		canvas.addEventListener("mousedown", this.onMouseDown, false);
 		canvas.addEventListener("mouseup", this.onMouseUp, false);
 		canvas.addEventListener("mouseout", this.onMouseOut, false);	
+		canvas.addEventListener("contextmenu", this.onContextMenu, false);
 	}
+
+	buildContextMenu = () => {
+		const menu = new ContextMenu([
+			{ label: 'export', onSelect: this.onExport },
+			{ label: 'reset', onSelect: () => this.onReset() },
+			{ label: 'clear selection', onSelect: this.clearSelection },
+		]);
+
+		this.body.appendChild(menu.element);
+		this.contextMenu = menu;
+	};
 
 	updateSelectionInfo = () => {
 	
@@ -244,6 +334,8 @@ export class UIController {
 		const graph = gFactory.generateGraph(K.initialConditions.order, K.initialConditions.branching);
 		window.fdg = new ForceDirectedGraph(graph);
 	
+		this.buildContextMenu();
+
 		this.registerEventListeners(this.canvas, this.exportElement, this.resetElement);
 	
 		this.timer = setInterval(this.onTimerTick, K.physics.timerTickperiodMS);
@@ -253,7 +345,13 @@ export class UIController {
 	
 	terminate = () => {
 		clearInterval(this.timer);
-		this.timer = null
+		this.timer = null;
+
+		if (this.contextMenu) {
+			this.body.removeChild(this.contextMenu.element);
+			this.contextMenu = null;
+		}
+
 		this.deregisterEventListeners(this.canvas, this.exportElement, this.resetElement)
 	}	
 }
