@@ -145,11 +145,39 @@ export class ForceDirectedGraph {
 		};
 	};
 
+	/**
+	 * Superpose one radial force onto the running (Fx, Fy) accumulator: a
+	 * magnitude `m` directed along (dx, dy) toward the other endpoint, where
+	 * `r` is `Math.hypot(dx, dy)`.
+	 *
+	 * The r == 0 guard and the unit vector exist here once, so repulsion and
+	 * springs cannot disagree about direction; only the magnitude law and the
+	 * direction's sign convention differ, and those stay at the call sites.
+	 * `r` is passed in rather than recomputed because both callers already need
+	 * it for their magnitude - recomputing it would double the cost of the
+	 * O(N^2) repulsion pass.
+	 */
+	private static addRadial(
+		Fx: number,
+		Fy: number,
+		dx: number,
+		dy: number,
+		r: number,
+		magnitude: number
+	) {
+
+		if (r === 0)
+			return { x : Fx, y : Fy };
+
+		return {
+			x : Fx + (magnitude * dx) / r,
+			y : Fy + (magnitude * dy) / r
+		};
+	};
+
 	netElectrostaticForceAtNode(tagA: Tag) {
 
-		var
-			Fx_net = 0.0, 
-			Fy_net = 0.0;
+		var F = { x : 0.0, y : 0.0 };
 
 		for(let i = 0; i < this.graph.vertices.length; i++) {
 
@@ -158,21 +186,11 @@ export class ForceDirectedGraph {
 			if(tagB == tagA)
 				continue;
 
-			var xA = tagA.position.x;
-			var yA = tagA.position.y;
+			// Away from B, so a positive magnitude pushes the pair apart.
+			var deltaX = tagA.position.x - tagB.position.x;
+			var deltaY = tagA.position.y - tagB.position.y;
 
-			var xB = tagB.position.x;
-			var yB = tagB.position.y;
-
-			var deltaX = xA - xB;
-			var deltaY = yA - yB;
-
-			var r2 = (deltaX * deltaX) + (deltaY * deltaY);
-
-			if(r2 == 0)
-				continue;
-
-			var r = Math.sqrt(r2);
+			var r = Math.hypot(deltaX, deltaY);
 
 			// The direction uses the true radius so the force stays exactly
 			// radial; only the magnitude is evaluated at a clamped radius, which
@@ -180,31 +198,20 @@ export class ForceDirectedGraph {
 			// r >= minimumInteractionRadius.
 			var r_law = Math.max(r, K.physics.minimumInteractionRadius);
 
-			var sin_theta = deltaY / r;
-			var cos_theta = deltaX / r;
-
 			var scalar_force = K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge / Math.pow(r_law, K.physics.repulsionExponent);
 
-			var Fy = scalar_force * sin_theta;
-			var Fx = scalar_force * cos_theta;
-			
-			Fy_net += Fy;
-			Fx_net += Fx;
+			F = ForceDirectedGraph.addRadial(F.x, F.y, deltaX, deltaY, r, scalar_force);
 		};
 
-		return {
-			x : Fx_net,
-			y : Fy_net
-		}
+		return F;
 	};
 
 	netSpringForceAtNode(tag: Tag) {
 
-		var Fx_net = 0;
-		var Fy_net = 0;
+		var F = { x : 0.0, y : 0.0 };
 
-		var x_tag = tag.position.x;
-		var y_tag = tag.position.y;
+		var k = K.physics.springConstant;
+		var l = K.physics.equilibriumDisplacement;
 
 		// Walking the node's adjacency list visits each edge once per endpoint,
 		// so the whole per-step spring pass is O(V + E) rather than O(V*E).
@@ -215,39 +222,22 @@ export class ForceDirectedGraph {
 			var edge = incident[i];
 			var other_tag = edge.v1 === tag ? edge.v2 : edge.v1;
 
-			var x_other = other_tag.position.x;
-			var y_other = other_tag.position.y;
+			// Toward the neighbour, so a positive magnitude pulls the pair
+			// together.
+			var deltaX = other_tag.position.x - tag.position.x;
+			var deltaY = other_tag.position.y - tag.position.y;
 
-			var r2 = Math.pow((x_other - x_tag), 2) + Math.pow(y_other - y_tag, 2);
-			var r = Math.sqrt(r2);
-
-			if(r == 0)
-				continue;
-
-			// PHYSICS CONSTANTS
-			//
-			var k = K.physics.springConstant;
-			var l = K.physics.equilibriumDisplacement;
+			var r = Math.hypot(deltaX, deltaY);
 
 			// Hooke's law: k*(r - l) is positive when the spring is stretched
 			// (r > l) so the node is pulled toward its neighbour, and negative
 			// when compressed (r < l) so it is pushed away.
 			var scalar_force = k * (r - l);
 
-			// Unit vector pointing from this node toward the neighbour.
-			var cos_theta = (x_other - x_tag) / r;
-			var sin_theta = (y_other - y_tag) / r;
-
-			var Fy = scalar_force * sin_theta;
-			var Fx = scalar_force * cos_theta;
-			Fy_net = Fy_net + Fy;
-			Fx_net = Fx_net + Fx;
+			F = ForceDirectedGraph.addRadial(F.x, F.y, deltaX, deltaY, r, scalar_force);
 		};
 
-		return {
-			x : Fx_net,
-			y : Fy_net
-		};
+		return F;
 	};
 
 	netForceAtNode(tag: Tag) {

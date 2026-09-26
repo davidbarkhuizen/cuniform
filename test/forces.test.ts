@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
+import { Graph } from "../src/Graph";
 import { K } from "../src/K";
+import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
 import { pairAt } from "./support/physics";
 
@@ -72,4 +75,42 @@ test("net force is the sum of the two cached contributions", () => {
     a.netSpringForce = { x: 1, y: -2 };
 
     assert.deepEqual(fdg.netForceAtNode(a), { x: 4, y: 2 });
+});
+
+test("coincident pairs, duplicate edges and self-loops contribute nothing", () => {
+    // `a` and `b` sit exactly on top of each other (r === 0), joined by two
+    // duplicate edges and a self-loop at `a`; only the a-c edge has length.
+    const graph = new Graph();
+    const a = new Tag({ x: 5, y: 5 }, "a");
+    const b = new Tag({ x: 5, y: 5 }, "b");
+    const c = new Tag({ x: 15, y: 5 }, "c");
+    [a, b, c].forEach(t => graph.addNode(t));
+    graph.addEdge(a, b);
+    graph.addEdge(a, b);
+    graph.addEdge(a, a);
+    graph.addEdge(a, c);
+
+    const fdg = new ForceDirectedGraph(graph);
+
+    // Repulsion: b is skipped (r === 0), c pushes a to -x at the exact law.
+    const repel = fdg.netElectrostaticForceAtNode(a);
+    assertClose(repel.x, -10000 / Math.pow(10, 1.9), 1e-9, `repulsion was ${repel.x}`);
+    assertClose(repel.y, 0, 1e-12, "repulsion must stay radial");
+
+    // Springs: both duplicate zero-length edges and the self-loop are skipped,
+    // leaving only the compressed 10-unit a-c spring (k * (10 - l) = -2).
+    const spring = fdg.netSpringForceAtNode(a);
+    assertClose(
+        spring.x,
+        K.physics.springConstant * (10 - K.physics.equilibriumDisplacement),
+        1e-12,
+        `spring was ${spring.x}`
+    );
+    assertClose(spring.y, 0, 1e-12, "the spring must stay radial");
+
+    // Nothing divided by zero, on either kernel.
+    assert.ok(
+        [repel.x, repel.y, spring.x, spring.y].every(Number.isFinite),
+        `non-finite force from a coincident pair: ${repel.x},${repel.y},${spring.x},${spring.y}`
+    );
 });
