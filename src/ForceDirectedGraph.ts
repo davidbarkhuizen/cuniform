@@ -113,12 +113,17 @@ export class ForceDirectedGraph {
 		return F;
 	};
 
+	/**
+	 * Net force on `tag`, recomputed from the current positions. Pure: it reads
+	 * no cached field, so it is meaningful before the first step() and can
+	 * never observe a half-written tick.
+	 */
 	netForceAtNode(tag: Tag): Point2D {
 
 		// net Force = net Electrostatic Force + net Spring Force
 
-		var e = tag.netElectrostaticForce;
-		var s = tag.netSpringForce;
+		var e = this.netElectrostaticForceAtNode(tag);
+		var s = this.netSpringForceAtNode(tag);
 
 		var nX = e.x + s.x;
 		var nY = e.y + s.y;
@@ -133,10 +138,14 @@ export class ForceDirectedGraph {
 	 *
 	 * Velocity is updated before position (see step()), which is what makes
 	 * the integration symplectic and keeps stiff springs stable.
+	 *
+	 * `force` defaults to the net force at the node's current position; step()
+	 * passes the force it already computed from the frozen snapshot so the
+	 * O(N^2) kernel is not recomputed.
 	 */
-	velocityAtTag(tag: Tag): Point2D {
+	velocityAtTag(tag: Tag, force: Point2D = this.netForceAtNode(tag)): Point2D {
 
-		var f = this.netForceAtNode(tag);
+		var f = force;
 
 		// RECORD PREVIOUS VELOCITY
 		//
@@ -168,57 +177,43 @@ export class ForceDirectedGraph {
 		isPinned: (tag: Tag) => boolean = () => false
 	) {
 
-		/*
-		for each node
-		calc net electrostatic force
-		calc net spring force
-		calc velocity
-		calc displacement [== velocity]
-		effect displacements
-		*/
+		const vertices = this.graph.vertices;
 
-		// ------------------------------------
-		// FOR EACH NODE
+		// PASS 1 - forces are a pure function of the frozen pre-step positions,
+		// so every node sees the same snapshot. No force data is written onto a
+		// Tag; the arrays below are this tick's only home for it.
+		const forces = vertices.map(tag => this.netForceAtNode(tag));
 
-		// CALCULATE NET FORCE
-		//
-		for (const tag of this.graph.vertices) {
-			tag.netElectrostaticForce = this.netElectrostaticForceAtNode(tag);
-		}
+		// PASS 2 - velocities. The force already computed above is passed in,
+		// so the O(N^2) repulsion kernel is not run a second time.
+		const velocities = vertices.map((tag, i) => this.velocityAtTag(tag, forces[i]));
 
-		for (const tag of this.graph.vertices) {
-			tag.netSpringForce = this.netSpringForceAtNode(tag);
-		}
+		// PASS 3 - positions. A dragged node keeps the position the pointer
+		// handler wrote and has its velocity zeroed, so releasing the mouse
+		// does not fling it.
+		for (let i = 0; i < vertices.length; i++) {
+			const tag = vertices[i];
 
-		// CALC VELOCITY
-		//
-		for (const tag of this.graph.vertices) {
-			tag.velocity = this.velocityAtTag(tag);
-		}
-
-		// ADJUST POSITION
-		//
-		// Displacement is the velocity computed above, so no separate pass is
-		// needed. A dragged node keeps the position the pointer handler wrote
-		// and has its velocity zeroed, so releasing the mouse does not fling it.
-		for (const tag of this.graph.vertices) {
 			if (isPinned(tag)) {
 				tag.velocity = zero();
-			} 
+			}
 			else {
+				tag.velocity = velocities[i];
+
+				// The displacement is the damped velocity computed above.
 				const displacement = tag.displacement;
 				tag.position.x = tag.position.x + displacement.x;
 				tag.position.y = tag.position.y + displacement.y;
 			}
 		}
 
-		// TRANSLATE TO CANVAS
+		// PASS 4 - refresh the canvas-space cache.
 		//
 		// One viewport for the whole pass: the scale and the half-extents are
 		// loop invariants, so they are computed once per tick, not per node.
 		const viewport = Viewport.forCanvas(canvasWidth, canvasHeight);
 
-		for (const node of this.graph.vertices) {
+		for (const node of vertices) {
 			node.translatedPosition = viewport.toCanvas(node.position);
 		}
 	};

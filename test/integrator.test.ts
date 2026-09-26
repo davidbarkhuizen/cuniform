@@ -24,11 +24,9 @@ test("a constant force drives velocity to a terminal displacement of exactly F",
     const { a, fdg } = singleNode();
 
     const F = 7;
-    a.netElectrostaticForce = { x: F, y: 0 };
-    a.netSpringForce = { x: 0, y: 0 };
 
     for (let i = 0; i < 300; i++) {
-        a.velocity = fdg.velocityAtTag(a);
+        a.velocity = fdg.velocityAtTag(a, { x: F, y: 0 });
     }
 
     const expected = (F * K.physics.timeStep) / (1 - K.physics.friction);
@@ -38,23 +36,19 @@ test("a constant force drives velocity to a terminal displacement of exactly F",
 
 test("with no net force, velocity decays by exactly FRICTION each step", () => {
     const { a, fdg } = singleNode();
-    a.netElectrostaticForce = { x: 0, y: 0 };
-    a.netSpringForce = { x: 0, y: 0 };
     a.velocity = { x: 10, y: 0 };
 
-    a.velocity = fdg.velocityAtTag(a);
+    a.velocity = fdg.velocityAtTag(a, { x: 0, y: 0 });
 
     assertClose(a.velocity.x, 10 * K.physics.friction, 1e-9, `velocity was ${a.velocity.x}`);
 });
 
 test("displacement is the damped velocity, not the raw net force", () => {
     const { a, fdg } = singleNode();
-    a.netElectrostaticForce = { x: 7, y: 0 };
-    a.netSpringForce = { x: 0, y: 0 };
 
     assert.deepEqual(a.displacement, { x: 0, y: 0 }, "velocity starts at zero");
 
-    a.velocity = fdg.velocityAtTag(a);
+    a.velocity = fdg.velocityAtTag(a, { x: 7, y: 0 });
 
     assertClose(
         a.displacement.x,
@@ -67,14 +61,12 @@ test("displacement is the damped velocity, not the raw net force", () => {
 
 test("position advances by the velocity on each unpinned step", () => {
     const { a, fdg } = singleNode();
-    a.netElectrostaticForce = { x: 0, y: 0 };
-    a.netSpringForce = { x: 0, y: 0 };
 
     a.velocity = { x: 3, y: -4 };
     fdg.step(CANVAS_W, CANVAS_H);
 
-    // velocity is overwritten by the integrator first (no force -> 0.9 * v),
-    // then position advances by the new velocity.
+    // velocity is overwritten by the integrator first (a lone node has no
+    // force, so this is 0.9 * v), then position advances by the new velocity.
     assertClose(a.position.x, 3 * K.physics.friction, 1e-9);
     assertClose(a.position.y, -4 * K.physics.friction, 1e-9);
 });

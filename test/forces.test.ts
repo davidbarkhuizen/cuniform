@@ -6,7 +6,7 @@ import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
-import { pairAt } from "./support/physics";
+import { CANVAS_H, CANVAS_W, pairAt } from "./support/physics";
 
 test("repulsion follows k*q^2 / r^1.9 and pushes away from the other node", () => {
     const k = K.physics.scalarForceConstant;
@@ -69,12 +69,40 @@ test("a spring at its rest length exerts no force", () => {
     assertClose(f.y, 0, 1e-12);
 });
 
-test("net force is the sum of the two cached contributions", () => {
+test("net force is the sum of the two force kernels", () => {
     const { a, fdg } = pairAt(100);
-    a.netElectrostaticForce = { x: 3, y: 4 };
-    a.netSpringForce = { x: 1, y: -2 };
 
-    assert.deepEqual(fdg.netForceAtNode(a), { x: 4, y: 2 });
+    const e = fdg.netElectrostaticForceAtNode(a);
+    const s = fdg.netSpringForceAtNode(a);
+
+    assert.deepEqual(fdg.netForceAtNode(a), { x: e.x + s.x, y: e.y + s.y });
+});
+
+test("netForceAtNode is meaningful before the first step()", () => {
+    // The old implementation read two caches that only step() wrote, so a
+    // pre-step call silently returned {0, 0} - which is exactly how
+    // convergence.test.ts's balance assertion went vacuous.
+    const { a, fdg } = pairAt(100);
+
+    const e = fdg.netElectrostaticForceAtNode(a);
+    const s = fdg.netSpringForceAtNode(a);
+    const net = fdg.netForceAtNode(a);
+
+    assert.notEqual(net.x, 0, "a pair at r=100 is not in equilibrium");
+    assert.equal(net.x, e.x + s.x, "net force must be the kernel sum before any step");
+    assert.equal(net.y, e.y + s.y);
+});
+
+test("step() writes no force data onto a Tag", () => {
+    // Force is now step-local, so a Tag can never hold a half-written tick.
+    const { graph, fdg } = pairAt(100);
+
+    fdg.step(CANVAS_W, CANVAS_H);
+
+    for (const tag of graph.vertices) {
+        assert.ok(!('netElectrostaticForce' in tag), `${tag.label} must not cache a repulsion force`);
+        assert.ok(!('netSpringForce' in tag), `${tag.label} must not cache a spring force`);
+    }
 });
 
 test("coincident pairs, duplicate edges and self-loops contribute nothing", () => {
