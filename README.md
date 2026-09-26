@@ -135,16 +135,19 @@ pure math and DOM-free:
 
     model (Point3D) --Projector--> projected plane (Point2D + depth) --Viewport--> canvas
 
-The camera owns a yaw/pitch orientation, a target, a distance, a focal length and
-a near plane. `R = Rx(pitch) . Ry(yaw)` rotates `p - target` into camera space,
+The camera owns a **world -> camera rotation matrix**, a target, a distance, a
+focal length and a near plane. The matrix rotates `p - target` into camera space,
 the camera sits at `(0, 0, -distance)`, and the projection divides by the view
-depth. The inverse is exact at a chosen depth, which is what lets a node drag
-unproject the cursor onto the plane through the node's current depth: screen-space
-drag behaves as it did in 2D, and depth is never teleported.
+depth. Storing the orientation as a matrix rather than a yaw/pitch pair is what
+lets the panel's buttons rotate about the camera's own axes: a camera-frame
+rotation is a left-multiplication of that matrix, which a pair of Euler angles is
+not closed under. The inverse is exact at a chosen depth, which is what lets a
+node drag unproject the cursor onto the plane through the node's current depth:
+screen-space drag behaves as it did in 2D, and depth is never teleported.
 
 Two properties make the change reviewable:
 
-- **The 2D view is a special case.** With `yaw = pitch = 0`, `focalLength =
+- **The 2D view is a special case.** With the identity orientation, `focalLength =
   distance` and `z = 0` for every node, the projection reduces exactly to the 2D
   `Viewport` mapping. The default focal length is a power of two so that
   reduction is bit-exact, and it is asserted as an exact-equality test.
@@ -208,9 +211,9 @@ All tuning lives in [`src/K.ts`](src/K.ts):
 | `camera.focalLength` | `1024` | projection focal length, model units; constant |
 | `camera.distance` | `1024` | default camera distance; equal to `focalLength` for the 1:1 anchor |
 | `camera.nearPlane` | `50` | cull threshold and perspective singularity guard |
-| `camera.yaw` / `pitch` | `0` | default orientation (the identity camera) |
+| `camera.rotateStepRadians` | `pi/12` | one rotation step, applied per console press |
 | `camera.orbitRadiansPerPixel` | `0.01` | orbit sensitivity |
-| `camera.maxPitch` | `pi/2 - 0.01` | gimbal guard |
+| `camera.maxPitch` | `pi/2 - 0.01` | turntable elevation guard |
 | `camera.minDistance` | `128` | dolly clamp, above `nearPlane` |
 | `camera.dollyPerWheelNotch` | `1.1` | wheel zoom rate |
 | `depthCue.minNodeRadiusPx` / `maxNodeRadiusPx` | `2.0` / `12.0` | perspective size clamp |

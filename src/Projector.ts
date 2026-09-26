@@ -1,4 +1,5 @@
 import { K } from "./K";
+import { apply, applyTranspose, identity, Mat3 } from "./Mat3";
 import { point, Point2D } from "./Point2D";
 import { point3, Point3D } from "./Point3D";
 import { Viewport } from "./Viewport";
@@ -10,9 +11,12 @@ import { Viewport } from "./Viewport";
  * state: the controller holds the mutable camera and hands this in.
  */
 export interface CameraView {
-    /** Orientation, radians. R = Rx(pitch) . Ry(yaw). */
-    yaw: number;
-    pitch: number;
+    /**
+     * World -> camera rotation. The identity reduces to the 2D mapping; the
+     * camera's own axes are the matrix's rows, which is what the console's
+     * per-axis buttons rotate about.
+     */
+    orientation: Mat3;
     /** The point the camera looks at; pan moves this. */
     target: Point3D;
     /** Camera -> target along the view axis; the wheel dollies this. */
@@ -23,11 +27,10 @@ export interface CameraView {
     nearPlane: number;
 }
 
-/** The default camera: the identity orientation that reduces to the 2D view. */
+/** The default camera: the identity rotation that reduces to the 2D view. */
 export function defaultCameraView(): CameraView {
     return {
-        yaw: K.camera.yaw,
-        pitch: K.camera.pitch,
+        orientation: identity(),
         target: point3(0, 0, 0),
         distance: K.camera.distance,
         focalLength: K.camera.focalLength,
@@ -68,27 +71,14 @@ export class Projector {
     }
 
     /**
-     * Apply R = Rx(pitch) . Ry(yaw) to `p - target`, giving camera space:
-     * x/y across the view plane and z along the view axis. Public because it
-     * is the rigid rotation the projection is built on, and the one thing
-     * worth asserting directly.
+     * Rotate `p - target` into camera space: x/y across the view plane and z
+     * along the view axis. Public because it is the rigid rotation the
+     * projection is built on, and the one thing worth asserting directly.
      */
     toCameraSpace(p: Point3D): Point3D {
-        const { yaw, pitch, target } = this.camera;
+        const { orientation, target } = this.camera;
 
-        const cy = Math.cos(yaw), sy = Math.sin(yaw);
-        const cp = Math.cos(pitch), sp = Math.sin(pitch);
-
-        const dx = p.x - target.x;
-        const dy = p.y - target.y;
-        const dz = p.z - target.z;
-
-        const vx = dx * cy + dz * sy;
-        const z1 = -dx * sy + dz * cy;
-        const vy = dy * cp - z1 * sp;
-        const z2 = dy * sp + z1 * cp;
-
-        return point3(vx, vy, z2);
+        return apply(orientation, point3(p.x - target.x, p.y - target.y, p.z - target.z));
     }
 
     /**
@@ -138,23 +128,16 @@ export class Projector {
 
     /** Inverse from projected-plane model units at a chosen depth. */
     unprojectScreen(screen: Point2D, depth: number): Point3D {
-        const { yaw, pitch, target, distance, focalLength } = this.camera;
+        const { orientation, target, distance, focalLength } = this.camera;
 
         // Undo the projection at the chosen depth.
         const vx = (screen.x * depth) / focalLength;
         const vy = (screen.y * depth) / focalLength;
-        const z2 = depth - distance;
+        const vz = depth - distance;
 
-        // Then undo the rotation: R^T = Ry(-yaw) . Rx(-pitch), so Rx(-pitch)
-        // applies first.
-        const cp = Math.cos(pitch), sp = Math.sin(pitch);
-        const y1 = vy * cp + z2 * sp;
-        const z1 = -vy * sp + z2 * cp;
+        // Then undo the rotation. For a rotation the transpose is the inverse.
+        const view = applyTranspose(orientation, point3(vx, vy, vz));
 
-        const cy = Math.cos(yaw), sy = Math.sin(yaw);
-        const x1 = vx * cy - z1 * sy;
-        const zz = vx * sy + z1 * cy;
-
-        return point3(target.x + x1, target.y + y1, target.z + zz);
+        return point3(target.x + view.x, target.y + view.y, target.z + view.z);
     }
 }
