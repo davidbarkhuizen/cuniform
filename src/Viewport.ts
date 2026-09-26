@@ -1,5 +1,5 @@
 import { K } from "./K";
-import { Point2D } from "./Point2D";
+import { point, Point2D } from "./Point2D";
 
 /**
  * Model <-> canvas mapping.
@@ -31,19 +31,19 @@ export class Viewport {
 	toCanvas(xy: Point2D): Point2D {
 		const s = this.scale;
 
-		return {
-			x : (this.w1 / 2.0) + xy.x * s,
-			y : (this.h1 / 2.0) - xy.y * s
-		};
+		return point(
+			(this.w1 / 2.0) + xy.x * s,
+			(this.h1 / 2.0) - xy.y * s
+		);
 	}
 
 	/** Exact inverse of toCanvas(): canvas point -> model point. */
 	toModel(xy: Point2D): Point2D {
 		const s = this.scale;
 
-		return {
-			x : (xy.x - (this.w1 / 2.0)) / s,
-			y : ((this.h1 / 2.0) - xy.y) / s
-		};
+		return point(
+			(xy.x - (this.w1 / 2.0)) / s,
+			((this.h1 / 2.0) - xy.y) / s
+		);
 	}
 }

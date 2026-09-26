@@ -1,4 +1,4 @@
-import { Point2D } from './Point2D'; 
+import { point, Point2D } from './Point2D';
 
 export class State {
 
@@ -23,9 +23,9 @@ export class State {
 		this.b1Down = false; 
 		this.b2Down = false; 
 		
-		this.b0ClickPos = new Point2D(0, 0);
+		this.b0ClickPos = point(0, 0);
 		this.lastMiddleDragPos = null;
 		
-		this.curPos = new Point2D(0, 0);
+		this.curPos = point(0, 0);
 	}
 }
