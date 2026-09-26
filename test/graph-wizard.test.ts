@@ -178,7 +178,7 @@ test("branching is validated against the order as it is typed", () => {
         el(wizard.branchingInput).dispatch("input");
 
         assert.equal(wizard.generateButton.disabled, true);
-        assert.match(wizard.validationLabel.innerHTML, /^edges per node:/);
+        assert.match(wizard.validationLabel.innerHTML, /^new edges per node:/);
 
         wizard.branchingInput.value = "2";
         el(wizard.branchingInput).dispatch("input");
@@ -491,7 +491,7 @@ test("each number field's caption names the input it labels", () => {
     withWizard(({ wizard }) => {
         const fields: Array<[string, HTMLInputElement]> = [
             ["nodes", wizard.orderInput],
-            ["edges per node", wizard.branchingInput],
+            ["new edges per node", wizard.branchingInput],
         ];
 
         for (const [name, input] of fields) {

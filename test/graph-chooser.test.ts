@@ -182,7 +182,7 @@ test("the panel's graph line names the loaded graph", () => {
 
         assert.equal(
             elements.currentGraphLabel.innerHTML,
-            "random graph: 5 nodes, up to 2 edges per node"
+            "random graph: 5 nodes, up to 2 new edges per node"
         );
     });
 });

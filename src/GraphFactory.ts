@@ -82,8 +82,10 @@ export class GraphFactory {
 	};
 
 	// Sparse semi-random graph, as in the reference app's graph_manipulator.generate_graph:
-	// each vertex joins between 1 and `maxEdgesPerVertex` others, with no duplicates or self-loops.
-	generateGraph(order: number, maxEdgesPerVertex: number) {
+	// each vertex starts between 1 and `maxNewEdgesPerVertex` edges, with no duplicates or
+	// self-loops. That bounds the edges a vertex *initiates*, not its final degree: the graph
+	// is undirected, so a vertex also collects the edges its neighbours start.
+	generateGraph(order: number, maxNewEdgesPerVertex: number) {
 
 		var graph = new Graph();
 		var funcGenXYZ = this.constructXYZFactory();
@@ -99,8 +101,8 @@ export class GraphFactory {
 
 		for(const tag of graph.vertices) {
 
-			// randint(1, maxEdgesPerVertex) inclusive
-			var edgesToAdd = 1 + Math.floor(Math.random() * maxEdgesPerVertex);
+			// randint(1, maxNewEdgesPerVertex) inclusive
+			var edgesToAdd = 1 + Math.floor(Math.random() * maxNewEdgesPerVertex);
 
 			for(let j = 0; j < edgesToAdd; j++) {
 

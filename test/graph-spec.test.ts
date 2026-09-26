@@ -69,7 +69,7 @@ test("an error message names the offending field", () => {
 
     const branchingError = parseRandomSpec("11", "");
     assert.equal(branchingError.ok, false);
-    assert.match(branchingError.ok ? "" : branchingError.message, /^edges per node:/);
+    assert.match(branchingError.ok ? "" : branchingError.message, /^new edges per node:/);
 });
 
 test("the range message states the effective bounds", () => {
@@ -82,7 +82,7 @@ test("the range message states the effective bounds", () => {
 test("specLabel of a random spec names the order and the branching", () => {
     assert.equal(
         specLabel({ kind: "random", order: 11, branching: 2 }),
-        "random graph: 11 nodes, up to 2 edges per node"
+        "random graph: 11 nodes, up to 2 new edges per node"
     );
 });
 

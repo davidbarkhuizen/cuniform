@@ -31,7 +31,8 @@ function wholeNumber(text: string): number | null {
 }
 
 /** Validate the raw text of the two random-graph fields, naming the offending field.
- * `branching` is capped at `order - 1`: a larger value would silently produce fewer edges. */
+ * `branching` is capped at `order - 1` new edges per node: a node cannot start more than
+ * that many distinct edges, so a larger value would silently start fewer than asked for. */
 export function parseRandomSpec(orderText: string, branchingText: string): RandomParams {
 
     const order = wholeNumber(orderText);
@@ -42,7 +43,7 @@ export function parseRandomSpec(orderText: string, branchingText: string): Rando
     const branching = wholeNumber(branchingText);
 
     if (branching === null)
-        return { ok: false, message: "edges per node: enter a whole number" };
+        return { ok: false, message: "new edges per node: enter a whole number" };
 
     if (order < K.chooser.minOrder || order > K.chooser.maxOrder) {
         return {
@@ -56,7 +57,7 @@ export function parseRandomSpec(orderText: string, branchingText: string): Rando
     if (branching < K.chooser.minBranching || branching > maxBranching) {
         return {
             ok: false,
-            message: `edges per node: must be between ${K.chooser.minBranching} and ${maxBranching}`,
+            message: `new edges per node: must be between ${K.chooser.minBranching} and ${maxBranching}`,
         };
     }
 
@@ -68,7 +69,7 @@ export function parseRandomSpec(orderText: string, branchingText: string): Rando
 export function specLabel(spec: GraphSpec): string {
 
     if (spec.kind === "random")
-        return `random graph: ${spec.order} nodes, up to ${spec.branching} edges per node`;
+        return `random graph: ${spec.order} nodes, up to ${spec.branching} new edges per node`;
 
     return moleculeById(spec.id).systematicName;
 }
