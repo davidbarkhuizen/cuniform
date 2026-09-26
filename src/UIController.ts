@@ -250,58 +250,47 @@ export class UIController {
 		window.fdg.render(this.context2D);
 	};
 	
-	deregisterEventListeners = (
-            canvas: HTMLCanvasElement, 
-            exportElement: HTMLElement, 
-            resetElement: HTMLElement
-        ) => {
-		
-		// export link
-		//
-		exportElement.removeEventListener("click", this.onExport);
-		
-		// reset link
-		//
-		resetElement.removeEventListener("click", this.onReset);
+	/**
+	 * Attach or detach the whole listener set from one list, so the two
+	 * directions cannot drift. Deriving detach from the same lines as attach is
+	 * what stops a newly added listener from surviving reset(), which the suite
+	 * has already been bitten by.
+	 */
+	private toggleEventListeners(attach: boolean) {
+
+		// The handlers are a mix of MouseEvent and no-argument callbacks, so the
+		// parameter is left open here; the per-type addEventListener overloads
+		// that used to enforce this are gone with the duplicated lists.
+		const bind = (
+			target: EventTarget,
+			type: string,
+			fn: (event: any) => void
+		) => {
+			if (attach)
+				target.addEventListener(type, fn);
+			else
+				target.removeEventListener(type, fn);
+		};
 
 		// mouse
 		//
-		canvas.removeEventListener("mousemove", this.onMouseMove, false);
-		canvas.removeEventListener("mousedown", this.onMouseDown, false);
-		canvas.removeEventListener("mouseup", this.onMouseUp, false);
-		canvas.removeEventListener("mouseout", this.onMouseOut, false);	
-		canvas.removeEventListener("contextmenu", this.onContextMenu, false);
+		bind(this.canvas, "mousemove", this.onMouseMove);
+		bind(this.canvas, "mousedown", this.onMouseDown);
+		bind(this.canvas, "mouseup", this.onMouseUp);
+		bind(this.canvas, "mouseout", this.onMouseOut);
+		bind(this.canvas, "contextmenu", this.onContextMenu);
 
-		// viewport
-		//
-		window.removeEventListener("resize", this.onResize);
-	}
-	
-	registerEventListeners = (
-            canvas: HTMLCanvasElement, 
-            exportElement: HTMLElement, 
-            resetElement: HTMLElement
-        ) => {
-		
 		// export link
 		//
-		exportElement.addEventListener("click", this.onExport);
-		
+		bind(this.exportElement, "click", this.onExport);
+
 		// reset link
 		//
-		resetElement.addEventListener("click", this.onReset);
-
-		// mouse
-		//
-		canvas.addEventListener("mousemove", this.onMouseMove, false);
-		canvas.addEventListener("mousedown", this.onMouseDown, false);
-		canvas.addEventListener("mouseup", this.onMouseUp, false);
-		canvas.addEventListener("mouseout", this.onMouseOut, false);	
-		canvas.addEventListener("contextmenu", this.onContextMenu, false);
+		bind(this.resetElement, "click", this.onReset);
 
 		// viewport
 		//
-		window.addEventListener("resize", this.onResize);
+		bind(window, "resize", this.onResize);
 	}
 
 	buildContextMenu = () => {
@@ -395,7 +384,7 @@ export class UIController {
 	
 		this.buildContextMenu();
 
-		this.registerEventListeners(this.canvas, this.exportElement, this.resetElement);
+		this.toggleEventListeners(true);
 	
 		this.timer = setInterval(this.onTimerTick, K.physics.timerTickperiodMS);
 	
@@ -413,6 +402,6 @@ export class UIController {
 			this.contextMenu = null;
 		}
 
-		this.deregisterEventListeners(this.canvas, this.exportElement, this.resetElement)
+		this.toggleEventListeners(false)
 	}	
 }
