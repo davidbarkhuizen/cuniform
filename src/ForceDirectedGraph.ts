@@ -5,6 +5,8 @@ import { Tag } from "./Tag";
 
 const COLOUR_SELECTED = 'red';
 const COLOUR_DEFAULT = 'green';
+/** Edges incident to the selected node are highlighted in this colour. */
+const COLOUR_EDGE_INCIDENT = 'red';
 
 export class ForceDirectedGraph {
 
@@ -58,12 +60,9 @@ export class ForceDirectedGraph {
 		return this.reverse(xy, K.space.W_0, K.space.H_0, canvasWidth, canvasHeight);
 	};
 
-	render(
-        context: CanvasRenderingContext2D, 
-        node_label_vert_spacing: number = 0
-    ) {
+	render(context: CanvasRenderingContext2D) {
 
-		var selected_node = null;
+		var selected_node: Tag | null = null;
 		for(let i = 0; i < this.graph.vertices.length; i++)
 		if(this.graph.vertices[i].isSelected) {
 			selected_node = this.graph.vertices[i];
@@ -80,8 +79,8 @@ export class ForceDirectedGraph {
 			var v1 = edge.v1;
 			var v2 = edge.v2;	
 			
-			if((selected_node == v1) || (selected_node == v2))
-				context.strokeStyle = COLOUR_DEFAULT;
+			if((selected_node === v1) || (selected_node === v2))
+				context.strokeStyle = COLOUR_EDGE_INCIDENT;
 			else
 				context.strokeStyle = COLOUR_DEFAULT;
 			
@@ -92,8 +91,6 @@ export class ForceDirectedGraph {
 			context.lineTo(v2.translatedPosition.x, v2.translatedPosition.y);
 			context.stroke();
 		}
-
-		var box_side = 10;
 
 		for (let i = 0; i < this.graph.vertices.length; i++) {
 
