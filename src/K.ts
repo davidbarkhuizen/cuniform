@@ -71,9 +71,11 @@ export const K = {
         nearPlane : 50,
         // Orbit sensitivity, radians per CSS pixel of middle-drag.
         orbitRadiansPerPixel : 0.01,
-        // One console press. A fixed step keeps every button exactly testable,
-        // and a twelfth of a right angle means twelve presses are a full turn.
-        rotateStepRadians : Math.PI / 12,
+        // Console rotation speed while a button is held, radians per second.
+        // The controller applies one tick's worth of this per simulation tick,
+        // so a held button turns the view smoothly at the render rate instead
+        // of jumping a fixed angle per press.
+        rotateRadiansPerSecond : Math.PI / 3,
         // pi/2 - epsilon: the turntable guard. Middle-drag never tilts the view
         // to a pole, where it has no defined upward direction. The console's
         // explicit per-axis rotations are free 3-DOF and are not bounded by it.

@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Status** | Implemented |
-| **Landed** | PRs #68–#70; `main` green at 215 tests |
+| **Landed** | PRs #68–#71; `main` green at 221 tests |
 | **Area** | new `src/Mat3.ts`, `src/Camera.ts`, `src/Projector.ts`, `src/K.ts`, `src/UIController.ts`, `src/entrypoint.ts`, `web/index.html`, `web/stylez.css`, `README.md`, `test/**` |
 | **Depends on** | nothing outstanding — `main` was green at 201 tests when this was planned |
 | **Blocks** | nothing |
@@ -21,11 +21,12 @@ y  ↻  ↺
 z  ↻  ↺
 ```
 
-Each click applies one fixed rotation step. The axes are the **camera's own
-frame axes as the viewer sees them on screen** (x right, y up, z along the view
-axis), not the fixed model axes — so a button pair always reads as "rotate the
-view this way", whatever the current orientation. This is the interpretation
-recorded as D1 in §2.
+A press applies one small rotation step; **holding rotates continuously**, one
+more step per simulation tick. The axes are the **camera's own frame axes as the
+viewer sees them on screen** (x right, y up, z along the view axis), not the
+fixed model axes — so a button pair always reads as "rotate the view this way",
+whatever the current orientation. This is the interpretation recorded as D1 in
+§2.
 
 Out of scope is enumerated in §8.
 
@@ -34,12 +35,12 @@ Out of scope is enumerated in §8.
 | # | Decision | Choice |
 | --- | --- | --- |
 | D1 | Rotation frame | **Camera/screen frame** — each pair rotates about the camera's own x, y or z axis |
-| D2 | Press behaviour | **One fixed step per click**; buttons are keyboard-activatable natively |
+| D2 | Press behaviour | **Hold to rotate** — a press applies one small step and, held, one more per simulation tick; Enter/Space hold on the keyboard |
 | D3 | Camera representation | **A 3×3 rotation matrix** as the single source of truth, replacing the `yaw`/`pitch` angles |
 | D4 | z pair | **Roll about the view axis** — the third degree of freedom the yaw/pitch camera did not have |
 | D5 | Console placement | A **third section** in the existing floating panel, after the selected-node section |
 | D6 | Wiring | **Event delegation**: one `click` listener on the console container reads `data-axis` / `data-direction` |
-| D7 | Step size | `K.camera.rotateStepRadians = Math.PI / 12` (15°), tuned in the same PR that ships the buttons |
+| D7 | Rotation speed | `K.camera.rotateRadiansPerSecond = Math.PI / 3` (60°/s), applied as one tick's worth per simulation tick |
 
 Why these, briefly, because each has a cheaper alternative that was rejected:
 
@@ -51,14 +52,16 @@ Why these, briefly, because each has a cheaper alternative that was rejected:
   decision, argued in §3: a camera-frame rotation is a **left-multiplication**
   of the world→camera rotation, and the yaw/pitch parameterisation is not closed
   under that operation.
-- **One step per click over press-and-hold (D2).** Predictable, needs no repeat
-  timer and no pointer-capture teardown, and every step is exactly testable.
-  Hold-to-repeat can be added later without changing the handler contract.
+- **Hold to rotate over one step per press (D2).** A single coarse jump per
+  press is hard to aim. Applying a small step per simulation tick while the
+  button is held rides the existing render loop, so the turn is exactly as
+  smooth as the graph's own animation, needs no second timer, and stays
+  trivially testable by advancing the tick.
 - **Delegate over six listeners (D6).** `toggleEventListeners()` derives detach
   from the same lines as attach, so six per-button closures would each need a
-  stable handler identity. One delegated listener on the container keeps that
-  contract. A click on a button bubbles to the container and `event.target`
-  carries the data attributes.
+  stable handler identity. One delegated listener per event type on the
+  container keeps that contract. An event on a button bubbles to the container
+  and `event.target` carries the data attributes.
 
 ## 3. Why this needs a new camera representation
 
@@ -215,7 +218,7 @@ must keep passing unchanged.
 | Constant | Change |
 | --- | --- |
 | `camera.yaw`, `camera.pitch` | **removed** (the identity matrix is the default view) |
-| `camera.rotateStepRadians` | **new**: `Math.PI / 12`, one console step |
+| `camera.rotateRadiansPerSecond` | **new**: `Math.PI / 3` (60°/s), applied one tick's worth per simulation tick |
 | `camera.maxPitch` | kept; comment updated to "turntable elevation guard" |
 | `camera.orbitRadiansPerPixel`, `focalLength`, `distance`, `nearPlane`, `minDistance`, `dollyPerWheelNotch` | unchanged |
 
@@ -261,31 +264,60 @@ suite already guards against cannot recur:
 ```ts
 // in toggleEventListeners(attach)
 if (this.cameraConsole) {
-    bind(this.cameraConsole, "click", this.onCameraButtonClick);
     bind(this.cameraConsole, "pointerdown", this.onCameraPointerDown);
+    bind(this.cameraConsole, "keydown", this.onCameraKeyDown);
+    bind(this.cameraConsole, "keyup", this.onCameraKeyUp);
+    bind(this.cameraConsole, "click", this.onCameraButtonClick);
+    // the release can land anywhere, so it is watched on the window
+    bind(window, "pointerup", this.onCameraPointerUp);
+    bind(window, "pointercancel", this.onCameraPointerUp);
+    bind(window, "blur", this.onCameraPointerUp);
 }
 ```
 
 ```ts
-onCameraButtonClick = (event: MouseEvent) => {
-    const target = event.target as HTMLElement | null;
-    if (!target || typeof target.getAttribute !== "function") return;
+// One tick's worth of rotation, derived from a rate so the felt speed does
+// not change if the tick period is retuned.
+private static readonly ROTATION_PER_TICK =
+    K.camera.rotateRadiansPerSecond * K.physics.timerTickPeriodMS / 1000;
 
-    const axis = target.getAttribute("data-axis");
-    const direction = target.getAttribute("data-direction");
+private rotateBy(button: CameraButton): void {
+    const step = button.direction === "acw"
+        ? UIController.ROTATION_PER_TICK
+        : -UIController.ROTATION_PER_TICK;
+    this.state.camera.rotateLocal(button.axis, step);
+}
 
-    if (axis !== "x" && axis !== "y" && axis !== "z") return;
-    if (direction !== "cw" && direction !== "acw") return;
-
-    // Anticlockwise is the right-hand positive sense about the axis.
-    this.state.camera.rotateLocal(axis, (direction === "acw" ? 1 : -1) * K.camera.rotateStepRadians);
+/** Called from onTimerTick() before the step, so the projection and the draw
+ *  that follow already see the new view. */
+onCameraRotateTick = () => {
+    if (this.heldRotation) this.rotateBy(this.heldRotation);
 };
 
 onCameraPointerDown = (event: PointerEvent) => {
     // The panel is a drag handle (DragController captures the pointer on
     // pointerdown and would retarget the click), so a press that starts on a
-    // button must not reach it.
+    // button must not reach it. A valid button then starts the hold.
     event.stopPropagation();
+    const button = this.cameraButton(event.target);
+    if (button) this.startCameraHold(button);   // one step now, one per tick after
+};
+
+onCameraKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    if (event.repeat) return;                   // the tick already advances a hold
+    const button = this.cameraButton(event.target);
+    if (!button) return;
+    event.preventDefault();                     // no synthetic click on top
+    this.startCameraHold(button);
+};
+
+onCameraButtonClick = (event: MouseEvent) => {
+    // Pointer and key presses are already handled; `detail === 0` is the
+    // assistive-technology activation, which has no pointer/key events.
+    if (event.detail !== 0) return;
+    const button = this.cameraButton(event.target);
+    if (button) this.rotateBy(button);
 };
 ```
 
@@ -322,7 +354,7 @@ Three focused PRs. Each leaves `main` green.
 - `src/Projector.ts`: `CameraView.orientation`; `toCameraSpace` /
   `unprojectScreen` go through `apply` / `applyTranspose`; `defaultCameraView`
   returns the identity.
-- `src/K.ts`: drop `yaw`/`pitch`; add `rotateStepRadians`.
+- `src/K.ts`: drop `yaw`/`pitch`; add `rotateRadiansPerSecond`.
 - Tests: `camera.test.ts` and `projector.test.ts` rewritten against the matrix;
   `pan.test.ts` orbit/reset assertions moved from `yaw`/`pitch` to
   orientation/elevation.
@@ -334,7 +366,7 @@ Three focused PRs. Each leaves `main` green.
 ### PR 3 — the camera console
 
 - `web/index.html`, `web/stylez.css`: the third section and its styles.
-- `src/UIController.ts`: the container dependency, the two delegated handlers.
+- `src/UIController.ts`: the container dependency and the delegated handlers.
 - `src/entrypoint.ts`: resolve `cameraConsole` and pass it to the controller.
 - `test/support/dom.ts`: `cameraConsole` in `demoElements()`; a
   `stopPropagation` flag on the pointer-event factory.
@@ -343,6 +375,22 @@ Three focused PRs. Each leaves `main` green.
 - `README.md`: the Layout and Interaction sections, and this workplan's status.
 - **Acceptance:** `npm run ci` green with a higher test count; the console
   renders in the demo and each button moves the view in the labelled direction.
+
+### PR 4 — hold to rotate
+
+Sharpens D2 from "one step per press" to a continuous hold, because a single
+coarse jump per press is hard to aim.
+
+- `src/K.ts`: `rotateRadiansPerSecond` replaces `rotateStepRadians`.
+- `src/UIController.ts`: a held-button state applied once per `onTimerTick`;
+  pointerdown/up, keydown/up, a window-level release (pointerup, pointercancel,
+  blur), and a `detail === 0` click fallback for assistive technology.
+- `test/support/dom.ts`: `target` on the mouse/pointer/keyboard event factories,
+  `detail` on the mouse factory and `repeat` on the keyboard factory.
+- Tests: `test/camera-console.test.ts` reworked around the held state.
+- `README.md`: the Interaction bullet and the constants table.
+- **Acceptance:** `npm run ci` green; a held button turns the view smoothly, and
+  a release anywhere - or a lost window - ends the rotation.
 
 ## 6. Test plan
 
@@ -358,11 +406,15 @@ Three focused PRs. Each leaves `main` green.
 | `Camera` | the orbit elevation guard holds for an enormous `dy`, on both signs |
 | `Projector` | identity camera + `z = 0` equals `Viewport.toCanvas` **exactly** (unchanged) |
 | `Projector` | rotation stays rigid and `project`/`unproject` round-trips with a rolled orientation |
-| Camera console | each of the six buttons rotates about its own axis by ±`rotateStepRadians` |
+| Camera console | each of the six buttons rotates about its own axis from the first press |
+| Camera console | a held button applies one more small step per simulation tick |
+| Camera console | a release (pointerup), a pointercancel and a window blur each end the hold |
+| Camera console | Enter/Space hold on the keyboard; an auto-repeat keydown does not restart the step |
+| Camera console | an assistive-technology click (`detail === 0`) rotates once; a pointer click does not double-count |
 | Camera console | anticlockwise about z moves an on-screen +x point towards +y (the sign pin) |
-| Camera console | a click with no/unknown data attributes is a no-op |
+| Camera console | a press with no/unknown data attributes is a no-op |
 | Camera console | `pointerdown` stops propagation, so the panel drag never starts |
-| Camera console | `terminate()` leaves zero console listeners; `initialize()` restores exactly one each |
+| Camera console | `terminate()` ends a hold and leaves zero console listeners; `initialize()` restores exactly one each |
 | Layout | the panel's third section is `cameraConsole`, after the selection section, with six labelled buttons |
 
 ### Existing tests: expected impact
@@ -386,13 +438,15 @@ Three focused PRs. Each leaves `main` green.
 | The elevation guard is lost in the refactor | `orbit` clamps the applied delta, so a large drag cannot tumble through a pole; a test drives a huge `dy` at both signs |
 | Base reached exactly through the buttons makes the turntable axis degenerate | `orbit` falls back to world x when the view is vertical; button rotation is intentionally free |
 | A button press is swallowed by the panel drag | `pointerdown` on the console stops propagation, so `DragController` never captures the pointer; a test asserts the call |
+| A hold outlives the pointer (released outside, or the window loses focus) | The release is watched on the window (pointerup, pointercancel, blur) instead of the button, and `terminate()` clears the hold; each path is tested |
 | Six buttons bloat the controller signature | One container dependency and delegation, not six elements and six closures |
 | `data-*` typos ship a dead button | The handler ignores unknown values, but layout tests assert all six axis/direction pairs exist |
 | The glyphs render inconsistently across fonts | The `aria-label`/`title` carry the meaning and the row label carries the axis; the glyph is decoration |
 
 ## 8. Out of scope
 
-- Press-and-hold auto-repeat, inertia or animation. Every press is one step.
+- Inertia or animation after release. The view stops when the button is
+  released; only the held rotation is smoothed.
 - Rebindable keys or a keyboard shortcut per axis. The buttons are tabbable and
   Enter/Space-activated, which is the accessibility baseline.
 - A reset-orientation button. `Camera.reset()` restores the identity and is

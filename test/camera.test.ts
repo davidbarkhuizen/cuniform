@@ -118,8 +118,9 @@ test("opposite rotateLocal steps cancel", () => {
 
 test("anticlockwise is the right-hand positive sense about each camera axis", () => {
     // The on-screen reading of the console's sign convention, asserted in
-    // camera space: +x is right, +y is up and +z is along the view axis.
-    const step = K.camera.rotateStepRadians;
+    // camera space: +x is right, +y is up and +z is along the view axis. Any
+    // small angle shows the sense; this is not the console's tuned step.
+    const step = 0.05;
 
     const aboutX = new Camera();
     aboutX.rotateLocal('x', step);

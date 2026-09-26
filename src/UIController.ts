@@ -1,3 +1,4 @@
+import { CameraAxis } from "./Camera";
 import { ContextMenu } from "./ContextMenu";
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { Graph } from "./Graph";
@@ -22,6 +23,15 @@ const defaultGraphSource: GraphSource = () =>
         K.initialConditions.order,
         K.initialConditions.branching
     );
+
+/** The direction a console button rotates the camera. */
+type CameraDirection = 'cw' | 'acw';
+
+/** A parsed console button: which camera axis and which way. */
+interface CameraButton {
+    axis: CameraAxis;
+    direction: CameraDirection;
+}
 
 /**
  * The canvas as a PNG Blob. Browsers refuse top-frame navigation to a `data:`
@@ -67,10 +77,25 @@ export class UIController {
 
     /**
      * The camera console's container. Its buttons are static chrome in
-     * web/index.html, so one delegated listener on the container is enough;
+     * web/index.html, so one delegated listener per event type is enough;
      * null in a fixture that builds a controller without the console.
      */
     cameraConsole: HTMLElement | null;
+
+    /**
+     * The console button currently held, or null. While it is set, each
+     * simulation tick applies one small rotation step, so holding a button
+     * turns the view smoothly at the render rate instead of jumping a fixed
+     * angle on the press.
+     */
+    private heldRotation: CameraButton | null = null;
+
+    /**
+     * One tick's worth of console rotation, radians. Derived from a rate so the
+     * felt speed does not change if the tick period is retuned.
+     */
+    private static readonly ROTATION_PER_TICK =
+        K.camera.rotateRadiansPerSecond * K.physics.timerTickPeriodMS / 1000;
 
     contextMenu: ContextMenu | null = null;
 
@@ -228,45 +253,142 @@ export class UIController {
 	};
 
 	/**
-	 * A console rotate button. One delegated listener serves all six: the
-	 * container is stable across presses, so the handler count is fixed, and
-	 * the data attributes on the pressed button name the axis and direction.
-	 * X in the camera's own frame, y across it and z along the view axis.
+	 * Parse a console button out of an event target. One delegated listener per
+	 * event type serves all six buttons: the container is stable across
+	 * presses, so the handler count is fixed, and the data attributes on the
+	 * pressed button name the camera axis and direction. Anything else in the
+	 * section - the heading, the container itself - is not a rotation.
 	 */
-	onCameraButtonClick = (event: MouseEvent) => {
+	private cameraButton(target: EventTarget | null): CameraButton | null {
 
-		const target = event.target as HTMLElement | null;
+		const element = target as HTMLElement | null;
 
-		if (!target || typeof target.getAttribute !== 'function')
-			return;
+		if (!element || typeof element.getAttribute !== 'function')
+			return null;
 
-		const axis = target.getAttribute('data-axis');
-		const direction = target.getAttribute('data-direction');
+		const axis = element.getAttribute('data-axis');
+		const direction = element.getAttribute('data-direction');
 
-		// Anything that is not one of the six buttons - the section heading,
-		// the container itself - is not a rotation.
 		if (axis !== 'x' && axis !== 'y' && axis !== 'z')
-			return;
+			return null;
 
 		if (direction !== 'cw' && direction !== 'acw')
-			return;
+			return null;
 
-		// Anticlockwise is the right-hand positive sense about the axis, so it
-		// is the positive step; clockwise is its negation.
-		const step = direction === 'acw'
-			? K.camera.rotateStepRadians
-			: -K.camera.rotateStepRadians;
+		return { axis, direction };
+	}
 
-		this.state.camera.rotateLocal(axis, step);
+	/**
+	 * Apply one tick of rotation for `button`. Anticlockwise is the right-hand
+	 * positive sense about the axis, so it is the positive step.
+	 */
+	private rotateBy(button: CameraButton): void {
+
+		const step = button.direction === 'acw'
+			? UIController.ROTATION_PER_TICK
+			: -UIController.ROTATION_PER_TICK;
+
+		this.state.camera.rotateLocal(button.axis, step);
+	}
+
+	/**
+	 * One tick's worth of a held button. Called from onTimerTick() before the
+	 * step, so the projection and the draw that follow already see the new
+	 * view: the rotation rides the render loop, which is what makes a held
+	 * button look smooth rather than stepped.
+	 */
+	onCameraRotateTick = () => {
+
+		if (this.heldRotation)
+			this.rotateBy(this.heldRotation);
 	};
 
 	/**
-	 * The panel is a drag handle: DragController captures the pointer on
-	 * pointerdown, which would retarget the compatibility click away from a
-	 * button. A press that starts on the console must not reach the panel.
+	 * Begin rotating: one step at once so a tap still moves, then one more per
+	 * tick until released.
+	 */
+	private startCameraHold(button: CameraButton): void {
+
+		this.heldRotation = button;
+		this.rotateBy(button);
+	}
+
+	/** Stop any held rotation. Safe when nothing is held. */
+	stopCameraHold = () => {
+		this.heldRotation = null;
+	};
+
+	/**
+	 * A press on a console button. The pointer can be released anywhere, so the
+	 * release half is watched on the window (see toggleEventListeners) rather
+	 * than on the button.
 	 */
 	onCameraPointerDown = (event: PointerEvent) => {
+
+		// The panel is a drag handle: DragController captures the pointer on
+		// pointerdown, which would retarget the compatibility click away from a
+		// button. A press that starts on the console must not reach the panel.
 		event.stopPropagation();
+
+		const button = this.cameraButton(event.target);
+
+		if (button)
+			this.startCameraHold(button);
+	};
+
+	onCameraPointerUp = () => {
+		this.stopCameraHold();
+	};
+
+	/**
+	 * Keyboard hold: Enter or Space starts a rotation that keyup ends. The
+	 * default action is cancelled so the browser does not also synthesise a
+	 * click for the same press, which would double-count it.
+	 */
+	onCameraKeyDown = (event: KeyboardEvent) => {
+
+		if (event.key !== 'Enter' && event.key !== ' ')
+			return;
+
+		// Auto-repeat would restart the step on every repeat event; the tick
+		// handler is what advances a held button.
+		if (event.repeat)
+			return;
+
+		const button = this.cameraButton(event.target);
+
+		if (!button)
+			return;
+
+		event.preventDefault();
+		this.startCameraHold(button);
+	};
+
+	onCameraKeyUp = (event: KeyboardEvent) => {
+
+		if (event.key !== 'Enter' && event.key !== ' ')
+			return;
+
+		event.preventDefault();
+		this.stopCameraHold();
+	};
+
+	/**
+	 * Pointer and key activation both produce a click, and the hold paths
+	 * already account for those, so a click with a click count is ignored. A
+	 * click with `detail === 0` is the assistive-technology or programmatic
+	 * activation, which has no pointer or key events of its own, so it is the
+	 * one click that still rotates.
+	 */
+	onCameraButtonClick = (event: MouseEvent) => {
+
+		if (event.detail !== 0)
+			return;
+
+		const button = this.cameraButton(event.target);
+
+		if (button)
+			this.rotateBy(button);
 	};
 
 	/** The projection for the current canvas size and live camera. */
@@ -430,6 +552,10 @@ export class UIController {
 	};
 
 	onTimerTick = () => {
+		// A held console button turns the camera first, so the projection taken
+		// below and the draw that follows both use the new view.
+		this.onCameraRotateTick();
+
 		// Advance the physics, then draw. The solver is told which node is
 		// pinned via a predicate, so it never reads browser state itself; the
 		// camera reaches it only as a value object, so it stays DOM-free.
@@ -482,13 +608,26 @@ export class UIController {
 		//
 		bind(this.resetElement, "click", this.onReset);
 
-		// camera console: one delegated listener, plus the guard that keeps a
-		// press on a button from starting a panel drag. Both are skipped when
-		// the console is absent, on attach and detach alike.
+		// camera console: one delegated listener per event type on the
+		// container, plus the guard that keeps a press on a button from
+		// starting a panel drag. Skipped when the console is absent, on attach
+		// and detach alike.
 		//
 		if (this.cameraConsole) {
-			bind(this.cameraConsole, "click", this.onCameraButtonClick);
 			bind(this.cameraConsole, "pointerdown", this.onCameraPointerDown);
+			bind(this.cameraConsole, "keydown", this.onCameraKeyDown);
+			bind(this.cameraConsole, "keyup", this.onCameraKeyUp);
+			bind(this.cameraConsole, "click", this.onCameraButtonClick);
+		}
+
+		// A held console button is released wherever the pointer happens to
+		// be, so the release half is watched on the window. blur covers the
+		// pointerup the browser never delivers when the window loses focus.
+		//
+		if (this.cameraConsole) {
+			bind(window, "pointerup", this.onCameraPointerUp);
+			bind(window, "pointercancel", this.onCameraPointerUp);
+			bind(window, "blur", this.onCameraPointerUp);
 		}
 
 		// viewport
@@ -605,6 +744,9 @@ export class UIController {
 			clearInterval(this.timer);
 			this.timer = null;
 		}
+
+		// A button held across a reset must not keep turning the new graph.
+		this.stopCameraHold();
 
 		if (this.contextMenu) {
 			this.body.removeChild(this.contextMenu.element);
