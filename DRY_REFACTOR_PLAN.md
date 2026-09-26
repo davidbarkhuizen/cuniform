@@ -12,20 +12,38 @@ symbol name, which is the durable reference.
 
 ---
 
-## Status: not started
+## Status: complete
 
-Six focused PRs. Each branches from an up-to-date `main`, is verified
-independently, and is squash-merged before the next begins — so there is no
+Six focused PRs. Each branched from an up-to-date `main`, was verified
+independently, and was squash-merged before the next began — so there was no
 rebasing and no long-lived branch.
 
-| PR | Finding | Title | Risk | Net LOC |
-| --- | --- | --- | --- | --- |
-| 1 | test duplication | Consolidate the test support scaffolding | none (test-only) | ~−150 |
-| 2 | H1 | Build one event-listener table in `UIController` | low | ~−25 |
-| 3 | H2 | Extract the shared radial-force kernel | medium | ~−70 |
-| 4 | H3 | Introduce a `Viewport` value object | medium | ~neutral |
-| 5 | M2, M3 | Give "the selected node" one home | medium | ~−35 |
-| 6 | M1 | One representation for a 2D point | low (wide) | ~−30 |
+| PR | Finding | Title | Risk | Net LOC (estimated) | Merged |
+| --- | --- | --- | --- | --- | --- |
+| 1 | test duplication | Consolidate the test support scaffolding | none (test-only) | ~−150 | [#41](https://github.com/davidbarkhuizen/cuniform/pull/41) `41aa862` |
+| 2 | H1 | Build one event-listener table in `UIController` | low | ~−25 | [#42](https://github.com/davidbarkhuizen/cuniform/pull/42) `a47ddeb` |
+| 3 | H2 | Extract the shared radial-force kernel | medium | ~−70 | [#43](https://github.com/davidbarkhuizen/cuniform/pull/43) `1eff4bd` |
+| 4 | H3 | Introduce a `Viewport` value object | medium | ~neutral | [#44](https://github.com/davidbarkhuizen/cuniform/pull/44) `b3e8dcf` |
+| 5 | M2, M3 | Give "the selected node" one home | medium | ~−35 | [#45](https://github.com/davidbarkhuizen/cuniform/pull/45) `e2f451b` |
+| 6 | M1 | One representation for a 2D point | low (wide) | ~−30 | [#46](https://github.com/davidbarkhuizen/cuniform/pull/46) `3028da6` |
+
+**Outcome on `main`:** `npm run ci` green — typecheck clean, **127 tests, 0
+failures** (up from 111). `./cli build` bundles and the built `dist/index.html`
+passed the full interaction matrix in headless Chrome at `devicePixelRatio` 1
+and 2 after PRs 2, 4, 5 and 6. The listener list and the model→canvas scale each
+exist exactly once. Two deviations from the plan's sketches were made
+deliberately and are recorded in the PRs: the force kernel takes the radius the
+caller already computed (PR 3), and the selection rewrite captures the hit
+node's pre-clear state to preserve the toggle (PR 5).
+
+**The net-LOC estimates above were not met.** Measured against `738a561`,
+`src/` went 1429 → 1408 lines and `test/` 2493 → 2732. The consolidation in PR 1
+did remove the duplication — roughly 200 lines of it — but the shared support
+modules that replace it (~190 lines), a new `src/Viewport.ts` (~50 lines), and
+the new tests every later PR's acceptance requires (~330 lines) cost more than
+the duplication did. The line counts were not bought back by deleting coverage
+or explanatory comments; §9's "test/ shrinks by ~150" assumed deduplication with
+no new tests, which the per-PR acceptance criteria contradict.
 
 ---
 
@@ -622,6 +640,17 @@ later "cleanup sweep" PR once the structural work has landed.
 - README's "Model and canvas space" section updated to name `Viewport` if the
   public mapping API changes.
 - This workplan's Status table filled in with the merged PR links.
+
+**Outcome.** Every bullet above holds except the line-count target. Measured
+against `738a561`, `src/` went 1429 → 1408 lines and `test/` 2493 → 2732: the
+consolidation removed roughly 200 lines of duplication, but the shared support
+modules that replace it, a new `src/Viewport.ts`, and the new tests the per-PR
+acceptance criteria require cost rather more. The measured deltas are recorded
+in the Status section at the top; no coverage or comment was deleted to chase
+the estimate. Two sketches were deliberately deviated from, and both are
+detailed in their PRs: PR 3's kernel takes the radius the caller already
+computed rather than recomputing `Math.hypot`, and PR 5 captures the hit node's
+pre-clear state so the selection toggle survives.
 
 ---
 
