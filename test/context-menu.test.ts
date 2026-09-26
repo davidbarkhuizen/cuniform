@@ -9,11 +9,20 @@ import {
     FakeElement,
     demoElements,
     installFakeDom,
+    keyEvent,
     mouseEvent,
     newUIController,
     withFakeDom,
 } from "./support/dom";
 import { readSource } from "./support/files";
+
+/** Every listener initialize() attaches to the canvas. */
+const CANVAS_EVENTS = ['mousemove', 'mousedown', 'mouseup', 'mouseout', 'contextmenu', 'keydown'];
+
+/** The fake element behind an HTMLElement the controller hands back. */
+function el(element: HTMLElement): FakeElement {
+    return element as unknown as FakeElement;
+}
 
 interface Fixture {
     dom: FakeDom;
@@ -148,6 +157,107 @@ test("the menu offers export, reset and clear selection", () => {
     });
 });
 
+// -------------------------------------------------------- keyboard access
+
+test("menu entries are buttons carrying menu roles", () => {
+    withFakeDom({}, () => {
+        const menu = new ContextMenu([{ label: 'one', onSelect: () => {} }]);
+
+        assert.equal(menu.element.getAttribute('role'), 'menu');
+        assert.equal(el(menu.entries[0].element).tagName, 'BUTTON');
+        assert.equal(el(menu.entries[0].element).getAttribute('type'), 'button');
+        assert.equal(el(menu.entries[0].element).getAttribute('role'), 'menuitem');
+    });
+});
+
+test("opening the menu focuses its first entry", () => {
+    withFakeDom({}, () => {
+        const menu = new ContextMenu([
+            { label: 'one', onSelect: () => {} },
+            { label: 'two', onSelect: () => {} },
+        ]);
+
+        menu.open(1, 2);
+
+        assert.equal(el(menu.entries[0].element).focused, true);
+        assert.equal(el(menu.entries[1].element).focused, false);
+    });
+});
+
+test("the arrow keys move focus between entries and wrap around", () => {
+    withFakeDom({}, () => {
+        const menu = new ContextMenu([
+            { label: 'one', onSelect: () => {} },
+            { label: 'two', onSelect: () => {} },
+            { label: 'three', onSelect: () => {} },
+        ]);
+        const entries = menu.entries.map(e => el(e.element));
+
+        menu.open(1, 2);
+
+        el(menu.element).dispatch('keydown', keyEvent({ key: 'ArrowDown' }));
+        assert.equal(entries[1].focused, true);
+
+        el(menu.element).dispatch('keydown', keyEvent({ key: 'ArrowUp' }));
+        assert.equal(entries[0].focused, true);
+
+        el(menu.element).dispatch('keydown', keyEvent({ key: 'ArrowUp' }));
+        assert.equal(entries[2].focused, true, "ArrowUp from the first entry wraps to the last");
+    });
+});
+
+test("Escape hides the menu and calls the dismiss handler once", () => {
+    withFakeDom({}, () => {
+        let dismissed = 0;
+        const menu = new ContextMenu([{ label: 'one', onSelect: () => {} }], () => dismissed++);
+
+        menu.open(1, 2);
+        el(menu.element).dispatch('keydown', keyEvent({ key: 'Escape' }));
+
+        assert.equal(menu.isOpen, false);
+        assert.equal(dismissed, 1);
+    });
+});
+
+test("Shift+F10 opens the actions menu from the keyboard", () => {
+    withController(({ canvas, controller }) => {
+        const event = keyEvent({ key: 'F10', shiftKey: true });
+
+        canvas.dispatch('keydown', event);
+
+        assert.equal(controller.contextMenu!.isOpen, true);
+        assert.equal(event.defaultPrevented, true, "the browser's own menu must be suppressed");
+    });
+});
+
+test("the dedicated context-menu key opens the actions menu", () => {
+    withController(({ canvas, controller }) => {
+        canvas.dispatch('keydown', keyEvent({ key: 'ContextMenu' }));
+
+        assert.equal(controller.contextMenu!.isOpen, true);
+    });
+});
+
+test("Escape closes the menu and returns focus to the canvas", () => {
+    withController(({ canvas, controller }) => {
+        canvas.dispatch('keydown', keyEvent({ key: 'F10', shiftKey: true }));
+        assert.equal(controller.contextMenu!.isOpen, true);
+
+        el(controller.contextMenu!.element).dispatch('keydown', keyEvent({ key: 'Escape' }));
+
+        assert.equal(controller.contextMenu!.isOpen, false);
+        assert.equal(canvas.focused, true, "focus should return to the canvas");
+    });
+});
+
+test("a plain F10 leaves the menu closed", () => {
+    withController(({ canvas, controller }) => {
+        canvas.dispatch('keydown', keyEvent({ key: 'F10' }));
+
+        assert.equal(controller.contextMenu!.isOpen, false);
+    });
+});
+
 test("a contextmenu event without a right-button press stays closed but is still suppressed", () => {
     withController(({ canvas, controller }) => {
         const contextEvent = mouseEvent({ clientX: 10, clientY: 10 });
@@ -165,7 +275,7 @@ test("the contextmenu listener is registered exactly once", () => {
 });
 
 test("clear selection deselects every node and resets the info panel", () => {
-    withController(({ controller, elements }) => {
+    withController(({ canvas, controller, elements }) => {
         const vertices = controller.solver.graph.vertices;
         vertices[0].isSelected = true;
         vertices[1].isSelected = true;
@@ -175,6 +285,7 @@ test("clear selection deselects every node and resets the info panel", () => {
         assert.ok(vertices.every((v: any) => v.isSelected === false));
         assert.equal(controller.contextMenu!.isOpen, false);
         assert.equal(elements.selectedNodeInfoLabel.innerHTML, 'Click on a node to select...');
+        assert.equal(canvas.focused, true, "activating an entry should return focus to the canvas");
     });
 });
 
@@ -264,6 +375,22 @@ test("a confirmed reset rebuilds the menu exactly once and does not double-regis
     });
 });
 
+test("initialize is idempotent: a second call doubles nothing", () => {
+    withController(({ dom, elements, canvas, controller }) => {
+        // withController already initialized once; initialize again without
+        // terminating, as a careless caller would.
+        controller.initialize();
+
+        assert.equal(dom.intervals.length, 1, "one simulation timer after two initializes");
+        assert.equal(elements.body.children.length, 1, "one context menu after two initializes");
+
+        for (const type of CANVAS_EVENTS)
+            assert.equal(canvas.listenerCount(type), 1, `canvas must listen for ${type} exactly once`);
+
+        assert.equal((dom.windowListeners.get('resize') ?? []).length, 1, "one resize listener");
+    });
+});
+
 test("a left mousedown closes an open context menu", () => {
     withController(({ canvas, controller }) => {
         rightClick(canvas);
@@ -279,7 +406,7 @@ test("terminate detaches every listener initialize attached", () => {
     withController(({ dom, elements, canvas, controller }) => {
         controller.terminate();
 
-        for (const type of ['mousemove', 'mousedown', 'mouseup', 'mouseout', 'contextmenu'])
+        for (const type of CANVAS_EVENTS)
             assert.equal(canvas.listenerCount(type), 0, `canvas still listens for ${type}`);
 
         assert.equal(elements.export_canvas_link.listenerCount('click'), 0, "export still listens");

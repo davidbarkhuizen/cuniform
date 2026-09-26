@@ -54,11 +54,13 @@ export class Graph {
 	 * edges and self-loops never produce a repeated entry.
 	 *
 	 * Walks the maintained adjacency list rather than rescanning every edge, so
-	 * the cost is O(deg(v)); the index preserves edge insertion order, which
-	 * keeps the result order identical to the old full scan.
+	 * the cost is O(deg(v)); a Set makes the dedupe O(1) per edge instead of
+	 * the old O(deg) `indexOf` scan, while the insertion order is preserved so
+	 * the result order is unchanged.
 	 */
 	neighbours(v: Tag) {
 		var out: Array<Tag> = [];
+		var seen = new Set<Tag>();
 
 		for (const edge of this.incidentEdges(v)) {
 
@@ -67,8 +69,11 @@ export class Graph {
 			if (other === null)
 				continue;
 
-			if (out.indexOf(other) === -1)
-				out.push(other);
+			if (seen.has(other))
+				continue;
+
+			seen.add(other);
+			out.push(other);
 		}
 
 		return out;

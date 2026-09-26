@@ -32,7 +32,7 @@ export function readAllSources(): Record<string, string> {
     return out;
 }
 
-/** Read a hand-maintained static asset from `dist/` as text. */
-export function readDist(name: string): string {
-    return readFileSync(join(__dirname, "..", "..", "..", "dist", name), "utf8");
+/** Read a hand-maintained static asset from `web/` as text. */
+export function readWeb(name: string): string {
+    return readFileSync(join(__dirname, "..", "..", "..", "web", name), "utf8");
 }

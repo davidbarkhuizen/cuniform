@@ -5,14 +5,14 @@
 ## Running
 
     ./cli install        # npm install
-    ./cli run            # build, then open dist/index.html in a browser
+    ./cli run            # build, then open web/index.html in a browser
 
 `cli` is the single entry point for common tasks; `./cli help` lists every
 subcommand. With no recognised option it prints usage.
 
 ## Development
 
-    ./cli typecheck      # tsc --noEmit
+    ./cli typecheck      # tsc --noEmit over src/ and test/
     ./cli test           # compile test/ and run it under node:test
     ./cli ci             # typecheck + test
     ./cli build          # webpack bundle only
@@ -22,6 +22,10 @@ Each wraps the equivalent npm script (`npm run typecheck`, `npm test`,
 `npm run ci`, `npm run start`). `npm run dev` rebuilds while you edit, and
 `BROWSER=... ./cli run` (or `bash build-and-run.sh --build-only`) controls how
 the demo is launched.
+
+`web/` holds the hand-maintained shell (`index.html`, `stylez.css`); it loads
+the generated `dist/main.js`. `dist/` is build output only and is ignored by
+git.
 
 The simulation is deliberately decoupled from the browser: `ForceDirectedGraph.step()`
 is pure physics and touches neither `window` nor the canvas, so the whole model can
@@ -49,7 +53,10 @@ the whole panel can be dragged out of the way.
 - **Middle-drag** — pans the whole graph by the cursor delta.
 - **Right-click** — opens a context menu with `export`, `reset` and
   `clear selection`. The native browser menu is suppressed.
-- **Drag the overlay panel** — the panel itself is movable.
+- **Shift+F10** (or the context-menu key) — opens the same actions menu from
+  the keyboard. Its entries are buttons: Tab or the arrow keys move between
+  them, Enter or Space activates one, and Escape closes the menu.
+- **Drag the overlay panel** — the panel itself is movable, by mouse or by touch.
 
 ## Physics
 
@@ -70,11 +77,16 @@ It is a damped relaxation, not an energy minimisation:
   directed from the node toward its neighbour. `r > l` pulls, `r < l` pushes.
 - **Net force** is the plain sum of the two. There is no mass, no gravity, no
   cooling schedule and no boundary.
-- **Singularity guard** — repulsion is singular as `r -> 0`, and the exact
-  `r == 0` guard only catches perfect coincidence, so the power law is evaluated
-  at `max(r, minimumInteractionRadius)` instead. The force stays exactly radial
-  and every `r >= minimumInteractionRadius` is untouched, so the reference law
-  is unchanged; this is a documented non-reference extension.
+- **Singularity guard** — repulsion is singular as `r -> 0`, so the power law is
+  evaluated at `max(r, minimumInteractionRadius)`. That bounds the force for
+  every small `r` while leaving every `r >= minimumInteractionRadius` untouched,
+  so the reference law is unchanged; this is a documented non-reference
+  extension.
+- **Coincident centres** — two nodes at exactly the same point have no radial
+  direction, which would otherwise leave an unconnected pair in a permanent
+  fixed point. They are separated deterministically instead: of the two, the
+  earlier node in the graph is pushed `-x` and the later one `+x`, with the same
+  clamped magnitude as the singularity guard.
 - **Integration** is damped, semi-implicit Euler at a fixed step, one step per
   timer tick:
 

@@ -54,12 +54,21 @@ export class ForceDirectedGraph {
 
 		var r_law = Math.max(r, K.physics.minimumInteractionRadius);
 
-		return K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge / Math.pow(r_law, K.physics.repulsionExponent);
+		var chargeProduct =
+			K.physics.scalarForceConstant *
+			K.physics.nodeCharge *
+			K.physics.nodeCharge;
+
+		return chargeProduct / Math.pow(r_law, K.physics.repulsionExponent);
 	};
 
 	netElectrostaticForceAtNode(tagA: Tag): Point2D {
 
 		var F: Point2D = zero();
+
+		// Only used to break the exactly-coincident tie below; the paired pass
+		// breaks it by index order, so this reference must agree.
+		var selfIndex = this.graph.vertices.indexOf(tagA);
 
 		for(let i = 0; i < this.graph.vertices.length; i++) {
 
@@ -80,7 +89,16 @@ export class ForceDirectedGraph {
 			// r >= minimumInteractionRadius.
 			var scalar_force = ForceDirectedGraph.repulsionMagnitude(r);
 
-			F = ForceDirectedGraph.addRadial(F.x, F.y, deltaX, deltaY, r, scalar_force);
+			// Exactly coincident centres have no radial direction, which would
+			// leave an unconnected pair in a permanent fixed point. Break the
+			// tie deterministically: the earlier node in the graph goes -x and
+			// the later one +x, matching accumulateRepulsion().
+			var coincident = r === 0;
+			var ux = coincident ? (selfIndex < i ? -1 : 1) : deltaX;
+			var uy = coincident ? 0 : deltaY;
+			var ur = coincident ? 1 : r;
+
+			F = ForceDirectedGraph.addRadial(F.x, F.y, ux, uy, ur, scalar_force);
 		};
 
 		return F;
@@ -114,12 +132,20 @@ export class ForceDirectedGraph {
 				const deltaY = a.position.y - b.position.y;
 				const r = Math.hypot(deltaX, deltaY);
 
-				// addRadial() owns the r === 0 guard, so a coincident pair
-				// contributes nothing on either side - exactly as before.
 				const magnitude = ForceDirectedGraph.repulsionMagnitude(r);
 
-				out[i] = ForceDirectedGraph.addRadial(out[i].x, out[i].y, deltaX, deltaY, r, magnitude);
-				out[j] = ForceDirectedGraph.addRadial(out[j].x, out[j].y, -deltaX, -deltaY, r, magnitude);
+				// Exactly coincident centres have no radial direction. Break
+				// the tie deterministically (earlier node -x, later node +x) so
+				// the pair separates instead of sitting in a fixed point; the
+				// substituted vector is unit length, so addRadial() needs no
+				// special case.
+				const coincident = r === 0;
+				const ux = coincident ? -1 : deltaX;
+				const uy = coincident ? 0 : deltaY;
+				const ur = coincident ? 1 : r;
+
+				out[i] = ForceDirectedGraph.addRadial(out[i].x, out[i].y, ux, uy, ur, magnitude);
+				out[j] = ForceDirectedGraph.addRadial(out[j].x, out[j].y, -ux, -uy, ur, magnitude);
 			}
 		}
 	};

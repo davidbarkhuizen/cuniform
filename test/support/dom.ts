@@ -40,9 +40,6 @@ export class FakeElement {
     style: Record<string, string> = {};
     draggable = false;
     parentElement: FakeElement | null = null;
-    offsetTop = 0;
-    offsetLeft = 0;
-    offsetParent: FakeElement | null = null;
     offsetWidth = 800;
     offsetHeight = 600;
     clientWidth = 800;
@@ -50,6 +47,10 @@ export class FakeElement {
     width = 0;
     height = 0;
     innerHTML = '';
+    /** True once focus() has been called; the fake tracks no real focus. */
+    focused = false;
+    /** Attributes set through setAttribute(), keyed by name. */
+    attributes: Record<string, string> = {};
     /** Anchor-only fields, so an export download can be observed. */
     href = '';
     download = '';
@@ -68,6 +69,18 @@ export class FakeElement {
 
     click() {
         this.clickCount++;
+    }
+
+    focus() {
+        this.focused = true;
+    }
+
+    setAttribute(name: string, value: string) {
+        this.attributes[name] = value;
+    }
+
+    getAttribute(name: string): string | null {
+        return this.attributes[name] ?? null;
     }
 
     addEventListener(type: string, fn: Listener) {
@@ -97,6 +110,21 @@ export class FakeElement {
         return this.rect;
     }
 
+    /** Pointer ids captured through setPointerCapture(). */
+    private capturedPointers: Set<number> = new Set();
+
+    setPointerCapture(pointerId: number) {
+        this.capturedPointers.add(pointerId);
+    }
+
+    hasPointerCapture(pointerId: number): boolean {
+        return this.capturedPointers.has(pointerId);
+    }
+
+    releasePointerCapture(pointerId: number) {
+        this.capturedPointers.delete(pointerId);
+    }
+
     get firstChild(): FakeElement | null {
         return this.children.length > 0 ? this.children[0] : null;
     }
@@ -104,12 +132,6 @@ export class FakeElement {
     appendChild(child: FakeElement): FakeElement {
         child.parentElement = this;
         this.children.push(child);
-        return child;
-    }
-
-    insertBefore(child: FakeElement): FakeElement {
-        child.parentElement = this;
-        this.children.unshift(child);
         return child;
     }
 
@@ -250,8 +272,6 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
     const windowListeners: Map<string, Listener[]> = new Map();
 
     const windowStub = {
-        pageXOffset: 0,
-        pageYOffset: 0,
         devicePixelRatio: 1,
         open: (): null => null,
         addEventListener: (type: string, fn: Listener) => {
@@ -380,7 +400,6 @@ export function newUIController(
 
 export interface FakeMouseEvent {
     button: number; clientX: number; clientY: number;
-    screenX: number; screenY: number;
     defaultPrevented: boolean; preventDefault: () => void;
 }
 
@@ -393,12 +412,52 @@ export interface FakeMouseEvent {
 export function mouseEvent(props: Partial<FakeMouseEvent> = {}): MouseEvent {
     const event: FakeMouseEvent = {
         button: 0, clientX: 0, clientY: 0,
-        screenX: 0, screenY: 0,
         defaultPrevented: false,
         preventDefault: () => { event.defaultPrevented = true; },
         ...props,
     };
 
     return event as unknown as MouseEvent;
+}
+
+export interface FakePointerEvent {
+    button: number; clientX: number; clientY: number;
+    pointerId: number;
+    defaultPrevented: boolean; preventDefault: () => void;
+}
+
+/**
+ * A pointer-event stand-in for the panel drag. It carries the fields the
+ * controller reads: a viewport coordinate, the primary button, and the pointer
+ * id used to tell one finger from another.
+ */
+export function pointerEvent(props: Partial<FakePointerEvent> = {}): PointerEvent {
+    const event: FakePointerEvent = {
+        button: 0, clientX: 0, clientY: 0, pointerId: 1,
+        defaultPrevented: false,
+        preventDefault: () => { event.defaultPrevented = true; },
+        ...props,
+    };
+
+    return event as unknown as PointerEvent;
+}
+
+export interface FakeKeyboardEvent {
+    key: string;
+    shiftKey: boolean;
+    defaultPrevented: boolean;
+    preventDefault: () => void;
+}
+
+/** A keyboard-event stand-in carrying the key and the modifier keys. */
+export function keyEvent(props: Partial<FakeKeyboardEvent> = {}): KeyboardEvent {
+    const event: FakeKeyboardEvent = {
+        key: '', shiftKey: false,
+        defaultPrevented: false,
+        preventDefault: () => { event.defaultPrevented = true; },
+        ...props,
+    };
+
+    return event as unknown as KeyboardEvent;
 }
 

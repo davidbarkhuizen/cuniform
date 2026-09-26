@@ -105,7 +105,7 @@ test("step() writes no force data onto a Tag", () => {
     }
 });
 
-test("coincident pairs, duplicate edges and self-loops contribute nothing", () => {
+test("coincident pairs separate deterministically, and the other edges still add up", () => {
     // `a` and `b` sit exactly on top of each other (r === 0), joined by two
     // duplicate edges and a self-loop at `a`; only the a-c edge has length.
     const graph = new Graph();
@@ -120,13 +120,17 @@ test("coincident pairs, duplicate edges and self-loops contribute nothing", () =
 
     const fdg = new ForceDirectedGraph(graph);
 
-    // Repulsion: b is skipped (r === 0), c pushes a to -x at the exact law.
+    // Repulsion: the coincident b is pushed away along the deterministic -x
+    // direction at the clamped magnitude, and c pushes a to -x at the exact
+    // law. The two contributions simply add.
+    const clamped = 10000 / Math.pow(K.physics.minimumInteractionRadius, K.physics.repulsionExponent);
     const repel = fdg.netElectrostaticForceAtNode(a);
-    assertClose(repel.x, -10000 / Math.pow(10, 1.9), 1e-9, `repulsion was ${repel.x}`);
+    assertClose(repel.x, -clamped - 10000 / Math.pow(10, 1.9), 1e-9, `repulsion was ${repel.x}`);
     assertClose(repel.y, 0, 1e-12, "repulsion must stay radial");
 
-    // Springs: both duplicate zero-length edges and the self-loop are skipped,
-    // leaving only the compressed 10-unit a-c spring (k * (10 - l) = -2).
+    // Springs: the duplicate zero-length edges and the self-loop are still
+    // skipped (addRadial owns the r === 0 radial guard), leaving only the
+    // compressed 10-unit a-c spring (k * (10 - l) = -2).
     const spring = fdg.netSpringForceAtNode(a);
     assertClose(
         spring.x,
@@ -141,6 +145,35 @@ test("coincident pairs, duplicate edges and self-loops contribute nothing", () =
         [repel.x, repel.y, spring.x, spring.y].every(Number.isFinite),
         `non-finite force from a coincident pair: ${repel.x},${repel.y},${spring.x},${spring.y}`
     );
+
+    // Equal and opposite: b's repulsion from a mirrors a's.
+    const repelB = fdg.netElectrostaticForceAtNode(b);
+    assertClose(repelB.x, clamped - 10000 / Math.pow(10, 1.9), 1e-9, `b repulsion was ${repelB.x}`);
+});
+
+test("exactly coincident unconnected nodes separate instead of staying a fixed point", () => {
+    const graph = new Graph();
+    const a = new Tag({ x: 0, y: 0 }, "a");
+    const b = new Tag({ x: 0, y: 0 }, "b");
+    graph.addNode(a);
+    graph.addNode(b);
+
+    const fdg = new ForceDirectedGraph(graph);
+    fdg.step(CANVAS_W, CANVAS_H);
+
+    const separation = Math.hypot(b.position.x - a.position.x, b.position.y - a.position.y);
+
+    assert.ok(separation > 0, "a coincident pair must not remain coincident");
+    assert.ok(Number.isFinite(separation), "the separation must stay finite");
+
+    // Newton's third law holds: the earlier node goes -x, the later one +x.
+    assert.ok(
+        a.position.x < 0 && b.position.x > 0,
+        `expected a < 0 < b, got ${a.position.x} and ${b.position.x}`
+    );
+    assertClose(a.position.x, -b.position.x, 1e-12, "the pair must separate symmetrically");
+    assertClose(a.position.y, 0, 1e-12, "the tie-break direction must be radial");
+    assertClose(b.position.y, 0, 1e-12, "the tie-break direction must be radial");
 });
 
 test("paired repulsion equals the per-node reference exactly", () => {

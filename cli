@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # cuniform command line entry point.
 #
 # The node/npm equivalent of the reference project's `cli` script. Run it from
@@ -10,8 +12,13 @@
 # With no recognised option it prints usage. Unlike the reference, which falls
 # through to running the program, `run` must be asked for explicitly.
 
-option="$1"
-shift 1
+option="${1:-}"
+
+# `shift` on an empty argument list is an error, and under `set -e` that would
+# abort before the usage text could print; only shift when there is an argument.
+if [ "$#" -gt 0 ]; then
+    shift 1
+fi
 
 clean () {
 
@@ -19,7 +26,7 @@ clean () {
     # only build outputs are webpack's bundle and the test compilation, so
     # removing them achieves the same "force everything to rebuild" result
     # without needing sudo.
-    rm -rf dist/main.js dist/main.js.map dist/src .test-build
+    rm -rf dist .test-build
     echo "... cleaned build artefacts"
 }
 
