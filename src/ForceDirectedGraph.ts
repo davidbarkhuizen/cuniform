@@ -44,6 +44,19 @@ export class ForceDirectedGraph {
 		);
 	};
 
+	/**
+	 * The repulsion magnitude law, k*q^2 / max(r, minimumInteractionRadius)^exp.
+	 *
+	 * One home, so the per-node reference below and the paired accumulation in
+	 * step() cannot drift apart.
+	 */
+	private static repulsionMagnitude(r: number): number {
+
+		var r_law = Math.max(r, K.physics.minimumInteractionRadius);
+
+		return K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge / Math.pow(r_law, K.physics.repulsionExponent);
+	};
+
 	netElectrostaticForceAtNode(tagA: Tag): Point2D {
 
 		var F: Point2D = zero();
@@ -65,14 +78,50 @@ export class ForceDirectedGraph {
 			// radial; only the magnitude is evaluated at a clamped radius, which
 			// bounds the r -> 0 singularity without altering the law for any
 			// r >= minimumInteractionRadius.
-			var r_law = Math.max(r, K.physics.minimumInteractionRadius);
-
-			var scalar_force = K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge / Math.pow(r_law, K.physics.repulsionExponent);
+			var scalar_force = ForceDirectedGraph.repulsionMagnitude(r);
 
 			F = ForceDirectedGraph.addRadial(F.x, F.y, deltaX, deltaY, r, scalar_force);
 		};
 
 		return F;
+	};
+
+	/**
+	 * Accumulate all-pairs repulsion into `out`, one evaluation per unordered
+	 * pair. The two forces are equal and opposite, so the magnitude and the
+	 * unit vector are computed once and applied with opposite signs.
+	 *
+	 * Newton's third law, and the reason this halves the O(N^2) hot loop.
+	 *
+	 * Internal: public so the equivalence test can call it, but step() is its
+	 * only production caller.
+	 */
+	accumulateRepulsion(out: Point2D[]): void {
+
+		const verts = this.graph.vertices;
+
+		for (let i = 0; i < verts.length; i++) {
+
+			const a = verts[i];
+
+			for (let j = i + 1; j < verts.length; j++) {
+
+				const b = verts[j];
+
+				// Away from b for a, away from a for b: the same (dx, dy) with
+				// opposite signs.
+				const deltaX = a.position.x - b.position.x;
+				const deltaY = a.position.y - b.position.y;
+				const r = Math.hypot(deltaX, deltaY);
+
+				// addRadial() owns the r === 0 guard, so a coincident pair
+				// contributes nothing on either side - exactly as before.
+				const magnitude = ForceDirectedGraph.repulsionMagnitude(r);
+
+				out[i] = ForceDirectedGraph.addRadial(out[i].x, out[i].y, deltaX, deltaY, r, magnitude);
+				out[j] = ForceDirectedGraph.addRadial(out[j].x, out[j].y, -deltaX, -deltaY, r, magnitude);
+			}
+		}
 	};
 
 	netSpringForceAtNode(tag: Tag): Point2D {
@@ -179,10 +228,19 @@ export class ForceDirectedGraph {
 
 		const vertices = this.graph.vertices;
 
-		// PASS 1 - forces are a pure function of the frozen pre-step positions,
-		// so every node sees the same snapshot. No force data is written onto a
+		// PASS 1 - repulsion once per unordered pair, springs once per incident
+		// edge. Both are pure functions of the frozen pre-step positions, so
+		// every node sees the same snapshot. No force data is written onto a
 		// Tag; the arrays below are this tick's only home for it.
-		const forces = vertices.map(tag => this.netForceAtNode(tag));
+		const electrostatic: Point2D[] = vertices.map(() => zero());
+		this.accumulateRepulsion(electrostatic);
+
+		const forces: Point2D[] = vertices.map((tag, i) => {
+			const s = this.netSpringForceAtNode(tag);
+			const e = electrostatic[i];
+
+			return point(e.x + s.x, e.y + s.y);
+		});
 
 		// PASS 2 - velocities. The force already computed above is passed in,
 		// so the O(N^2) repulsion kernel is not run a second time.
