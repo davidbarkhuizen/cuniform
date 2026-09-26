@@ -28,12 +28,15 @@ squash-merged into `main`:
 | 3 — world and canvas | [#24](https://github.com/davidbarkhuizen/cuniform/pull/24) | `600x600` model, boundary clamp removed, uniform scale |
 | 4 — pipeline purity | [#25](https://github.com/davidbarkhuizen/cuniform/pull/25) | order-independence and Jacobi tests |
 | 5 — graph seeding | [#26](https://github.com/davidbarkhuizen/cuniform/pull/26) | sparse generation, dedup fix, reference initial conditions |
-| 6 — documentation | this PR | README physics summary, `BUGFIX_PLAN.md` corrections |
+| 6 — documentation (the §8 "PR 6") | [#27](https://github.com/davidbarkhuizen/cuniform/pull/27) | README physics summary, `BUGFIX_PLAN.md` corrections |
 
 Measured outcomes: a single edge settles at `r = 65.4563` (doc §9 predicts
 `65.46`), a 10-node graph's mean per-step travel over the final 100 of 2000 ticks
 is `0.0000` (was ~380), and `npm test` covers all of the acceptance criteria in
 §6 with 34 tests.
+
+Re-verified on `main` at `7f8c8f1`: `npm test` is 34/34. PRs `#28`–`#29` later
+added a `cli` entry point; that is repository tooling, not part of this plan.
 
 ### Resolved open decisions (§7)
 
@@ -53,6 +56,7 @@ is `0.0000` (was ~380), and `npm test` covers all of the acceptance criteria in
 
 Phase 6 extensions were intentionally **not** implemented: they are deliberate
 divergences from the reference and belong in separate, clearly-labelled changes.
+They remain the only outstanding part of this plan (§5 Phase 6 below).
 
 ---
 
@@ -492,7 +496,7 @@ Cross-references `BUGFIX_PLAN.md` §3.1–3.2.
 fast; all seeded positions unique (or the constraint is explicitly dropped with
 a comment).
 
-### Phase 6 — Optional extensions (explicitly *not* the reference)
+### Phase 6 — Optional extensions (explicitly *not* the reference) — ⬜ Not implemented (deliberate)
 
 Do not fold any of these into Phase 1–5 PRs. Each is a deliberate divergence
 from the reference doc and should be a separate, clearly-labelled change:
