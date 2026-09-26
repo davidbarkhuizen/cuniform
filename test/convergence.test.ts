@@ -53,6 +53,14 @@ test("at equilibrium the spring and repulsion forces balance", () => {
 
 test("a 10-node graph converges instead of oscillating", () => {
     const graph = newGraph(10, 2);
+
+    // The generated fixture must actually be 3D, or this would silently be
+    // retesting the 2D case.
+    assert.ok(
+        graph.vertices.some(v => v.position.z !== 0),
+        "the generated graph must have depth"
+    );
+
     const fdg = new ForceDirectedGraph(graph);
 
     const travel = maxTravelPerStep(fdg, graph, 2000);
@@ -67,4 +75,26 @@ test("a 10-node graph converges instead of oscillating", () => {
         ),
         "positions must stay finite"
     );
+});
+
+test("a single edge separated only along z settles at the analytic equilibrium", () => {
+    // The radial law depends on the scalar distance, so the 2D equilibrium
+    // distance must survive when the separation is entirely out of plane.
+    const graph = new Graph();
+    const a = new Tag({ x: 0, y: 0, z: -200 }, "a");
+    const b = new Tag({ x: 0, y: 0, z: 200 }, "b");
+    graph.addNode(a);
+    graph.addNode(b);
+    graph.addEdge(a, b);
+
+    const fdg = new ForceDirectedGraph(graph);
+    maxTravelPerStep(fdg, graph, 4000);
+
+    const r = Math.hypot(
+        b.position.x - a.position.x,
+        b.position.y - a.position.y,
+        b.position.z - a.position.z
+    );
+
+    assertClose(r, ANALYTIC_EQUILIBRIUM, 1.0, `settled at r=${r}, expected ~${ANALYTIC_EQUILIBRIUM}`);
 });

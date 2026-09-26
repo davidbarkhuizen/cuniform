@@ -5,26 +5,25 @@ import { Tag } from "./Tag";
 
 export class GraphFactory {
 
-	constructXYFactory() {
+	constructXYZFactory() {
 
 		// Generated coordinates, keyed by value so uniqueness is an O(1) Set
 		// lookup rather than a rescan of every prior point.
 		const used = new Set<string>();
 
-		const genXY = () => {
+		const genXYZ = () => {
 			// Coordinates are continuous and uniform, so an exact duplicate is
 			// effectively impossible; the attempt cap only guarantees that this
 			// loop terminates rather than spinning forever.
 			for (let attempt = 0; attempt < 1000; attempt++) {
 				const x = (-K.space.W_0 / 2.0) + (Math.random() * K.space.W_0);
 				const y = (-K.space.H_0 / 2.0) + (Math.random() * K.space.H_0);
+				const z = (-K.space.D_0 / 2.0) + (Math.random() * K.space.D_0);
 
-				// z stays on the 2D plane until 3D generation is switched on
-				// deliberately; the shipped demo is unchanged until then.
-				const z = 0;
-
-				// Compare by value: indexOf on a fresh object literal never matches.
-				const key = `${x},${y}`;
+				// Compare all three components by value: indexOf on a fresh
+				// object literal never matches, and a pair agreeing in (x, y)
+				// but differing in z is a distinct position.
+				const key = `${x},${y},${z}`;
 				if (used.has(key))
 					continue;
 
@@ -32,9 +31,9 @@ export class GraphFactory {
 				return point3(x, y, z);
 			}
 
-			throw new Error("constructXYFactory: could not generate a unique position");
+			throw new Error("constructXYZFactory: could not generate a unique position");
 		}
-		return genXY;
+		return genXYZ;
 	};
 
 	/**
@@ -49,10 +48,10 @@ export class GraphFactory {
 	generateGraph(order: number, maxEdgesPerVertex: number) {
 
 		var graph = new Graph();
-		var funcGenXY = this.constructXYFactory();
+		var funcGenXYZ = this.constructXYZFactory();
 
 		for(let i = 0; i < order; i++) {
-			var pos = funcGenXY();
+			var pos = funcGenXYZ();
 
 			// The label is the position in this graph, so names restart at
 			// "Node 0" for every graph instead of growing across resets.
