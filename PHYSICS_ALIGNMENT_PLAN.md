@@ -10,9 +10,49 @@ Two repositories are involved:
 - **Target:** `cuniform` — TypeScript/canvas, this repository, at `main` (`86d04e0`;
   `src/` is unchanged through `aef0d3d`, which only bumps transitive dependencies).
 
-Nothing in this document has been implemented yet. All line references were
-verified against the working trees, and the behavioural claims in §3 were
-measured by compiling the real `src/` classes and running them headlessly.
+All line references were verified against the working trees, and the behavioural
+claims in §3 were measured by compiling the real `src/` classes and running them
+headlessly.
+
+---
+
+## Status: Phases 0–6 implemented
+
+The workplan below has been executed. Every phase landed in its own focused PR,
+squash-merged into `main`:
+
+| Phase | PR | What landed |
+| --- | --- | --- |
+| 0 — headless harness | [#22](https://github.com/davidbarkhuizen/cuniform/pull/22) | `step()`/`render()` split, `window.state` out of the solver, `node:test` harness |
+| 1–2 — integrator and force laws | [#23](https://github.com/davidbarkhuizen/cuniform/pull/23) | velocity + `friction`/`timeStep`, `r^-1.9`, correct spring sign |
+| 3 — world and canvas | [#24](https://github.com/davidbarkhuizen/cuniform/pull/24) | `600x600` model, boundary clamp removed, uniform scale |
+| 4 — pipeline purity | [#25](https://github.com/davidbarkhuizen/cuniform/pull/25) | order-independence and Jacobi tests |
+| 5 — graph seeding | [#26](https://github.com/davidbarkhuizen/cuniform/pull/26) | sparse generation, dedup fix, reference initial conditions |
+| 6 — documentation | this PR | README physics summary, `BUGFIX_PLAN.md` corrections |
+
+Measured outcomes: a single edge settles at `r = 65.4563` (doc §9 predicts
+`65.46`), a 10-node graph's mean per-step travel over the final 100 of 2000 ticks
+is `0.0000` (was ~380), and `npm test` covers all of the acceptance criteria in
+§6 with 34 tests.
+
+### Resolved open decisions (§7)
+
+1. **World size vs canvas** — reference `600x600`, uniformly scaled. Implemented.
+2. **Boundary** — the clamp was deleted, matching the reference. No centring
+   force was added.
+3. **Repulsion coefficients** — the reference's two knobs were kept
+   (`scalarForceConstant = 100`, `nodeCharge = 10`) for traceability, plus
+   `repulsionExponent`.
+4. **`displacement` field** — collapsed into `velocity` via a read-only getter
+   (doc §12.8's recommendation).
+5. **Graph seeding** — the reference's sparse random generation was kept;
+   jittered-grid seeding was not adopted.
+6. **Test runner** — compiled with the existing `tsc` and run under `node:test`,
+   adding no dependencies. (The pinned `ts-node@9` is incompatible with
+   `typescript@4.9.5` and aborts at startup, so it is not used.)
+
+Phase 6 extensions were intentionally **not** implemented: they are deliberate
+divergences from the reference and belong in separate, clearly-labelled changes.
 
 ---
 
