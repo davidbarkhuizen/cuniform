@@ -98,8 +98,8 @@ owns the mapping: `toCanvas()` and `toModel()` convert between the two spaces
 with a single uniform scale, `min(canvasW/W_0, canvasH/H_0)`, and the y axis is
 flipped so increasing model `y` moves up the screen. The scale is uniform so a
 canvas whose aspect ratio differs from the model square never stretches the
-layout. `ForceDirectedGraph` exposes that mapping for a canvas size as
-`wrapTranslate()` / `wrapReverse()`.
+layout. Callers get a mapping for a concrete canvas by asking for
+`Viewport.forCanvas(canvasW, canvasH)`, then calling `toCanvas()` / `toModel()`.
 
 ### Constants
 

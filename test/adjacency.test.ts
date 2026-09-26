@@ -96,22 +96,6 @@ test("incidentEdges is empty for an isolated or unknown vertex", () => {
     assert.deepEqual(graph.incidentEdges(tag("foreign")), []);
 });
 
-test("removeNode clears the removed vertex from every adjacency list", () => {
-    const graph = new Graph();
-    const a = tag("a", 0, 0);
-    const b = tag("b", 10, 0);
-    const c = tag("c", 0, 10);
-    [a, b, c].forEach(t => graph.addNode(t));
-    graph.addEdge(a, b);
-    graph.addEdge(b, c);
-
-    graph.removeNode(b);
-
-    assert.deepEqual(graph.incidentEdges(a), []);
-    assert.deepEqual(graph.incidentEdges(c), []);
-    assert.deepEqual(graph.incidentEdges(b), []);
-});
-
 test("the adjacency spring force equals a brute-force edge scan", () => {
     const graph = new Graph();
     const a = tag("a", 0, 0);

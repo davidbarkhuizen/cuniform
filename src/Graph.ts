@@ -20,24 +20,6 @@ export class Graph {
 			this.adjacency.set(tag, []);
 	};
 
-	removeNode(tag: Tag) {
-
-		// splice(-1, 1) removes the last vertex, so a tag that is not in the
-		// graph must be rejected before the list is touched.
-		var vIdx = this.vertices.indexOf(tag);
-
-		if (vIdx === -1)
-			return;
-
-		this.vertices.splice(vIdx, 1);
-		this.edges = this.edges.filter(edge => (edge.v1 !== tag) && (edge.v2 !== tag));
-
-		// Removals are rare and touch an arbitrary set of neighbours, so
-		// rebuilding is simpler than unpicking every adjacency list and is
-		// still O(V + E).
-		this.rebuildAdjacency();
-	};
-
 	addEdge(v1: Tag, v2: Tag) {
 		if((this.vertices.indexOf(v1) === -1) || (this.vertices.indexOf(v2) === -1))
 			throw new Error("Graph.addEdge: both vertices must already be in the graph");
@@ -110,20 +92,6 @@ export class Graph {
 			list.push(edge);
 		else
 			this.adjacency.set(tag, [edge]);
-	};
-
-	private rebuildAdjacency() {
-		this.adjacency = new Map();
-
-		for (const vertex of this.vertices)
-			this.adjacency.set(vertex, []);
-
-		for (const edge of this.edges) {
-			this.indexEdge(edge.v1, edge);
-
-			if (edge.v2 !== edge.v1)
-				this.indexEdge(edge.v2, edge);
-		}
 	};
 
 };
