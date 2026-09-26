@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Finding** | M2, medium — `ForceDirectedGraph` is four responsibilities in one class |
-| **Status** | Planned |
+| **Status** | Done in #53 |
 | **Area** | new `src/Renderer.ts`, new `src/Selection.ts`, `src/ForceDirectedGraph.ts`, `src/UIController.ts`, `test/render.test.ts`, `test/selection.test.ts`, `test/pipeline.test.ts` |
 | **Depends on** | M1 (both rewrite `UIController.onTimerTick`) |
 | **Blocks** | M4, M6 (both reshape `step`; a smaller solver file makes them reviewable) |

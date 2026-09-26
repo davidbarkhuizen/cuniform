@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Finding** | M3, medium — three public methods have no `src/` caller |
-| **Status** | Planned |
+| **Status** | Done in #52 |
 | **Area** | `src/ForceDirectedGraph.ts`, `src/Graph.ts`, `src/UIController.ts`, `test/transform.test.ts`, `test/integrator.test.ts`, `test/graph.test.ts`, `test/adjacency.test.ts`, `README.md` |
 | **Depends on** | M2 (overlaps on the mapping wrappers; either order works, see §5) |
 | **Blocks** | nothing |

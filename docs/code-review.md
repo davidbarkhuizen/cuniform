@@ -69,6 +69,24 @@ mapping helpers (`wrapTranslate` / `wrapReverse`) and can be folded into the M2
 PR if the two diffs prove inseparable. M4 and M6 both reshape `step()` and must
 be sequenced, not parallelised.
 
+### Remediation outcome
+
+All seven workplans landed, each as its own focused PR, in the order above:
+
+| Finding | PR |
+| --- | --- |
+| H1 export via blob URL | #50 |
+| M1 inject `UIController` dependencies | #51 |
+| M3 resolve test-only API | #52 |
+| M2 split solver / render / selection | #53 |
+| M5 screen-space hit radius | #54 |
+| M4 local force state | #55 |
+| M6 symmetric repulsion pass | #56 |
+
+`npm run ci` is green at **138 tests**. The suite was 129 at review time; M3's
+sanctioned six-test reduction (invariant 6) is more than offset by the guards
+and regression tests added along the way, and every other step raised the count.
+
 ---
 
 ## Review body

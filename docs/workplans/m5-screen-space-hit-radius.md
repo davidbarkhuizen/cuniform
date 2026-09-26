@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Finding** | M5, medium — the hit radius is in model units, so clickability scales with the window |
-| **Status** | Planned |
+| **Status** | Done in #54 |
 | **Area** | `src/ForceDirectedGraph.ts` (or `src/Selection.ts` after M2), `src/K.ts`, `test/selection.test.ts`, `test/transform.test.ts`, `README.md` |
 | **Depends on** | M2 for the tidiest form (`Viewport` passed in); can land without it |
 | **Blocks** | nothing |

@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Finding** | M4, medium — forces are cached as mutable `Tag` fields |
-| **Status** | Planned |
+| **Status** | Done in #55 |
 | **Area** | `src/Tag.ts`, `src/ForceDirectedGraph.ts`, `test/integrator.test.ts`, `test/forces.test.ts`, `test/graph.test.ts`, `test/convergence.test.ts` |
 | **Depends on** | M2 (solver split) — recommended, not required |
 | **Blocks** | M6 (both restructure `step`) |

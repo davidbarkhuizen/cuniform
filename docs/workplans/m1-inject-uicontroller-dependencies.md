@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Finding** | M1, medium — the controller is a service locator over `window` |
-| **Status** | Planned |
+| **Status** | Done in #51 |
 | **Area** | `src/UIController.ts`, `src/entrypoint.ts`, `test/support/dom.ts` + four UI test files |
 | **Depends on** | nothing |
 | **Blocks** | M2 (both rewrite `onTimerTick`; land this first to avoid resolving the same conflict twice) |

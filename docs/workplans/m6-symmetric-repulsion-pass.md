@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Finding** | M6, medium — the repulsion pass evaluates every unordered pair twice |
-| **Status** | Planned |
+| **Status** | Done in #56 |
 | **Area** | `src/ForceDirectedGraph.ts`, new equivalent-accumulation test in `test/forces.test.ts` or `test/adjacency.test.ts` |
 | **Depends on** | M2 (solver split), M4 (local force state) — both restructure `step` |
 | **Blocks** | nothing |
