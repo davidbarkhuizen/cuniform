@@ -461,6 +461,26 @@ test("onComplete is never called without a choice", () => {
 
 // ------------------------------------------------------------- focus trap
 
+/**
+ * Record the visual order in which `controls` receive focus. Each entry is
+ * [name, element]; focus() calls append to the returned array as they happen,
+ * so a test can clear it between gestures.
+ */
+function trackFocus(controls: Array<[string, HTMLElement]>): string[] {
+    const order: string[] = [];
+
+    for (const [name, control] of controls) {
+        const element = el(control);
+        const original = element.focus.bind(element);
+        element.focus = () => {
+            order.push(name);
+            original();
+        };
+    }
+
+    return order;
+}
+
 test("the first control is focused when a step opens", () => {
     withWizard(({ wizard }) => {
         wizard.open("choose");
@@ -481,16 +501,7 @@ test("Tab wraps at both ends of the visible controls", () => {
             ["cancel", wizard.cancelButton],
         ];
 
-        const seen: string[] = [];
-
-        for (const [name, control] of controls) {
-            const element = el(control);
-            const original = element.focus.bind(element);
-            element.focus = () => {
-                seen.push(name);
-                original();
-            };
-        }
+        const seen = trackFocus(controls);
 
         wizard.open("choose");
         assert.deepEqual(seen, ["random"], "opening focuses the first control");
@@ -527,21 +538,10 @@ test("Tab skips the disabled generate button", () => {
         el(wizard.orderInput).dispatch("input");
         assert.equal(wizard.generateButton.disabled, true);
 
-        const order: string[] = [];
-
-        const controls: Array<[string, HTMLElement]> = [
+        const order = trackFocus([
             ["generate", wizard.generateButton],
             ["back", wizard.backButton],
-        ];
-
-        for (const [name, control] of controls) {
-            const element = el(control);
-            const original = element.focus.bind(element);
-            element.focus = () => {
-                order.push(name);
-                original();
-            };
-        }
+        ]);
 
         // From the order field: one tab reaches branching, the next reaches
         // back, stepping over the disabled generate button.
@@ -554,22 +554,11 @@ test("Tab skips the disabled generate button", () => {
 
 test("Tab skips the hidden cancel button on a mandatory wizard", () => {
     withWizard(({ wizard }) => {
-        const order: string[] = [];
-
-        const controls: Array<[string, HTMLElement]> = [
+        const order = trackFocus([
             ["random", wizard.choiceButtons[0].element],
             ["molecules", wizard.choiceButtons[1].element],
             ["back", wizard.backButton],
-        ];
-
-        for (const [name, control] of controls) {
-            const element = el(control);
-            const original = element.focus.bind(element);
-            element.focus = () => {
-                order.push(name);
-                original();
-            };
-        }
+        ]);
 
         wizard.open("choose");
         order.length = 0;

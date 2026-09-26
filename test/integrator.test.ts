@@ -1,19 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
-import { Graph } from "../src/Graph";
 import { K } from "../src/K";
-import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
-import { CANVAS_H, CANVAS_W } from "./support/physics";
-
-function singleNode() {
-    const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
-    graph.addNode(a);
-    return { graph, a, fdg: new ForceDirectedGraph(graph) };
-}
+import { CANVAS_H, CANVAS_W, singleNode } from "./support/physics";
 
 test("the integrator keeps timeStep/(1-friction) at the reference value of 1", () => {
     const gain = K.physics.timeStep / (1 - K.physics.friction);

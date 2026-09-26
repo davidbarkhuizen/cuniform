@@ -13,6 +13,7 @@ import {
     sortCatalog,
 } from "../src/Molecules";
 import { parseSmiles } from "../src/Smiles";
+import { catalogEntry } from "./support/catalog";
 
 /**
  * The non-hydrogen atom count of a molecular formula, read with the same
@@ -229,7 +230,7 @@ test("the word cloud spans a visible range", () => {
 });
 
 test("moleculeTooltip carries the systematic name, family and formula", () => {
-    const entry = moleculeEntry("gelsemine");
+    const entry = catalogEntry("gelsemine");
 
     const tooltip = moleculeTooltip(entry);
 
@@ -238,10 +239,3 @@ test("moleculeTooltip carries the systematic name, family and formula", () => {
     assert.ok(tooltip.includes(entry.formula));
     assert.notEqual(tooltip, entry.commonName);
 });
-
-/** The catalog entry for `id`; the helper keeps the test free of a cast. */
-function moleculeEntry(id: string): CatalogEntry {
-    const found = CATALOG.find(entry => entry.id === id);
-    assert.ok(found, `no catalog entry for ${id}`);
-    return found!;
-}

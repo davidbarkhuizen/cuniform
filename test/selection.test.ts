@@ -6,6 +6,7 @@ import { K } from "../src/K";
 import { Projector } from "../src/Projector";
 import { Tag } from "../src/Tag";
 import { handleNodeSelectionAttempt } from "../src/Selection";
+import { singleNode } from "./support/physics";
 
 const W = 600;
 const H = 600;
@@ -28,15 +29,6 @@ function build() {
     graph.addNode(b);
 
     return { graph, a, b };
-}
-
-/** A single node at the model origin. */
-function single() {
-    const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
-    graph.addNode(a);
-
-    return { graph, a };
 }
 
 /** The canvas point that maps to model (x, y) on the 600x600 fixture. */
@@ -142,7 +134,7 @@ test("a click outside the hit radius of every node clears rather than selects", 
 
 test("the hit radius is exclusive at exactly the selection radius", () => {
     const r = K.ui.minimumNodeSelectionRadiusPx;
-    const { graph, a } = single();
+    const { graph, a } = singleNode();
 
     assert.equal(handleNodeSelectionAttempt(graph, canvasAt(r, 0), PROJECTOR), false, "exactly r is outside");
     assert.equal(a.isSelected, false);
@@ -172,7 +164,7 @@ test("the hit radius is 15 screen pixels at any canvas scale", () => {
         const projector = Projector.forCanvas(size, size);
         const scale = size / W;
 
-        const hit = single();
+        const hit = singleNode();
         const at = projector.toCanvas(hit.a.position);
         assert.equal(
             handleNodeSelectionAttempt(hit.graph, { x: at.x + 14, y: at.y }, projector),
@@ -181,7 +173,7 @@ test("the hit radius is 15 screen pixels at any canvas scale", () => {
         );
         assert.equal(hit.a.isSelected, true, `14 px should select at scale ${scale}`);
 
-        const miss = single();
+        const miss = singleNode();
         const missAt = projector.toCanvas(miss.a.position);
         assert.equal(
             handleNodeSelectionAttempt(miss.graph, { x: missAt.x + 16, y: missAt.y }, projector),
@@ -193,7 +185,7 @@ test("the hit radius is 15 screen pixels at any canvas scale", () => {
 });
 
 test("a zero-size viewport selects nothing and does not throw", () => {
-    const { graph, a } = single();
+    const { graph, a } = singleNode();
 
     assert.doesNotThrow(() => {
         assert.equal(handleNodeSelectionAttempt(graph, { x: 0, y: 0 }, Projector.forCanvas(0, 0)), false);

@@ -1,6 +1,8 @@
 import { ForceDirectedGraph } from "../../src/ForceDirectedGraph";
 import { Graph } from "../../src/Graph";
 import { GraphFactory } from "../../src/GraphFactory";
+import { K } from "../../src/K";
+import { Point3D } from "../../src/Point3D";
 import { Tag } from "../../src/Tag";
 
 // Canvas dimensions used by the headless harness. They only affect the
@@ -9,18 +11,48 @@ export const CANVAS_W = 800;
 export const CANVAS_H = 600;
 
 /**
- * Two nodes joined by one edge, `r` apart on the x axis:
- *   a at the origin, b at (+r, 0).
+ * k * q^2, the numerator of the reference repulsion law k*q^2 / r^1.9.
+ *
+ * Derived rather than written as 10000, so a retuned K moves every test that
+ * states the law instead of leaving a stale literal behind.
  */
-export function pairAt(r: number) {
+export const REPULSION_CONSTANT =
+    K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge;
+
+/**
+ * The separation at which a single edge's repulsion balances its spring:
+ * k*q^2 / r^1.9 = springConstant * (r - equilibriumDisplacement) settles at
+ * r* ~= 65.46 for the reference constants (reference doc section 9).
+ */
+export const ANALYTIC_EQUILIBRIUM = 65.46;
+
+/** Two nodes joined by one edge, at the given model positions. */
+export function edgeBetween(aPos: Point3D, bPos: Point3D) {
     const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
-    const b = new Tag({ x: r, y: 0, z: 0 }, "b");
+    const a = new Tag(aPos, "a");
+    const b = new Tag(bPos, "b");
     graph.addNode(a);
     graph.addNode(b);
     graph.addEdge(a, b);
 
     return { graph, a, b, fdg: new ForceDirectedGraph(graph) };
+}
+
+/**
+ * Two nodes joined by one edge, `r` apart on the x axis:
+ *   a at the origin, b at (+r, 0).
+ */
+export function pairAt(r: number) {
+    return edgeBetween({ x: 0, y: 0, z: 0 }, { x: r, y: 0, z: 0 });
+}
+
+/** A lone node at the model origin, plus its solver. */
+export function singleNode(label = "a") {
+    const graph = new Graph();
+    const a = new Tag({ x: 0, y: 0, z: 0 }, label);
+    graph.addNode(a);
+
+    return { graph, a, fdg: new ForceDirectedGraph(graph) };
 }
 
 /** A tag at (x, y, 0), defaulting to the origin. */
