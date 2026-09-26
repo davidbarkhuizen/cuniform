@@ -27,15 +27,29 @@ The simulation is deliberately decoupled from the browser: `ForceDirectedGraph.s
 is pure physics and touches neither `window` nor the canvas, so the whole model can
 be exercised headlessly in `test/`.
 
+## Layout
+
+The canvas fills the viewport: it is stretched over a fixed, full-viewport
+`.canvas-container`, and the backing store is re-sized when the window is
+resized. Everything else lives in a single floating overlay panel in the
+top-left corner, split into two sections:
+
+- a **fixed menu** — the `cuniform` title, `export` and `reset`;
+- the **currently selected node** — the selection and its neighbours.
+
+The panel is opaque and high-contrast so it stays readable over the graph, and
+the whole panel can be dragged out of the way.
+
 ## Interaction
 
 - **Left-click / left-drag** — selects the nearest node within the hit radius
-  (listing its neighbours in the info panel) and drags it. A dragged node is
-  pinned: it keeps the position the pointer writes and has its velocity zeroed.
+  (listing its neighbours in the overlay panel's selected-node section) and
+  drags it. A dragged node is pinned: it keeps the position the pointer writes
+  and has its velocity zeroed.
 - **Middle-drag** — pans the whole graph by the cursor delta.
 - **Right-click** — opens a context menu with `export`, `reset` and
   `clear selection`. The native browser menu is suppressed.
-- **Drag the info panel** — the panel itself is movable.
+- **Drag the overlay panel** — the panel itself is movable.
 
 ## Physics
 

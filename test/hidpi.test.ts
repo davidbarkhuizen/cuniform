@@ -7,7 +7,7 @@ import { Tag } from "../src/Tag";
 import { UIController } from "../src/UIController";
 import { FakeCanvas, FakeContext2D, demoElements, installFakeDom } from "./support/dom";
 
-/** body 750x750 * 0.8 => a 600x600 logical canvas. */
+/** body 750x750 => a 750x750 full-screen logical canvas. */
 function setup(dpr: number | undefined) {
     const elements = demoElements();
     const dom = installFakeDom(elements);
@@ -37,14 +37,14 @@ function setup(dpr: number | undefined) {
 test("the backing store is scaled by devicePixelRatio while the CSS size stays logical", () => {
     const { dom, canvas, controller } = setup(2);
     try {
-        assert.equal(controller.width, 600);
-        assert.equal(controller.height, 600);
+        assert.equal(controller.width, 750);
+        assert.equal(controller.height, 750);
 
-        assert.equal(canvas.width, 1200);
-        assert.equal(canvas.height, 1200);
+        assert.equal(canvas.width, 1500);
+        assert.equal(canvas.height, 1500);
 
-        assert.equal(canvas.style.width, '600px');
-        assert.equal(canvas.style.height, '600px');
+        assert.equal(canvas.style.width, '750px');
+        assert.equal(canvas.style.height, '750px');
 
         assert.deepEqual(canvas.context.transforms[0], [2, 0, 0, 2, 0, 0]);
     } finally {
@@ -55,11 +55,11 @@ test("the backing store is scaled by devicePixelRatio while the CSS size stays l
 test("a devicePixelRatio of 1 leaves the backing store unscaled", () => {
     const { dom, canvas, controller } = setup(1);
     try {
-        assert.equal(canvas.width, 600);
-        assert.equal(canvas.height, 600);
-        assert.equal(canvas.style.width, '600px');
+        assert.equal(canvas.width, 750);
+        assert.equal(canvas.height, 750);
+        assert.equal(canvas.style.width, '750px');
         assert.deepEqual(canvas.context.transforms[0], [1, 0, 0, 1, 0, 0]);
-        assert.equal(controller.width, 600);
+        assert.equal(controller.width, 750);
     } finally {
         dom.restore();
     }
@@ -68,8 +68,60 @@ test("a devicePixelRatio of 1 leaves the backing store unscaled", () => {
 test("a missing devicePixelRatio falls back to 1", () => {
     const { dom, canvas } = setup(undefined);
     try {
-        assert.equal(canvas.width, 600);
+        assert.equal(canvas.width, 750);
         assert.deepEqual(canvas.context.transforms[0], [1, 0, 0, 1, 0, 0]);
+    } finally {
+        dom.restore();
+    }
+});
+
+test("the canvas fills the viewport rather than a fraction of it", () => {
+    const { dom, canvas, controller } = setup(1);
+
+    try {
+        // The old layout used body.clientWidth * 0.8 and left 20% of the page
+        // for the title and menu rows.
+        assert.equal(controller.width, 750);
+        assert.equal(controller.height, 750);
+        assert.equal(canvas.style.width, '750px');
+    } finally {
+        dom.restore();
+    }
+});
+
+test("a window resize re-sizes the backing store to the new viewport", () => {
+    const { dom, elements, canvas, controller } = setup(2);
+
+    try {
+        elements.body.clientWidth = 1000;
+        elements.body.clientHeight = 400;
+
+        const listeners = dom.windowListeners.get('resize') ?? [];
+        assert.equal(listeners.length, 1, "initialize should register one resize listener");
+        listeners[0]({});
+
+        assert.equal(controller.width, 1000);
+        assert.equal(controller.height, 400);
+
+        assert.equal(canvas.width, 2000);
+        assert.equal(canvas.height, 800);
+
+        assert.equal(canvas.style.width, '1000px');
+        assert.equal(canvas.style.height, '400px');
+
+        const last = canvas.context.transforms[canvas.context.transforms.length - 1];
+        assert.deepEqual(last, [2, 0, 0, 2, 0, 0]);
+    } finally {
+        dom.restore();
+    }
+});
+
+test("terminate removes the resize listener", () => {
+    const { dom, controller } = setup(1);
+
+    try {
+        controller.terminate();
+        assert.equal((dom.windowListeners.get('resize') ?? []).length, 0);
     } finally {
         dom.restore();
     }
@@ -89,7 +141,7 @@ test("physics is stepped with the logical size, not the scaled backing store", (
 
         controller.onTimerTick();
 
-        assert.deepEqual(calls, [[600, 600]]);
+        assert.deepEqual(calls, [[750, 750]]);
     } finally {
         dom.restore();
     }
@@ -105,7 +157,8 @@ test("pointer mapping is unaffected by devicePixelRatio", () => {
         node.isSelected = true;
         dom.window.state.b0Down = true;
 
-        // Canvas CSS point (450, 300) maps to model (150, 0) in a 600x600 world.
+        // A 750x750 canvas over the 600x600 model scales by 1.25, so the canvas
+        // CSS point (450, 300) maps to model (60, 60).
         controller.onMouseMove({
             button: 0,
             clientX: 450,
@@ -113,7 +166,7 @@ test("pointer mapping is unaffected by devicePixelRatio", () => {
             preventDefault: () => {},
         } as unknown as MouseEvent);
 
-        assert.deepEqual({ ...node.position }, { x: 150, y: 0 });
+        assert.deepEqual({ ...node.position }, { x: 60, y: 60 });
     } finally {
         dom.restore();
     }

@@ -207,7 +207,12 @@ export class UIController {
 
 	// reset, export handlers
 
-	onExport = () => {
+	onExport = (event?: MouseEvent) => {
+
+		// The link sits inside the overlay panel and carries an href, so the
+		// default navigation has to be suppressed or the page reloads.
+		event?.preventDefault();
+
 		window.open(
 			this.canvas.toDataURL('image/png')
 		);
@@ -266,6 +271,10 @@ export class UIController {
 		canvas.removeEventListener("mouseup", this.onMouseUp, false);
 		canvas.removeEventListener("mouseout", this.onMouseOut, false);	
 		canvas.removeEventListener("contextmenu", this.onContextMenu, false);
+
+		// viewport
+		//
+		window.removeEventListener("resize", this.onResize);
 	}
 	
 	registerEventListeners = (
@@ -289,6 +298,10 @@ export class UIController {
 		canvas.addEventListener("mouseup", this.onMouseUp, false);
 		canvas.addEventListener("mouseout", this.onMouseOut, false);	
 		canvas.addEventListener("contextmenu", this.onContextMenu, false);
+
+		// viewport
+		//
+		window.addEventListener("resize", this.onResize);
 	}
 
 	buildContextMenu = () => {
@@ -341,16 +354,17 @@ export class UIController {
 		}
 	};
 
-	initialize = () => {
+	/**
+	 * Fill the viewport. CSS keeps the canvas element full-screen; the backing
+	 * store is sized here in device pixels so lines stay sharp on HiDPI
+	 * displays, while drawing coordinates remain CSS pixels thanks to the
+	 * context transform.
+	 */
+	resizeCanvas = () => {
 
-        console.log(this.body.offsetWidth, this.body.offsetHeight, this.body.clientWidth, this.body.clientHeight);
+		const width = this.body.clientWidth;
+		const height = this.body.clientHeight;
 
-		const width = this.body.clientWidth * 0.8;
-		const height = this.body.clientHeight * 0.8;
-
-		// Back the canvas with device pixels so lines are sharp on HiDPI
-		// displays, while drawing coordinates stay in CSS pixels thanks to the
-		// context transform below.
 		const dpr = window.devicePixelRatio || 1;
 
 		this.width = width;
@@ -362,6 +376,16 @@ export class UIController {
 		this.canvas.style.height = `${height}px`;
 
 		this.context2D.setTransform(dpr, 0, 0, dpr, 0, 0);
+	};
+
+	/** Keep the graph mapped to the viewport when the window is resized. */
+	onResize = () => {
+		this.resizeCanvas();
+	};
+
+	initialize = () => {
+
+		this.resizeCanvas();
 	
 		window.state = new State();
 			

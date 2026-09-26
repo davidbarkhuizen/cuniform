@@ -40,7 +40,9 @@ test("entrypoint initializes when window.Worker is undefined", () => {
         assert.ok(dom.window.state, "state should be installed on window");
         assert.ok(dom.window.fdg, "the graph should be installed on window");
         assert.equal(dom.intervals.length, 1, "the simulation timer should be running");
-        assert.equal((dom.elements.canvas as FakeCanvas).width, 640);
+        // The fake body is 800x600, and the canvas fills it (dpr 1).
+        assert.equal((dom.elements.canvas as FakeCanvas).width, 800);
+        assert.equal((dom.elements.canvas as FakeCanvas).height, 600);
     } finally {
         dom.restore();
     }

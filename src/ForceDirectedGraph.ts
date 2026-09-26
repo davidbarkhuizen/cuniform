@@ -3,11 +3,6 @@ import { K } from "./K";
 import { Point2D } from "./Point2D";
 import { Tag } from "./Tag";
 
-const COLOUR_SELECTED = 'red';
-const COLOUR_DEFAULT = 'green';
-/** Edges incident to the selected node are highlighted in this colour. */
-const COLOUR_EDGE_INCIDENT = 'red';
-
 export class ForceDirectedGraph {
 
     graph: Graph;
@@ -85,9 +80,9 @@ export class ForceDirectedGraph {
 			var v2 = edge.v2;	
 			
 			if((selected_node === v1) || (selected_node === v2))
-				context.strokeStyle = COLOUR_EDGE_INCIDENT;
+				context.strokeStyle = K.colours.edgeIncident;
 			else
-				context.strokeStyle = COLOUR_DEFAULT;
+				context.strokeStyle = K.colours.edgeDefault;
 			
 			// DRAW EDGE
 			//
@@ -107,11 +102,11 @@ export class ForceDirectedGraph {
 			// NODES
 			//
 	        if (node.isSelected) {
-	        	context.fillStyle = COLOUR_SELECTED;
+	        	context.fillStyle = K.colours.nodeSelected;
 	        }
 	        else
 	        {
-	        	context.fillStyle = COLOUR_DEFAULT;
+	        	context.fillStyle = K.colours.nodeDefault;
 	        }
 
 			// Arc radius
@@ -138,13 +133,14 @@ export class ForceDirectedGraph {
 	        	radius = 10;
 				context.beginPath();	    
 				context.arc(x,y,radius,startAngle,endAngle, clockwise);
-				context.strokeStyle = COLOUR_SELECTED;
+				context.strokeStyle = K.colours.nodeSelected;
 				context.stroke();
 	        }
 	        
 			// LABEL / TEXT
 			//			
 			context.font = K.label.fontFamily;
+			context.fillStyle = K.colours.label;
 			context.fillText(node.label, x + K.label.horizontalSpacing, y - K.label.verticalSpacing);
 		};
 	};
