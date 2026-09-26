@@ -8,8 +8,11 @@ import { point3 } from "../src/Point3D";
 import { UIController } from "../src/UIController";
 import { assertMatClose } from "./support/assert";
 import {
+    FakeDom,
     FakeElement,
     demoElements,
+    keyEvent,
+    mouseEvent,
     newUIController,
     pointerEvent,
     withFakeDom,
@@ -18,13 +21,24 @@ import {
 /**
  * The camera console section of the floating panel.
  *
- * The buttons are static markup in web/index.html, so these press them the way
- * the browser does: a click that bubbles to the container with the pressed
- * button as the event target. The delegated handler reads the data attributes
- * off that target.
+ * The buttons are static markup in web/index.html, so these drive them the way
+ * the browser does: a pointerdown (or keydown) that bubbles to the container
+ * with the pressed button as the target. Holding a button rotates one small
+ * step per simulation tick; releasing it stops.
  */
 
+/** One simulation tick's worth of console rotation, in radians. */
+const PER_TICK = K.camera.rotateRadiansPerSecond * K.physics.timerTickPeriodMS / 1000;
+
+const ROTATIONS: Record<string, (angle: number) => Mat3> = { x: rotX, y: rotY, z: rotZ };
+
+/** The orientation `ticks` steps of `direction` about `axis` produces. */
+function stepFor(axis: string, direction: string, ticks: number): Mat3 {
+    return ROTATIONS[axis]((direction === 'acw' ? 1 : -1) * PER_TICK * ticks);
+}
+
 interface ConsoleFixture {
+    dom: FakeDom;
     elements: Record<string, FakeElement>;
     controller: UIController;
     consoleElement: FakeElement;
@@ -33,14 +47,14 @@ interface ConsoleFixture {
 function withFixture<T>(fn: (ui: ConsoleFixture) => T): T {
     const elements = demoElements();
 
-    return withFakeDom(elements, () => {
+    return withFakeDom(elements, dom => {
         // 600x600 so a projector can be asked where a model point lands.
         const controller = newUIController(elements, { width: 600, height: 600 });
 
         // initialize() is what attaches the console listeners.
         controller.initialize();
 
-        return fn({ elements, controller, consoleElement: elements.cameraConsole });
+        return fn({ dom, elements, controller, consoleElement: elements.cameraConsole });
     });
 }
 
@@ -52,33 +66,131 @@ function button(axis: string, direction: string): FakeElement {
     return element;
 }
 
-/** A click as it arrives from a button, after bubbling to the container. */
-function press(consoleElement: FakeElement, target: FakeElement) {
-    consoleElement.dispatch('click', { target });
+/** A press, as it arrives bubbled from a button at the container. */
+function pressDown(consoleElement: FakeElement, target: FakeElement): void {
+    consoleElement.dispatch('pointerdown', pointerEvent({ target }));
 }
 
-const ROTATIONS: Record<string, (angle: number) => Mat3> = { x: rotX, y: rotY, z: rotZ };
+/** Release the held button through a window listener, wherever it is. */
+function release(dom: FakeDom, type: string = 'pointerup'): void {
+    for (const fn of dom.windowListeners.get(type) ?? [])
+        fn(pointerEvent());
+}
 
-test("each console button rotates about its own axis by one configured step", () => {
+test("each console button rotates about its own axis from the first press", () => {
     withFixture(({ controller, consoleElement }) => {
         for (const axis of ['x', 'y', 'z']) {
             for (const direction of ['cw', 'acw']) {
-                const radians = (direction === 'acw' ? 1 : -1) * K.camera.rotateStepRadians;
-
-                // Fresh each case, so one press is measured from the identity
-                // and is exactly that axis rotation.
                 controller.state.camera.orientation = identity();
 
-                press(consoleElement, button(axis, direction));
+                pressDown(consoleElement, button(axis, direction));
 
                 assertMatClose(
                     controller.state.camera.orientation,
-                    ROTATIONS[axis](radians),
+                    stepFor(axis, direction, 1),
                     1e-12,
                     `${direction} about ${axis}`
                 );
+
+                controller.stopCameraHold();
             }
         }
+    });
+});
+
+test("a held button applies one small step per simulation tick", () => {
+    // The whole point of the hold: the increments are small and paced by the
+    // render tick, not one fixed jump per press.
+    assert.ok(PER_TICK < Math.PI / 36, `one step should be small, got ${PER_TICK} rad`);
+
+    withFixture(({ controller, consoleElement }) => {
+        pressDown(consoleElement, button('y', 'acw'));
+
+        controller.onTimerTick();
+        controller.onTimerTick();
+
+        assertMatClose(
+            controller.state.camera.orientation,
+            stepFor('y', 'acw', 3),
+            1e-12,
+            "one step on press plus one per tick"
+        );
+    });
+});
+
+test("releasing the pointer stops the rotation", () => {
+    withFixture(({ dom, controller, consoleElement }) => {
+        pressDown(consoleElement, button('x', 'cw'));
+        controller.onTimerTick();
+
+        const held = controller.state.camera.orientation;
+
+        release(dom);
+
+        controller.onTimerTick();
+
+        assert.deepEqual(controller.state.camera.orientation, held, "no ticks after release");
+    });
+});
+
+test("a lost window stops a held rotation too", () => {
+    withFixture(({ dom, controller, consoleElement }) => {
+        pressDown(consoleElement, button('x', 'cw'));
+
+        const held = controller.state.camera.orientation;
+
+        release(dom, 'blur');
+
+        controller.onTimerTick();
+
+        assert.deepEqual(controller.state.camera.orientation, held, "a blur must end the hold");
+    });
+});
+
+test("keyboard: Enter starts a hold, keyup ends it, auto-repeat does not restart it", () => {
+    withFixture(({ controller, consoleElement }) => {
+        const target = button('z', 'acw');
+
+        consoleElement.dispatch('keydown', keyEvent({ key: 'Enter', target }));
+
+        assertMatClose(controller.state.camera.orientation, stepFor('z', 'acw', 1), 1e-12, "keydown step");
+
+        controller.onTimerTick();
+        assertMatClose(controller.state.camera.orientation, stepFor('z', 'acw', 2), 1e-12, "held step");
+
+        // The tick handler advances a held button; a repeat event must not add
+        // its own immediate step on top.
+        consoleElement.dispatch('keydown', keyEvent({ key: 'Enter', target, repeat: true }));
+        assertMatClose(controller.state.camera.orientation, stepFor('z', 'acw', 2), 1e-12, "repeat keydown");
+
+        consoleElement.dispatch('keyup', keyEvent({ key: 'Enter', target }));
+        controller.onTimerTick();
+        assertMatClose(controller.state.camera.orientation, stepFor('z', 'acw', 2), 1e-12, "keyup ends the hold");
+    });
+});
+
+test("an assistive-technology click rotates once; a pointer click is already handled", () => {
+    withFixture(({ controller, consoleElement }) => {
+        consoleElement.dispatch('click', mouseEvent({ detail: 0, target: button('x', 'acw') }));
+
+        assertMatClose(controller.state.camera.orientation, stepFor('x', 'acw', 1), 1e-12, "AT click");
+
+        // A pointer press already rotated on pointerdown, so its click (which
+        // carries a click count) must not rotate a second time.
+        consoleElement.dispatch('click', mouseEvent({ detail: 1, target: button('x', 'acw') }));
+
+        assertMatClose(controller.state.camera.orientation, stepFor('x', 'acw', 1), 1e-12, "pointer click");
+    });
+});
+
+test("a press that is not on a rotate button does nothing", () => {
+    withFixture(({ controller, consoleElement }) => {
+        pressDown(consoleElement, consoleElement);
+        pressDown(consoleElement, button('w', 'acw'));
+
+        controller.onTimerTick();
+
+        assert.deepEqual(controller.state.camera.orientation, identity());
     });
 });
 
@@ -86,7 +198,7 @@ test("anticlockwise about z spins the view anticlockwise on screen", () => {
     withFixture(({ controller, consoleElement }) => {
         const before = controller.projector().toCanvas(point3(120, 0, 0));
 
-        press(consoleElement, button('z', 'acw'));
+        pressDown(consoleElement, button('z', 'acw'));
 
         const after = controller.projector().toCanvas(point3(120, 0, 0));
 
@@ -97,20 +209,9 @@ test("anticlockwise about z spins the view anticlockwise on screen", () => {
     });
 });
 
-test("a click that is not on a rotate button is a no-op", () => {
-    withFixture(({ controller, consoleElement }) => {
-        press(consoleElement, consoleElement);
-
-        press(consoleElement, button('w', 'acw'));
-        press(consoleElement, button('x', 'sideways'));
-
-        assert.deepEqual(controller.state.camera.orientation, identity());
-    });
-});
-
 test("pointerdown on the console stops before the panel drag can capture it", () => {
     withFixture(({ consoleElement }) => {
-        const event = pointerEvent({ button: 0, clientX: 5, clientY: 5 });
+        const event = pointerEvent({ button: 0, clientX: 5, clientY: 5, target: button('x', 'acw') });
 
         consoleElement.dispatch('pointerdown', event);
 
@@ -122,20 +223,39 @@ test("pointerdown on the console stops before the panel drag can capture it", ()
     });
 });
 
-test("terminate detaches the console listeners and initialize restores exactly one each", () => {
+test("terminate ends a held rotation", () => {
     withFixture(({ controller, consoleElement }) => {
-        assert.equal(consoleElement.listenerCount('click'), 1, "one delegated click listener");
-        assert.equal(consoleElement.listenerCount('pointerdown'), 1, "one drag guard listener");
+        pressDown(consoleElement, button('x', 'acw'));
+
+        const held = controller.state.camera.orientation;
+
+        controller.terminate();
+        controller.onTimerTick();
+
+        assert.deepEqual(controller.state.camera.orientation, held, "a reset must not keep rotating");
+    });
+});
+
+test("initialize attaches the console listeners once and terminate removes them", () => {
+    withFixture(({ dom, controller, consoleElement }) => {
+        for (const type of ['pointerdown', 'keydown', 'keyup', 'click'])
+            assert.equal(consoleElement.listenerCount(type), 1, `console must listen for ${type} once`);
+
+        for (const type of ['pointerup', 'pointercancel', 'blur'])
+            assert.equal((dom.windowListeners.get(type) ?? []).length, 1, `window must listen for ${type} once`);
 
         controller.terminate();
 
-        assert.equal(consoleElement.listenerCount('click'), 0, "click still listening after terminate");
-        assert.equal(consoleElement.listenerCount('pointerdown'), 0, "pointerdown still listening after terminate");
+        for (const type of ['pointerdown', 'keydown', 'keyup', 'click'])
+            assert.equal(consoleElement.listenerCount(type), 0, `console still listens for ${type}`);
+
+        for (const type of ['pointerup', 'pointercancel', 'blur'])
+            assert.equal((dom.windowListeners.get(type) ?? []).length, 0, `window still listens for ${type}`);
 
         controller.initialize();
 
-        assert.equal(consoleElement.listenerCount('click'), 1, "a second initialize must not double the listener");
-        assert.equal(consoleElement.listenerCount('pointerdown'), 1, "a second initialize must not double the listener");
+        for (const type of ['pointerdown', 'keydown', 'keyup', 'click'])
+            assert.equal(consoleElement.listenerCount(type), 1, `a second initialize must not double ${type}`);
     });
 });
 
@@ -152,11 +272,11 @@ test("the entrypoint wires the console to the live camera", () => {
 
         assert.ok(controller, "the demo elements should start the controller");
 
-        press(elements.cameraConsole, button('x', 'acw'));
+        elements.cameraConsole.dispatch('pointerdown', pointerEvent({ target: button('x', 'acw') }));
 
         assertMatClose(
             controller!.state.camera.orientation,
-            rotX(K.camera.rotateStepRadians),
+            rotX(PER_TICK),
             1e-12,
             "the entrypoint's console"
         );

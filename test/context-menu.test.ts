@@ -388,7 +388,10 @@ test("initialize is idempotent: a second call doubles nothing", () => {
             assert.equal(canvas.listenerCount(type), 1, `canvas must listen for ${type} exactly once`);
 
         assert.equal(elements.cameraConsole.listenerCount('click'), 1, "one console click listener");
-        assert.equal(elements.cameraConsole.listenerCount('pointerdown'), 1, "one console drag guard");
+        assert.equal(elements.cameraConsole.listenerCount('pointerdown'), 1, "one console press listener");
+
+        for (const type of ['pointerup', 'pointercancel', 'blur'])
+            assert.equal((dom.windowListeners.get(type) ?? []).length, 1, `one window ${type} listener`);
 
         assert.equal((dom.windowListeners.get('resize') ?? []).length, 1, "one resize listener");
     });
@@ -415,7 +418,11 @@ test("terminate detaches every listener initialize attached", () => {
         assert.equal(elements.export_canvas_link.listenerCount('click'), 0, "export still listens");
         assert.equal(elements.reset_link.listenerCount('click'), 0, "reset still listens");
         assert.equal(elements.cameraConsole.listenerCount('click'), 0, "console still listens for click");
-        assert.equal(elements.cameraConsole.listenerCount('pointerdown'), 0, "console still guards pointerdown");
+        assert.equal(elements.cameraConsole.listenerCount('pointerdown'), 0, "console still listens for pointerdown");
+
+        for (const type of ['pointerup', 'pointercancel', 'blur'])
+            assert.equal((dom.windowListeners.get(type) ?? []).length, 0, `window still listens for ${type}`);
+
         assert.equal((dom.windowListeners.get('resize') ?? []).length, 0, "window still listens for resize");
     });
 });

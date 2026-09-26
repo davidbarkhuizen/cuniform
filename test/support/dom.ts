@@ -452,6 +452,10 @@ export function newUIController(
 export interface FakeMouseEvent {
     button: number; clientX: number; clientY: number;
     shiftKey: boolean;
+    /** The event target, so a delegated handler can be exercised. */
+    target: unknown;
+    /** The click count; 0 marks a keyboard or assistive-technology click. */
+    detail: number;
     defaultPrevented: boolean; preventDefault: () => void;
 }
 
@@ -464,6 +468,7 @@ export interface FakeMouseEvent {
 export function mouseEvent(props: Partial<FakeMouseEvent> = {}): MouseEvent {
     const event: FakeMouseEvent = {
         button: 0, clientX: 0, clientY: 0, shiftKey: false,
+        target: null, detail: 1,
         defaultPrevented: false,
         preventDefault: () => { event.defaultPrevented = true; },
         ...props,
@@ -495,6 +500,8 @@ export function wheelEvent(props: Partial<FakeWheelEvent> = {}): WheelEvent {
 export interface FakePointerEvent {
     button: number; clientX: number; clientY: number;
     pointerId: number;
+    /** The event target, so a delegated handler can be exercised. */
+    target: unknown;
     propagationStopped: boolean;
     defaultPrevented: boolean; preventDefault: () => void;
     stopPropagation: () => void;
@@ -509,6 +516,7 @@ export interface FakePointerEvent {
 export function pointerEvent(props: Partial<FakePointerEvent> = {}): PointerEvent {
     const event: FakePointerEvent = {
         button: 0, clientX: 0, clientY: 0, pointerId: 1,
+        target: null,
         propagationStopped: false,
         defaultPrevented: false,
         preventDefault: () => { event.defaultPrevented = true; },
@@ -522,14 +530,18 @@ export function pointerEvent(props: Partial<FakePointerEvent> = {}): PointerEven
 export interface FakeKeyboardEvent {
     key: string;
     shiftKey: boolean;
+    /** True for an auto-repeat keydown, which a hold must not restart on. */
+    repeat: boolean;
+    /** The focused element, so a delegated handler can be exercised. */
+    target: unknown;
     defaultPrevented: boolean;
     preventDefault: () => void;
 }
 
-/** A keyboard-event stand-in carrying the key and the modifier keys. */
+/** A keyboard-event stand-in carrying the key, modifiers and target. */
 export function keyEvent(props: Partial<FakeKeyboardEvent> = {}): KeyboardEvent {
     const event: FakeKeyboardEvent = {
-        key: '', shiftKey: false,
+        key: '', shiftKey: false, repeat: false, target: null,
         defaultPrevented: false,
         preventDefault: () => { event.defaultPrevented = true; },
         ...props,

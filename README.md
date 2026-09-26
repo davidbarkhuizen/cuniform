@@ -65,12 +65,14 @@ drag: a press that starts on a button never reaches the panel's drag handle.
 - **Wheel** — dollies the camera (zooms). The focal length is constant, so only
   the camera distance changes; it is clamped above the near plane.
 - **Camera console** — three rows, one per camera axis, each with a clockwise
-  and an anticlockwise button. Every press applies one fixed step (15°), and the
-  buttons are real buttons, so Tab reaches them and Enter or Space activates
-  them. Anticlockwise is the right-hand positive sense about that axis: on
-  screen, x tilts the view about the horizontal, y turns it about the vertical,
-  and z rolls it about the view axis. Unlike the middle-drag guard, an explicit
-  axis rotation is free to carry the view through a pole.
+  and an anticlockwise button. A press applies one small step (1° by default)
+  and **holding turns the view continuously**: one more step per simulation
+  tick, so the rotation is as smooth as the render and never jumps. The buttons
+  are real buttons, so Tab reaches them and Enter or Space starts and stops a
+  keyboard hold. Anticlockwise is the right-hand positive sense about that axis:
+  on screen, x tilts the view about the horizontal, y turns it about the
+  vertical, and z rolls it about the view axis. Unlike the middle-drag guard, an
+  explicit axis rotation is free to carry the view through a pole.
 - **Right-click** — opens a context menu with `export`, `reset` and
   `clear selection`. The native browser menu is suppressed.
 - **Shift+F10** (or the context-menu key) — opens the same actions menu from
@@ -222,7 +224,7 @@ All tuning lives in [`src/K.ts`](src/K.ts):
 | `camera.focalLength` | `1024` | projection focal length, model units; constant |
 | `camera.distance` | `1024` | default camera distance; equal to `focalLength` for the 1:1 anchor |
 | `camera.nearPlane` | `50` | cull threshold and perspective singularity guard |
-| `camera.rotateStepRadians` | `pi/12` | one rotation step, applied per console press |
+| `camera.rotateRadiansPerSecond` | `pi/3` | console rotation speed while a button is held |
 | `camera.orbitRadiansPerPixel` | `0.01` | orbit sensitivity |
 | `camera.maxPitch` | `pi/2 - 0.01` | turntable elevation guard |
 | `camera.minDistance` | `128` | dolly clamp, above `nearPlane` |
