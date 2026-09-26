@@ -149,3 +149,75 @@ test("the pointer is captured on pointerdown and released on pointerup", () => {
     controller.onPointerUp(pointerEvent({ pointerId: 7 }));
     assert.equal(panel.hasPointerCapture(7), false, "the capture should be released");
 });
+
+// ------------------------------------------------------- controls in the panel
+
+/** A control of `tagName` nested in the panel, as the real menu is. */
+function controlIn(panel: FakeElement, tagName: string): FakeElement {
+    const group = new FakeElement('DIV');
+    group.parentElement = panel;
+
+    const control = new FakeElement(tagName);
+    control.parentElement = group;
+
+    return control;
+}
+
+test("a press on a link inside the panel does not start a drag", () => {
+    // Regression: capturing the pointer here retargets the compatibility click
+    // to the panel, so the link's own handler never runs. This is what made the
+    // panel's reset and export links silently do nothing.
+    const { panel, controller } = panelInParent();
+    const link = controlIn(panel, 'A');
+
+    panel.dispatch('pointerdown', pointerEvent({ target: link, pointerId: 9, clientX: 200, clientY: 200 }));
+    panel.dispatch('pointermove', pointerEvent({ target: link, pointerId: 9, clientX: 260, clientY: 240 }));
+
+    assert.equal(panel.hasPointerCapture(9), false, "the link's pointer must not be captured");
+    assert.equal(panel.style.left, undefined, "the panel must not move");
+    assert.equal(controller.dragX, 0);
+});
+
+test("a press on a button inside the panel does not start a drag", () => {
+    // The camera console's buttons own their press the same way.
+    const { panel, controller } = panelInParent();
+    const button = controlIn(panel, 'BUTTON');
+
+    panel.dispatch('pointerdown', pointerEvent({ target: button, pointerId: 4, clientX: 200, clientY: 200 }));
+    panel.dispatch('pointermove', pointerEvent({ target: button, pointerId: 4, clientX: 300, clientY: 300 }));
+
+    assert.equal(panel.hasPointerCapture(4), false);
+    assert.equal(controller.dragX, 0);
+});
+
+test("a press deep inside a control still counts as the control's", () => {
+    const { panel } = panelInParent();
+    const link = controlIn(panel, 'A');
+
+    const caption = new FakeElement('SPAN');
+    caption.parentElement = link;
+
+    panel.dispatch('pointerdown', pointerEvent({ target: caption, pointerId: 11, clientX: 200, clientY: 200 }));
+
+    assert.equal(panel.hasPointerCapture(11), false, "the ancestor chain must be walked");
+});
+
+test("a press on a non-interactive part of the panel still drags", () => {
+    const { panel } = panelInParent();
+    const caption = controlIn(panel, 'SPAN');
+
+    panel.dispatch('pointerdown', pointerEvent({ target: caption, pointerId: 12, clientX: 200, clientY: 200 }));
+    panel.dispatch('pointermove', pointerEvent({ target: caption, pointerId: 12, clientX: 260, clientY: 240 }));
+
+    assert.equal(panel.hasPointerCapture(12), true);
+    assert.equal(panel.style.left, '160px');
+    assert.equal(panel.style.top, '110px');
+});
+
+test("a press on the panel itself still drags", () => {
+    const { panel } = panelInParent();
+
+    panel.dispatch('pointerdown', pointerEvent({ target: panel, pointerId: 13, clientX: 200, clientY: 200 }));
+
+    assert.equal(panel.hasPointerCapture(13), true);
+});
