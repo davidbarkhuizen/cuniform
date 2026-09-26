@@ -69,7 +69,7 @@ test("displacement is the damped velocity, not the raw net force", () => {
 });
 
 test("position advances by the velocity on each unpinned step", () => {
-    const { graph, a, fdg } = singleNode();
+    const { a, fdg } = singleNode();
     a.netElectrostaticForce = { x: 0, y: 0 };
     a.netSpringForce = { x: 0, y: 0 };
 

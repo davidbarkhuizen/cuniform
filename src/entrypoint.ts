@@ -1,6 +1,10 @@
 import { DragController } from "./DragController";
 import { UIController } from "./UIController";
 
+/** Selection-info panel contents that updateSelectionInfo() writes to. */
+const SELECTED_NODE_LABEL_ID = 'selectedNodeInfoLabel';
+const SELECTED_NODE_LIST_ID = 'selectedNodeInfoList';
+
 export const entrypoint = (
     selectionInfoPanelID: string,
     canvasElementID: string,
@@ -10,12 +14,17 @@ export const entrypoint = (
 
     const e = (id: string) => document.getElementById(id);
 
-    const canvas = e(canvasElementID) as HTMLCanvasElement;
+    const required = (id: string): HTMLElement | null => {
+        const element = e(id);
+        if (!element)
+            console.error(`could not find element for ID: ${id}`);
+        return element;
+    };
 
-    if (!canvas) {
-        console.error(`could not find canvas element for ID: ${canvasElementID}`);
+    const canvas = required(canvasElementID) as HTMLCanvasElement | null;
+
+    if (!canvas)
         return false;
-    }
 
     // getContext('2d') returns null when the context is unavailable; it does
     // not throw, so there is no try/catch and the result is checked directly.
@@ -26,21 +35,30 @@ export const entrypoint = (
         return false;
     }
 
+    const body = required('body');
+    const exportElement = required(exportElementID);
+    const resetElement = required(resetElementID);
+    const selectionInfoLabel = required(SELECTED_NODE_LABEL_ID);
+    const selectionInfoList = required(SELECTED_NODE_LIST_ID);
+
+    if (!body || !exportElement || !resetElement || !selectionInfoLabel || !selectionInfoList)
+        return false;
+
     const selectionInfoPanel = e(selectionInfoPanelID);
 
-    if (selectionInfoPanel) {
+    if (selectionInfoPanel)
         new DragController(selectionInfoPanel);
-    }
-    else {
+    else
         console.error(`could not find selection info panel for ID: ${selectionInfoPanelID}`);
-    }
 
     const uiController = new UIController(
-        e('body'),
+        body,
         canvas,
         context2d,
-        e(exportElementID),
-        e(resetElementID)
+        exportElement,
+        resetElement,
+        selectionInfoLabel,
+        selectionInfoList
     );
 
     uiController.initialize();

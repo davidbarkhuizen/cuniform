@@ -44,7 +44,9 @@ function setup() {
         canvas as unknown as HTMLCanvasElement,
         canvas.context as unknown as CanvasRenderingContext2D,
         elements.export_canvas_link as unknown as HTMLElement,
-        elements.reset_link as unknown as HTMLElement
+        elements.reset_link as unknown as HTMLElement,
+        elements.selectedNodeInfoLabel as unknown as HTMLElement,
+        elements.selectedNodeInfoList as unknown as HTMLElement
     );
 
     // The logical size initialize() would have computed; mapping uses it.

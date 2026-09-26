@@ -14,13 +14,21 @@ declare global {
 
 export class UIController {
 
-    timer: NodeJS.Timeout = null;
+    timer: ReturnType<typeof setInterval> | null = null;
 
     body: HTMLElement;
     canvas: HTMLCanvasElement;
     context2D: CanvasRenderingContext2D;
     exportElement: HTMLElement;
     resetElement: HTMLElement;
+
+    /**
+     * The two elements updateSelectionInfo() writes to. Resolved and
+     * null-checked by the entrypoint, rather than looked up here by hardcoded
+     * ID.
+     */
+    selectionInfoLabel: HTMLElement;
+    selectionInfoList: HTMLElement;
 
     contextMenu: ContextMenu | null = null;
 
@@ -37,13 +45,17 @@ export class UIController {
         canvas: HTMLCanvasElement, 
         context2D: CanvasRenderingContext2D,
 		exportElement: HTMLElement, 
-		resetElement: HTMLElement
+		resetElement: HTMLElement,
+		selectionInfoLabel: HTMLElement,
+		selectionInfoList: HTMLElement
 	) {
         this.body = body;
         this.canvas = canvas;
         this.context2D = context2D;
 		this.exportElement = exportElement;
 		this.resetElement = resetElement;
+		this.selectionInfoLabel = selectionInfoLabel;
+		this.selectionInfoList = selectionInfoList;
 	}
 
 	onMouseOut = () => {
@@ -162,13 +174,13 @@ export class UIController {
 
 		// get canvas position
 		//
-		let obj = cnvs as HTMLElement;
+		let obj: HTMLElement | null = cnvs as HTMLElement;
 		let top = 0;
 		let left = 0;
 		while (obj && obj.tagName != 'BODY') {
 			top += obj.offsetTop;
 			left += obj.offsetLeft;
-			obj = obj.offsetParent as HTMLElement;
+			obj = obj.offsetParent as HTMLElement | null;
 		}
 	 
 		// return relative mouse position
@@ -296,12 +308,15 @@ export class UIController {
 			vertex => (vertex.isSelected == true)
 		)
 		
-		const selectedNodeInfoLabel = document.getElementById('selectedNodeInfoLabel');
-		const list = document.getElementById('selectedNodeInfoList');
+		const selectedNodeInfoLabel = this.selectionInfoLabel;
+		const list = this.selectionInfoList;
 		
 		// clear current items
 		while (list.children.length > 0) {
-			list.removeChild(list.firstChild);
+			const first = list.firstChild;
+			if (!first)
+				break;
+			list.removeChild(first);
 		}
 	
 		// no selection => discard old info
@@ -364,8 +379,10 @@ export class UIController {
 	}
 	
 	terminate = () => {
-		clearInterval(this.timer);
-		this.timer = null;
+		if (this.timer != null) {
+			clearInterval(this.timer);
+			this.timer = null;
+		}
 
 		if (this.contextMenu) {
 			this.body.removeChild(this.contextMenu.element);

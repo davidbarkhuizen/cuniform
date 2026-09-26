@@ -5,6 +5,9 @@ const path = require('path');
 // },
 
 module.exports = {
+  // Set explicitly: without it webpack warns and silently falls back to
+  // 'production', which hides stack traces in this dev-oriented script.
+  mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
   entry: './src/index.ts',
   output: {
     filename: 'main.js',

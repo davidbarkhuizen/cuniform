@@ -384,8 +384,8 @@ export class ForceDirectedGraph {
 			r2s.push(Math.pow(node.position.x - transformedPos.x, 2) + Math.pow(node.position.y - transformedPos.y, 2));
 		}
 
-		var closestNode = null;
-		var closestDistance = null;
+		var closestNode: Tag | null = null;
+		var closestDistance: number | null = null;
 
 		for (let i = 0; i < r2s.length; i++) {
 			if(r2s[i] < (K.ui.minimumNodeSelectionRadius * K.ui.minimumNodeSelectionRadius)) {
@@ -394,7 +394,7 @@ export class ForceDirectedGraph {
 					closestDistance = r2s[i];
 					continue;
 				}
-				else if(r2s[i] < closestDistance) {
+				else if(closestDistance == null || r2s[i] < closestDistance) {
 					closestNode = this.graph.vertices[i];
 					closestDistance = r2s[i];
 				}

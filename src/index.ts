@@ -1,6 +1,6 @@
 import  { entrypoint } from './entrypoint';
 
-document.addEventListener("DOMContentLoaded", function(event) { 
+document.addEventListener("DOMContentLoaded", function() { 
     
     entrypoint(
         'selectionInfoPanel',
