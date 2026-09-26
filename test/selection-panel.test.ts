@@ -33,8 +33,8 @@ function withFixture<T>(fn: (ui: Fixture) => T): T {
     const elements = demoElements();
 
     const graph = new Graph();
-    const hub = new Tag({ x: 0, y: 0 }, "hub");
-    const leaves = ["a", "b", "c"].map(name => new Tag({ x: 10, y: 0 }, name));
+    const hub = new Tag({ x: 0, y: 0, z: 0 }, "hub");
+    const leaves = ["a", "b", "c"].map(name => new Tag({ x: 10, y: 0, z: 0 }, name));
     graph.addNode(hub);
     leaves.forEach(leaf => graph.addNode(leaf));
     graph.addEdge(hub, leaves[0]);

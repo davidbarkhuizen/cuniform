@@ -19,8 +19,8 @@ const VIEWPORT = Viewport.forCanvas(W, H);
  */
 function build() {
     const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0 }, "a");
-    const b = new Tag({ x: 10, y: 0 }, "b");
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
+    const b = new Tag({ x: 10, y: 0, z: 0 }, "b");
     graph.addNode(a);
     graph.addNode(b);
 
@@ -30,7 +30,7 @@ function build() {
 /** A single node at the model origin. */
 function single() {
     const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0 }, "a");
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
     graph.addNode(a);
 
     return { graph, a };

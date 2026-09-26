@@ -38,11 +38,14 @@ export const K = {
     },
 
     space: {
-        // Model (phase) space: a square 600x600 world centred on the origin, so
-        // coordinates run roughly -300..+300. The reference has no boundary
-        // handling and nothing here clamps a node to this square either.
+        // Model (phase) space: a 600x600x600 cube centred on the origin, so
+        // coordinates run roughly -300..+300 on every axis. The reference has
+        // no boundary handling and nothing here clamps a node to this cube
+        // either. D_0 is the direct generalisation of W_0/H_0: the world is
+        // isotropic, so the layout has no preferred plane.
         W_0 : 600,
         H_0 : 600,
+        D_0 : 600,
     },
 
     label: {

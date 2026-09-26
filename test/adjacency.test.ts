@@ -16,9 +16,11 @@ import { CANVAS_H, CANVAS_W, newGraph, tag } from "./support/physics";
 function bruteForceSpring(graph: Graph, target: Tag) {
     let Fx = 0;
     let Fy = 0;
+    let Fz = 0;
 
     const x_tag = target.position.x;
     const y_tag = target.position.y;
+    const z_tag = target.position.z;
 
     for (const edge of graph.edges) {
         const other = otherEndpoint(edge, target);
@@ -27,8 +29,9 @@ function bruteForceSpring(graph: Graph, target: Tag) {
 
         const x_other = other.position.x;
         const y_other = other.position.y;
+        const z_other = other.position.z;
 
-        const r = Math.hypot(x_other - x_tag, y_other - y_tag);
+        const r = Math.hypot(x_other - x_tag, y_other - y_tag, z_other - z_tag);
         if (r === 0)
             continue;
 
@@ -36,9 +39,10 @@ function bruteForceSpring(graph: Graph, target: Tag) {
 
         Fx += scalar * (x_other - x_tag) / r;
         Fy += scalar * (y_other - y_tag) / r;
+        Fz += scalar * (z_other - z_tag) / r;
     }
 
-    return { x: Fx, y: Fy };
+    return { x: Fx, y: Fy, z: Fz };
 }
 
 test("otherEndpoint names the far endpoint, and null for a self-loop or foreign tag", () => {
@@ -101,21 +105,26 @@ test("the adjacency spring force equals a brute-force edge scan", () => {
     const a = tag("a", 0, 0);
     const b = tag("b", 40, 0);
     const c = tag("c", 0, 40);
-    [a, b, c].forEach(t => graph.addNode(t));
+    // An off-plane node, so the equivalence also covers the z component.
+    const d = new Tag({ x: 10, y: 10, z: 35 }, "d");
+    [a, b, c, d].forEach(t => graph.addNode(t));
     graph.addEdge(a, b);
     graph.addEdge(a, b);   // duplicate edge
     graph.addEdge(a, a);   // self-loop
     graph.addEdge(b, c);   // stretched
     graph.addEdge(a, c);   // compressed relative to the rest length
+    graph.addEdge(b, d);   // out of plane
+    graph.addEdge(a, d);   // out of plane
 
     const fdg = new ForceDirectedGraph(graph);
 
-    for (const target of [a, b, c]) {
+    for (const target of [a, b, c, d]) {
         const actual = fdg.netSpringForceAtNode(target);
         const expected = bruteForceSpring(graph, target);
 
         assertClose(actual.x, expected.x, 1e-12, `${target.label}: x force`);
         assertClose(actual.y, expected.y, 1e-12, `${target.label}: y force`);
+        assertClose(actual.z, expected.z, 1e-12, `${target.label}: z force`);
     }
 });
 

@@ -84,15 +84,15 @@ test("Graph carries no removeNode machinery", () => {
 test("a tag owns its own points rather than sharing point()/zero() results", () => {
     // point() and zero() are factories exactly so that this holds: a shared
     // ZERO constant would alias every tag's velocity together.
-    const origin = { x: 3, y: 4 };
+    const origin = { x: 3, y: 4, z: 5 };
     const a = new Tag(origin, "a");
     const b = new Tag(origin, "b");
 
     a.position.x = 99;
     a.velocity.x = 1;
 
-    assert.deepEqual(origin, { x: 3, y: 4 }, "the constructor must not alias the caller's point");
+    assert.deepEqual(origin, { x: 3, y: 4, z: 5 }, "the constructor must not alias the caller's point");
     assert.deepEqual({ ...a.translatedPosition }, { x: 3, y: 4 }, "position and translatedPosition must not alias");
-    assert.deepEqual({ ...b.velocity }, { x: 0, y: 0 }, "one tag's velocity must not move another's");
+    assert.deepEqual({ ...b.velocity }, { x: 0, y: 0, z: 0 }, "one tag's velocity must not move another's");
     assert.notStrictEqual(a.velocity, b.velocity);
 });

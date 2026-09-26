@@ -66,9 +66,9 @@ test("every vertex is joined to at least one other", () => {
 
 test("hasEdge is undirected", () => {
     const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0 }, "a");
-    const b = new Tag({ x: 10, y: 0 }, "b");
-    const c = new Tag({ x: 20, y: 0 }, "c");
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
+    const b = new Tag({ x: 10, y: 0, z: 0 }, "b");
+    const c = new Tag({ x: 20, y: 0, z: 0 }, "c");
     graph.addNode(a);
     graph.addNode(b);
     graph.addNode(c);

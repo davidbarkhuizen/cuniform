@@ -10,7 +10,7 @@ import { CANVAS_H, CANVAS_W } from "./support/physics";
 
 function singleNode() {
     const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0 }, "a");
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
     graph.addNode(a);
     return { graph, a, fdg: new ForceDirectedGraph(graph) };
 }
@@ -26,7 +26,7 @@ test("a constant force drives velocity to a terminal displacement of exactly F",
     const F = 7;
 
     for (let i = 0; i < 300; i++) {
-        a.velocity = fdg.velocityAtTag(a, { x: F, y: 0 });
+        a.velocity = fdg.velocityAtTag(a, { x: F, y: 0, z: 0 });
     }
 
     const expected = (F * K.physics.timeStep) / (1 - K.physics.friction);
@@ -36,9 +36,9 @@ test("a constant force drives velocity to a terminal displacement of exactly F",
 
 test("with no net force, velocity decays by exactly FRICTION each step", () => {
     const { a, fdg } = singleNode();
-    a.velocity = { x: 10, y: 0 };
+    a.velocity = { x: 10, y: 0, z: 0 };
 
-    a.velocity = fdg.velocityAtTag(a, { x: 0, y: 0 });
+    a.velocity = fdg.velocityAtTag(a, { x: 0, y: 0, z: 0 });
 
     assertClose(a.velocity.x, 10 * K.physics.friction, 1e-9, `velocity was ${a.velocity.x}`);
 });
@@ -46,9 +46,9 @@ test("with no net force, velocity decays by exactly FRICTION each step", () => {
 test("displacement is the damped velocity, not the raw net force", () => {
     const { a, fdg } = singleNode();
 
-    assert.deepEqual(a.displacement, { x: 0, y: 0 }, "velocity starts at zero");
+    assert.deepEqual(a.displacement, { x: 0, y: 0, z: 0 }, "velocity starts at zero");
 
-    a.velocity = fdg.velocityAtTag(a, { x: 7, y: 0 });
+    a.velocity = fdg.velocityAtTag(a, { x: 7, y: 0, z: 0 });
 
     assertClose(
         a.displacement.x,
@@ -62,7 +62,7 @@ test("displacement is the damped velocity, not the raw net force", () => {
 test("position advances by the velocity on each unpinned step", () => {
     const { a, fdg } = singleNode();
 
-    a.velocity = { x: 3, y: -4 };
+    a.velocity = { x: 3, y: -4, z: 0 };
     fdg.step(CANVAS_W, CANVAS_H);
 
     // velocity is overwritten by the integrator first (a lone node has no
