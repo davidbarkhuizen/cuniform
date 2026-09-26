@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
+import { GraphFactory } from "../src/GraphFactory";
 import { K } from "../src/K";
+import { CATALOG } from "../src/Molecules";
 import { Tag } from "../src/Tag";
 import { readSource } from "./support/files";
 import { newGraph } from "./support/physics";
@@ -127,4 +129,122 @@ test("labels restart for each graph instead of growing across graphs", () => {
 test("the shipped initial conditions match the reference demo", () => {
     assert.equal(K.initialConditions.order, 11);
     assert.equal(K.initialConditions.branching, 2);
+});
+
+// -------------------------------------------------------------- build(spec)
+
+/** Run `fn` with a deterministic Math.random, restoring the real one after. */
+function withSeededRandom<T>(fn: () => T): T {
+    const original = Math.random;
+    let state = 42;
+
+    Math.random = () => {
+        state = (state * 1103515245 + 12345) % 2147483648;
+        return state / 2147483648;
+    };
+
+    try {
+        return fn();
+    } finally {
+        Math.random = original;
+    }
+}
+
+/** The structure of a graph, independent of the (random) coordinates. */
+function shape(graph: Graph) {
+    return {
+        labels: graph.vertices.map(vertex => vertex.label),
+        edges: graph.edges.map(edge => [
+            graph.vertices.indexOf(edge.v1),
+            graph.vertices.indexOf(edge.v2),
+        ]),
+    };
+}
+
+test("build of a random spec is exactly generateGraph(order, branching)", () => {
+    const viaBuild = withSeededRandom(() => new GraphFactory().build({ kind: "random", order: 8, branching: 3 }));
+    const viaGenerate = withSeededRandom(() => new GraphFactory().generateGraph(8, 3));
+
+    assert.deepEqual(shape(viaBuild), shape(viaGenerate));
+});
+
+test("build of a molecule spec has one vertex per atom and one edge per bond", () => {
+    const entry = CATALOG.find(candidate => candidate.id === "ibogaine");
+    assert.ok(entry, "ibogaine should be in the catalog");
+
+    const graph = new GraphFactory().build({ kind: "molecule", id: "ibogaine" });
+
+    assert.equal(graph.vertices.length, entry!.topology.atoms.length);
+    assert.equal(graph.edges.length, entry!.topology.bonds.length);
+    assert.equal(graph.vertices.length, entry!.heavyAtoms);
+});
+
+test("molecule vertices are labelled with element symbols, in SMILES order", () => {
+    const entry = CATALOG.find(candidate => candidate.id === "strychnine");
+    assert.ok(entry);
+
+    const graph = new GraphFactory().generateMolecule("strychnine");
+
+    assert.deepEqual(graph.vertices.map(vertex => vertex.label), entry!.topology.atoms);
+    assert.ok(
+        graph.vertices.every(vertex => /^[A-Za-z]{1,2}$/.test(vertex.label)),
+        "a label must be an element symbol, not an atom index"
+    );
+    assert.ok(
+        !graph.vertices.some(vertex => /^Node /.test(vertex.label)),
+        "molecules must not reuse the random graph's Node i labels"
+    );
+});
+
+test("a molecule graph is connected and has no self-loops", () => {
+    const graph = new GraphFactory().generateMolecule("vincristine");
+
+    for (const edge of graph.edges)
+        assert.notEqual(edge.v1, edge.v2, "a bond must join two distinct atoms");
+
+    // Every heavy atom of a molecule is reachable from the first one.
+    const seen = new Set<Tag>([graph.vertices[0]]);
+    const queue = [graph.vertices[0]];
+
+    while (queue.length > 0) {
+        const vertex = queue.shift()!;
+        for (const neighbour of graph.neighbours(vertex)) {
+            if (seen.has(neighbour))
+                continue;
+            seen.add(neighbour);
+            queue.push(neighbour);
+        }
+    }
+
+    assert.equal(seen.size, graph.vertices.length, "every atom should be reachable");
+});
+
+test("molecule seeds are unique, deterministic and bounded by the jitter", () => {
+    const factory = new GraphFactory();
+    const first = factory.generateMolecule("vincristine");
+    const second = factory.generateMolecule("vincristine");
+
+    const positions = first.vertices.map(vertex => vertex.position);
+    const keys = new Set(positions.map(position => `${position.x},${position.y},${position.z}`));
+
+    assert.equal(keys.size, positions.length, "no two atoms may share a seed position");
+    assert.deepEqual(
+        positions,
+        second.vertices.map(vertex => vertex.position),
+        "the same molecule must seed identically"
+    );
+
+    for (const position of positions)
+        assert.ok(Math.abs(position.z) <= K.molecule.seedDepthJitter, "z exceeds the jitter");
+
+    // The spiral starts at the origin: the layout is not flung out to a corner.
+    assert.equal(positions[0].x, 0);
+    assert.equal(positions[0].y, 0);
+});
+
+test("an unknown molecule id throws", () => {
+    const factory = new GraphFactory();
+
+    assert.throws(() => factory.generateMolecule("unobtainium"), /unknown molecule id/);
+    assert.throws(() => factory.build({ kind: "molecule", id: "unobtainium" }), /unknown molecule id/);
 });

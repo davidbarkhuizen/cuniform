@@ -156,4 +156,12 @@ export const K = {
         // plane, small enough that it does not control the layout.
         seedDepthJitter : 4.5,
     },
+
+    wordCloud: {
+        // The chip font-size range, in em. The catalog's heavy-atom counts are
+        // normalised onto this span, so the smallest molecule is smallest and
+        // the largest is biggest.
+        minTagScale : 0.85,
+        maxTagScale : 1.35,
+    },
 };
