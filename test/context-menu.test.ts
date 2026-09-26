@@ -185,6 +185,28 @@ test("the arrow keys move focus between entries and wrap around", () => {
     });
 });
 
+test("focusing an entry directly resyncs the arrow-key roving index", () => {
+    withFakeDom({}, () => {
+        const menu = new ContextMenu([
+            { label: 'one', onSelect: () => {} },
+            { label: 'two', onSelect: () => {} },
+            { label: 'three', onSelect: () => {} },
+        ]);
+        const entries = menu.entries.map(e => el(e.element));
+
+        menu.open(1, 2);
+        assert.equal(entries[0].focused, true, "open focuses the first entry");
+
+        // A pointer click or Tab moves focus without the arrow-key handler, so the
+        // focus event has to move the roving index with it.
+        entries[2].focus();
+
+        el(menu.element).dispatch('keydown', keyEvent({ key: 'ArrowDown' }));
+
+        assert.equal(entries[0].focused, true, "ArrowDown from the last entry wraps to the first");
+    });
+});
+
 test("Escape hides the menu and calls the dismiss handler once", () => {
     withFakeDom({}, () => {
         let dismissed = 0;
