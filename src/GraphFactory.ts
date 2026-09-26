@@ -49,8 +49,10 @@ export class GraphFactory {
 
 		for(let i = 0; i < order; i++) {
 			var pos = funcGenXY();
-			var tag = new Tag(pos, 'no label');
-			tag.label = 'Node ' + tag.idx.toString();
+
+			// The label is the position in this graph, so names restart at
+			// "Node 0" for every graph instead of growing across resets.
+			var tag = new Tag(pos, 'Node ' + i.toString());
 
             graph.addNode(tag);
 		}

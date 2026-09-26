@@ -77,11 +77,16 @@ It is a damped relaxation, not an energy minimisation:
   directed from the node toward its neighbour. `r > l` pulls, `r < l` pushes.
 - **Net force** is the plain sum of the two. There is no mass, no gravity, no
   cooling schedule and no boundary.
-- **Singularity guard** — repulsion is singular as `r -> 0`, and the exact
-  `r == 0` guard only catches perfect coincidence, so the power law is evaluated
-  at `max(r, minimumInteractionRadius)` instead. The force stays exactly radial
-  and every `r >= minimumInteractionRadius` is untouched, so the reference law
-  is unchanged; this is a documented non-reference extension.
+- **Singularity guard** — repulsion is singular as `r -> 0`, so the power law is
+  evaluated at `max(r, minimumInteractionRadius)`. That bounds the force for
+  every small `r` while leaving every `r >= minimumInteractionRadius` untouched,
+  so the reference law is unchanged; this is a documented non-reference
+  extension.
+- **Coincident centres** — two nodes at exactly the same point have no radial
+  direction, which would otherwise leave an unconnected pair in a permanent
+  fixed point. They are separated deterministically instead: of the two, the
+  earlier node in the graph is pushed `-x` and the later one `+x`, with the same
+  clamped magnitude as the singularity guard.
 - **Integration** is damped, semi-implicit Euler at a fixed step, one step per
   timer tick:
 

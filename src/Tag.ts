@@ -1,15 +1,7 @@
 import { point, Point2D, zero } from "./Point2D";
 
-var lastUsedTagIndex = 0;
-function popUnusedTagIdx(): number {
-	var idx = lastUsedTagIndex;
-	lastUsedTagIndex += 1;
-	return idx;
-};
-
 export class Tag {
 
-    idx: number;
     label: string;
     position : Point2D;
     translatedPosition : Point2D;
@@ -23,7 +15,6 @@ export class Tag {
     isSelected: boolean = false;
 
     constructor(xy: Point2D, label: string) {
-        this.idx = popUnusedTagIdx();
         this.label = label;
 
         // Copies, not aliases: the tag owns its own points from here on.

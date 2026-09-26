@@ -86,6 +86,14 @@ test("initial positions are unique", () => {
     assert.equal(keys.size, 200);
 });
 
+test("labels restart for each graph instead of growing across graphs", () => {
+    const first = newGraph(3, 1);
+    const second = newGraph(3, 1);
+
+    assert.deepEqual(first.vertices.map(v => v.label), ["Node 0", "Node 1", "Node 2"]);
+    assert.deepEqual(second.vertices.map(v => v.label), ["Node 0", "Node 1", "Node 2"]);
+});
+
 test("the shipped initial conditions match the reference demo", () => {
     assert.equal(K.initialConditions.order, 11);
     assert.equal(K.initialConditions.branching, 2);
