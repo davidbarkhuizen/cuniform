@@ -39,8 +39,18 @@ function defaultBondOrder(symbolA: string, symbolB: string): 1 | 4 {
     return isAromaticSymbol(symbolA) && isAromaticSymbol(symbolB) ? 4 : 1;
 }
 
-// Element symbol out of a bracket atom such as `[nH]`, `[C@@H]`, `[13CH4]` or
-// `[Si]`; hydrogen count, chirality, charge and isotope number are not modelled.
+// The element symbol starting at `body[i]`: one letter, or two when the next is
+// lowercase, so uppercase `Si`/`Cl` and aromatic lowercase `se`/`as` all survive.
+function symbolAt(body: string, i: number): string {
+    const first = body[i];
+    const second = body[i + 1] ?? "";
+
+    return second >= "a" && second <= "z" ? first + second : first;
+}
+
+// Element symbol out of a bracket atom such as `[nH]`, `[C@@H]`, `[13CH4]`,
+// `[Si]` or `[se]`; hydrogen count, chirality, charge and isotope number are not
+// modelled.
 function bracketSymbol(body: string, position: number): string {
     let i = 0;
 
@@ -52,13 +62,8 @@ function bracketSymbol(body: string, position: number): string {
 
     const first = body[i];
 
-    if (first >= "A" && first <= "Z") {
-        const second = body[i + 1] ?? "";
-        return second >= "a" && second <= "z" ? first + second : first;
-    }
-
-    if (first >= "a" && first <= "z")
-        return first;
+    if ((first >= "A" && first <= "Z") || (first >= "a" && first <= "z"))
+        return symbolAt(body, i);
 
     throw new SmilesError("bracket atom has no element symbol", position + i);
 }
@@ -239,14 +244,10 @@ export function parseSmiles(smiles: string): MoleculeTopology {
 
         const next = smiles[i + 1] ?? "";
 
-        if (ch === "C" && next === "l") {
-            addAtom("Cl", i);
-            i += 2;
-            continue;
-        }
-
-        if (ch === "B" && next === "r") {
-            addAtom("Br", i);
+        // The organic subset's only two-letter symbols; any other two-letter
+        // element must be bracketed.
+        if ((ch === "C" && next === "l") || (ch === "B" && next === "r")) {
+            addAtom(ch + next, i);
             i += 2;
             continue;
         }
