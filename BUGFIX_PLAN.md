@@ -42,12 +42,12 @@ Every phase heading and table row below carries a per-item status:
 
 **Completed since:** Phase 2 (2.1–2.3) in PR #31; Phase 4 (4.1–4.3) and the safe
 half of 5.4 in PR #32; the 5.4 button features (middle-drag pan, right-click
-context menu) in PR #33.
+context menu) in PR #33; 5.2 and 6.10 in PR #34.
 
-**Still open:** 5.2, the `selectionInfoPanelID` half of 5.4 (tracked as 6.3),
-and Phase 6 items 6.2, 6.3, 6.4, 6.5, 6.7, 6.8, 6.10. 6.1 is half done — `test`
-was replaced with a real runner in PR #22, but `dev` still runs `nodemon` with
-no entry target.
+**Still open:** the `selectionInfoPanelID` half of 5.4 (tracked as 6.3) and
+Phase 6 items 6.2, 6.3, 6.4, 6.5, 6.7, 6.8. 6.1 is half done — `test` was
+replaced with a real runner in PR #22, but `dev` still runs `nodemon` with no
+entry target.
 
 **Resolved differently:** 0.3 — no reusable DOM stub was written, because the
 solver was made DOM-free instead, so the tests need no stub at all
@@ -62,8 +62,8 @@ preference, so it stays unimplemented.
 - **1.2's `r2 + eps` softening.** The reference keeps the exact `r == 0` guard
   and nothing more, so the guard is retained. Softening is parked as a
   non-reference extension in `PHYSICS_ALIGNMENT_PLAN.md` §5 Phase 6.
-- **5.2 spring force is O(V·E).** Still true; an adjacency list is a
-  performance change, not a physics-alignment one.
+- **5.2 spring force was O(V·E).** Deferred as a performance change rather than
+  a physics-alignment one, then done in PR #34 via an adjacency list.
 
 Statuses last verified against `main` (`7f8c8f1`), where `npm test` passes all
 34 tests.
@@ -289,7 +289,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 
 ---
 
-## Phase 5 — Architecture and performance — ◐ Partial
+## Phase 5 — Architecture and performance — ✅ Complete (5.5 deliberately not done)
 
 ### 5.1 Break the `window` globals out of the core — ✅ Done, solver side (PRs #22, #25)
 
@@ -304,7 +304,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
   debugging if desired.
 - **Acceptance:** the Phase 1 solver test runs with no DOM stub at all.
 
-### 5.2 Spring force is O(V·E) — ⬜ Open (`netSpringForceAtNode` still scans every edge per node)
+### 5.2 Spring force is O(V·E) — ✅ Done (PR #34)
 
 - **Where:** `src/ForceDirectedGraph.ts:186-258`
 - **Fix:** iterate the node's incident edges via an adjacency list built once
@@ -348,7 +348,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 
 ---
 
-## Phase 6 — Configuration, tooling, hygiene — ⬜ Open (6.6 done, 6.1 partial)
+## Phase 6 — Configuration, tooling, hygiene — ◐ Partial (6.6 and 6.10 done; 6.1 partial)
 
 | # | Change | File | Status |
 |---|---|---|---|
@@ -361,7 +361,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
 | 6.7 | Set `mode` explicitly (currently warns and silently falls back to `production`, hiding stack traces in a dev-oriented script). | `webpack.config.js` | ⬜ Open |
 | 6.8 | Stop hardcoding `/usr/bin/google-chrome`; separate build from launch so CI can build. | `build-and-run.sh` | ◐ `./cli build` (PR #28) separates build from launch; the hardcoded Chrome path remains in `build-and-run.sh` |
 | 6.9 | `.gitignore` lists `**.js`, `**.js.map`, `**.d.ts` but `dist/main.js.map` and `dist/src/*.d.ts` are already tracked, so the rules do nothing. Either `git rm --cached` the build output or drop the rules and commit deliberately. | `.gitignore` | ➖ Resolved — no build output is tracked any more (`dist/` holds only `index.html` and `stylez.css`); the rules are inert but harmless |
-| 6.10 | Add `devicePixelRatio` scaling so the canvas is not blurry on HiDPI displays. | `UIController.initialize` | ⬜ Open |
+| 6.10 | Add `devicePixelRatio` scaling so the canvas is not blurry on HiDPI displays. | `UIController.initialize` | ✅ Done (PR #34) |
 
 ---
 
@@ -378,7 +378,7 @@ What remains is:
 3. **PR — 5.4 button features.** Middle-drag pans the graph; right-click opens a
    context menu (reset / export / clear selection). **Landed as #33.**
 4. **PR — 5.2 + 6.10.** Adjacency list for the spring pass and HiDPI scaling
-   (both touch rendering/`iterate`, so they pair naturally).
+   (both touch rendering/`iterate`, so they pair naturally). **Landed as #34.**
 5. **PR — Phase 6 remainder.** Strictness, dependency and script hygiene.
 
 ## Open decisions for the maintainer
