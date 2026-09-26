@@ -19,10 +19,10 @@ const EDGE_INCIDENT = K.colours.edgeIncident;
  */
 function build() {
     const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0 }, "a");
-    const b = new Tag({ x: 50, y: 0 }, "b");
-    const c = new Tag({ x: 50, y: 50 }, "c");
-    const d = new Tag({ x: 0, y: 50 }, "d");
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
+    const b = new Tag({ x: 50, y: 0, z: 0 }, "b");
+    const c = new Tag({ x: 50, y: 50, z: 0 }, "c");
+    const d = new Tag({ x: 0, y: 50, z: 0 }, "d");
     [a, b, c, d].forEach(t => graph.addNode(t));
     graph.addEdge(a, b);
     graph.addEdge(b, c);

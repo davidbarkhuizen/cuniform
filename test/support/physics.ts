@@ -14,8 +14,8 @@ export const CANVAS_H = 600;
  */
 export function pairAt(r: number) {
     const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0 }, "a");
-    const b = new Tag({ x: r, y: 0 }, "b");
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
+    const b = new Tag({ x: r, y: 0, z: 0 }, "b");
     graph.addNode(a);
     graph.addNode(b);
     graph.addEdge(a, b);
@@ -23,9 +23,9 @@ export function pairAt(r: number) {
     return { graph, a, b, fdg: new ForceDirectedGraph(graph) };
 }
 
-/** A tag at (x, y), defaulting to the origin. */
+/** A tag at (x, y, 0), defaulting to the origin. */
 export function tag(label: string, x = 0, y = 0): Tag {
-    return new Tag({ x, y }, label);
+    return new Tag({ x, y, z: 0 }, label);
 }
 
 /**
@@ -44,13 +44,20 @@ export function maxTravelPerStep(
     const out: number[] = [];
 
     for (let t = 0; t < ticks; t++) {
-        const before = graph.vertices.map(v => ({ x: v.position.x, y: v.position.y }));
+        const before = graph.vertices.map(v => ({ x: v.position.x, y: v.position.y, z: v.position.z }));
 
         fdg.step(CANVAS_W, CANVAS_H, isPinned);
 
         let max = 0;
         graph.vertices.forEach((v, i) => {
-            max = Math.max(max, Math.hypot(v.position.x - before[i].x, v.position.y - before[i].y));
+            max = Math.max(
+                max,
+                Math.hypot(
+                    v.position.x - before[i].x,
+                    v.position.y - before[i].y,
+                    v.position.z - before[i].z
+                )
+            );
         });
         out.push(max);
     }
@@ -75,7 +82,7 @@ export function maxAbsPosition(
         fdg.step(CANVAS_W, CANVAS_H, isPinned);
 
         for (const v of graph.vertices)
-            max = Math.max(max, Math.hypot(v.position.x, v.position.y));
+            max = Math.max(max, Math.hypot(v.position.x, v.position.y, v.position.z));
     }
 
     return max;

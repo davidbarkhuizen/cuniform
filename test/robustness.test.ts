@@ -79,8 +79,8 @@ test("dragging a node onto another cannot fling the free node across the world",
     const onePixel = K.space.W_0 / 700;
 
     const graph = new Graph();
-    const pinned = new Tag({ x: 0, y: 0 }, "pinned");
-    const free = new Tag({ x: onePixel, y: 0 }, "free");
+    const pinned = new Tag({ x: 0, y: 0, z: 0 }, "pinned");
+    const free = new Tag({ x: onePixel, y: 0, z: 0 }, "free");
     graph.addNode(pinned);
     graph.addNode(free);
     graph.addEdge(pinned, free);
@@ -88,16 +88,20 @@ test("dragging a node onto another cannot fling the free node across the world",
     const fdg = new ForceDirectedGraph(graph);
 
     // The unbounded law would move the free node ~1340 units in the first step.
-    const before = { x: free.position.x, y: free.position.y };
-    pinned.position = { x: 0, y: 0 };
+    const before = { x: free.position.x, y: free.position.y, z: free.position.z };
+    pinned.position = { x: 0, y: 0, z: 0 };
     fdg.step(CANVAS_W, CANVAS_H, tag => tag === pinned);
-    const firstStep = Math.hypot(free.position.x - before.x, free.position.y - before.y);
+    const firstStep = Math.hypot(
+        free.position.x - before.x,
+        free.position.y - before.y,
+        free.position.z - before.z
+    );
 
     assert.ok(firstStep < 20, `first step moved ${firstStep} units, expected a bounded nudge`);
 
     // Keep the pointer parked on top of the node and let the system relax. A
     // pinned node's position is never integrated, so parking it once is enough.
-    pinned.position = { x: 0, y: 0 };
+    pinned.position = { x: 0, y: 0, z: 0 };
     const maxDistanceFromOrigin = maxAbsPosition(fdg, graph, 3000, tag => tag === pinned);
 
     assert.ok(
@@ -105,13 +109,17 @@ test("dragging a node onto another cannot fling the free node across the world",
         `free node wandered ${maxDistanceFromOrigin} units from the pinned node`
     );
     assert.ok(
-        Number.isFinite(free.position.x) && Number.isFinite(free.position.y),
+        Number.isFinite(free.position.x) && Number.isFinite(free.position.y) && Number.isFinite(free.position.z),
         "the free node's position must stay finite"
     );
 
     // The guard must not change where the pair ends up: the same reference
     // equilibrium as an undisturbed single edge.
-    const settled = Math.hypot(free.position.x - pinned.position.x, free.position.y - pinned.position.y);
+    const settled = Math.hypot(
+        free.position.x - pinned.position.x,
+        free.position.y - pinned.position.y,
+        free.position.z - pinned.position.z
+    );
     assertClose(settled, 65.46, 1.0, `settled at r=${settled}, expected ~65.46`);
 });
 
@@ -120,7 +128,7 @@ test("a cluster of near-coincident nodes stays finite and bounded", () => {
     const tags: Tag[] = [];
 
     for (let i = 0; i < 5; i++) {
-        const tag = new Tag({ x: i * 0.05, y: 0 }, `n${i}`);
+        const tag = new Tag({ x: i * 0.05, y: 0, z: 0 }, `n${i}`);
         graph.addNode(tag);
         tags.push(tag);
     }
@@ -132,7 +140,11 @@ test("a cluster of near-coincident nodes stays finite and bounded", () => {
     const maxAbs = maxAbsPosition(fdg, graph, 3000);
 
     assert.ok(
-        tags.every(v => Number.isFinite(v.position.x) && Number.isFinite(v.position.y)),
+        tags.every(v =>
+            Number.isFinite(v.position.x) &&
+            Number.isFinite(v.position.y) &&
+            Number.isFinite(v.position.z)
+        ),
         "every position must stay finite"
     );
     assert.ok(maxAbs < 500, `a near-coincident cluster reached ${maxAbs} units`);

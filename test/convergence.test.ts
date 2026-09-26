@@ -13,8 +13,8 @@ const ANALYTIC_EQUILIBRIUM = 65.46;
 
 test("a single edge settles at the analytic equilibrium distance", () => {
     const graph = new Graph();
-    const a = new Tag({ x: -200, y: 0 }, "a");
-    const b = new Tag({ x: 200, y: 0 }, "b");
+    const a = new Tag({ x: -200, y: 0, z: 0 }, "a");
+    const b = new Tag({ x: 200, y: 0, z: 0 }, "b");
     graph.addNode(a);
     graph.addNode(b);
     graph.addEdge(a, b);
@@ -22,15 +22,15 @@ test("a single edge settles at the analytic equilibrium distance", () => {
     const fdg = new ForceDirectedGraph(graph);
     maxTravelPerStep(fdg, graph, 4000);
 
-    const r = Math.hypot(b.position.x - a.position.x, b.position.y - a.position.y);
+    const r = Math.hypot(b.position.x - a.position.x, b.position.y - a.position.y, b.position.z - a.position.z);
 
     assertClose(r, ANALYTIC_EQUILIBRIUM, 1.0, `settled at r=${r}, expected ~${ANALYTIC_EQUILIBRIUM}`);
 });
 
 test("at equilibrium the spring and repulsion forces balance", () => {
     const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0 }, "a");
-    const b = new Tag({ x: ANALYTIC_EQUILIBRIUM, y: 0 }, "b");
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
+    const b = new Tag({ x: ANALYTIC_EQUILIBRIUM, y: 0, z: 0 }, "b");
     graph.addNode(a);
     graph.addNode(b);
     graph.addEdge(a, b);
@@ -60,7 +60,11 @@ test("a 10-node graph converges instead of oscillating", () => {
 
     assert.ok(late < 1.0, `mean max per-step travel over the final 100 ticks was ${late}`);
     assert.ok(
-        graph.vertices.every(v => Number.isFinite(v.position.x) && Number.isFinite(v.position.y)),
+        graph.vertices.every(v =>
+            Number.isFinite(v.position.x) &&
+            Number.isFinite(v.position.y) &&
+            Number.isFinite(v.position.z)
+        ),
         "positions must stay finite"
     );
 });

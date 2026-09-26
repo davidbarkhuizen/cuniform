@@ -142,13 +142,13 @@ test("pointer mapping is unaffected by devicePixelRatio", () => {
         // CSS point (450, 300) maps to model (60, 60).
         controller.onMouseMove(mouseEvent({ clientX: 450, clientY: 300 }));
 
-        assert.deepEqual({ ...node.position }, { x: 60, y: 60 });
+        assert.deepEqual({ ...node.position }, { x: 60, y: 60, z: 0 });
     });
 });
 
 test("render clears the whole backing store in device space", () => {
     const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0 }, "a");
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
     graph.addNode(a);
 
     const context = new FakeContext2D();

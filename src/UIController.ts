@@ -4,6 +4,7 @@ import { Graph } from "./Graph";
 import { GraphFactory } from "./GraphFactory";
 import { K } from "./K";
 import { point, Point2D } from "./Point2D";
+import { point3 } from "./Point3D";
 import { render } from "./Renderer";
 import { handleNodeSelectionAttempt } from "./Selection";
 import { State } from "./State";
@@ -116,13 +117,15 @@ export class UIController {
 
 		if (this.state.b0Down) {
 
-			// Left-drag: every selected node follows the cursor exactly.
+			// Left-drag: every selected node follows the cursor exactly. The
+			// drag plane is still 2D here, so the node's z is carried through
+			// unchanged.
 			const mxy = this.getMousePos(this.canvas, event);
 			const phasePos = Viewport.forCanvas(this.width, this.height).toModel(mxy);
 
 			for (const vertex of this.solver.graph.vertices) {
 				if (vertex.isSelected)
-					vertex.position = point(phasePos.x, phasePos.y);
+					vertex.position = point3(phasePos.x, phasePos.y, vertex.position.z);
 			}
 		}
 		else if (this.state.b1Down) {

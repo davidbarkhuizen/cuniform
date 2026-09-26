@@ -28,6 +28,7 @@ test("repulsion follows k*q^2 / r^1.9 and pushes away from the other node", () =
         );
         assert.ok(f.x < 0, `r=${r}: a sits at the origin so it must be pushed toward -x`);
         assertClose(f.y, 0, 1e-12, `r=${r}: force should be purely radial`);
+        assertClose(f.z, 0, 1e-12, `r=${r}: an in-plane pair must exert no z force`);
     }
 });
 
@@ -75,7 +76,7 @@ test("net force is the sum of the two force kernels", () => {
     const e = fdg.netElectrostaticForceAtNode(a);
     const s = fdg.netSpringForceAtNode(a);
 
-    assert.deepEqual(fdg.netForceAtNode(a), { x: e.x + s.x, y: e.y + s.y });
+    assert.deepEqual(fdg.netForceAtNode(a), { x: e.x + s.x, y: e.y + s.y, z: e.z + s.z });
 });
 
 test("netForceAtNode is meaningful before the first step()", () => {
@@ -109,9 +110,9 @@ test("coincident pairs separate deterministically, and the other edges still add
     // `a` and `b` sit exactly on top of each other (r === 0), joined by two
     // duplicate edges and a self-loop at `a`; only the a-c edge has length.
     const graph = new Graph();
-    const a = new Tag({ x: 5, y: 5 }, "a");
-    const b = new Tag({ x: 5, y: 5 }, "b");
-    const c = new Tag({ x: 15, y: 5 }, "c");
+    const a = new Tag({ x: 5, y: 5, z: 0 }, "a");
+    const b = new Tag({ x: 5, y: 5, z: 0 }, "b");
+    const c = new Tag({ x: 15, y: 5, z: 0 }, "c");
     [a, b, c].forEach(t => graph.addNode(t));
     graph.addEdge(a, b);
     graph.addEdge(a, b);
@@ -153,8 +154,8 @@ test("coincident pairs separate deterministically, and the other edges still add
 
 test("exactly coincident unconnected nodes separate instead of staying a fixed point", () => {
     const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0 }, "a");
-    const b = new Tag({ x: 0, y: 0 }, "b");
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
+    const b = new Tag({ x: 0, y: 0, z: 0 }, "b");
     graph.addNode(a);
     graph.addNode(b);
 
@@ -174,6 +175,8 @@ test("exactly coincident unconnected nodes separate instead of staying a fixed p
     assertClose(a.position.x, -b.position.x, 1e-12, "the pair must separate symmetrically");
     assertClose(a.position.y, 0, 1e-12, "the tie-break direction must be radial");
     assertClose(b.position.y, 0, 1e-12, "the tie-break direction must be radial");
+    assertClose(a.position.z, 0, 1e-12, "the tie-break direction must stay on the x axis");
+    assertClose(b.position.z, 0, 1e-12, "the tie-break direction must stay on the x axis");
 });
 
 test("paired repulsion equals the per-node reference exactly", () => {
@@ -184,9 +187,9 @@ test("paired repulsion equals the per-node reference exactly", () => {
     const fixtures: Graph[] = [newGraph(8, 3)];
 
     const coincident = new Graph();
-    const a = new Tag({ x: 5, y: 5 }, "a");
-    const b = new Tag({ x: 5, y: 5 }, "b");
-    const c = new Tag({ x: 15, y: 5 }, "c");
+    const a = new Tag({ x: 5, y: 5, z: 0 }, "a");
+    const b = new Tag({ x: 5, y: 5, z: 0 }, "b");
+    const c = new Tag({ x: 15, y: 5, z: 0 }, "c");
     [a, b, c].forEach(t => coincident.addNode(t));
     coincident.addEdge(a, b);
     coincident.addEdge(a, b);
@@ -195,12 +198,12 @@ test("paired repulsion equals the per-node reference exactly", () => {
     fixtures.push(coincident);
 
     const lone = new Graph();
-    lone.addNode(new Tag({ x: 1, y: 2 }, "lone"));
+    lone.addNode(new Tag({ x: 1, y: 2, z: 3 }, "lone"));
     fixtures.push(lone);
 
     for (const graph of fixtures) {
         const fdg = new ForceDirectedGraph(graph);
-        const paired = graph.vertices.map(() => ({ x: 0, y: 0 }));
+        const paired = graph.vertices.map(() => ({ x: 0, y: 0, z: 0 }));
 
         fdg.accumulateRepulsion(paired);
 
@@ -218,7 +221,7 @@ test("paired repulsion equals the per-node reference exactly", () => {
 test("one step evaluates repulsion once per unordered pair", () => {
     const graph = new Graph();
     for (let i = 0; i < 5; i++)
-        graph.addNode(new Tag({ x: i * 10, y: 0 }, `n${i}`));
+        graph.addNode(new Tag({ x: i * 10, y: 0, z: 0 }, `n${i}`));
 
     const fdg = new ForceDirectedGraph(graph);
 
@@ -240,4 +243,78 @@ test("one step evaluates repulsion once per unordered pair", () => {
     // repulsion: C(5,2) = 10 for the paired pass, where the old per-node scan
     // made 20.
     assert.equal(calls, 10, `expected one evaluation per unordered pair, got ${calls}`);
+});
+
+test("an off-plane pair obeys the same radial repulsion law in z", () => {
+    // Two unconnected nodes stacked along z: the radial law is a function of
+    // the scalar radius only, so the force must read exactly as it does in 2D
+    // with r replaced by the 3D distance.
+    const graph = new Graph();
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
+    const b = new Tag({ x: 0, y: 0, z: 40 }, "b");
+    graph.addNode(a);
+    graph.addNode(b);
+
+    const fdg = new ForceDirectedGraph(graph);
+    const f = fdg.netElectrostaticForceAtNode(a);
+
+    const expected = 10000 / Math.pow(40, K.physics.repulsionExponent);
+
+    assertClose(Math.abs(f.z), expected, 1e-9, `z force was ${f.z}, expected ${expected}`);
+    assert.ok(f.z < 0, "a at z=0 is pushed toward -z by b at z=40");
+    assertClose(f.x, 0, 1e-12, "an on-axis pair must have no lateral force");
+    assertClose(f.y, 0, 1e-12, "an on-axis pair must have no lateral force");
+});
+
+test("a z-separated spring feels the unmodified radial law", () => {
+    const graph = new Graph();
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
+    const b = new Tag({ x: 0, y: 0, z: K.physics.equilibriumDisplacement + 15 }, "b");
+    graph.addNode(a);
+    graph.addNode(b);
+    graph.addEdge(a, b);
+
+    const fdg = new ForceDirectedGraph(graph);
+    const f = fdg.netSpringForceAtNode(a);
+
+    // Stretched along z only: k * 15 pulls a toward its neighbour at +z.
+    assertClose(f.z, K.physics.springConstant * 15, 1e-9, `z spring was ${f.z}`);
+    assertClose(f.x, 0, 1e-12);
+    assertClose(f.y, 0, 1e-12);
+});
+
+test("a pair coincident in (x, y) but separated in z is an ordinary radial case", () => {
+    // "Coincident" now means all three deltas are zero; a z-only separation
+    // must not take the (-1, 0, 0) tie-break branch.
+    const graph = new Graph();
+    const a = new Tag({ x: 5, y: 5, z: 0 }, "a");
+    const b = new Tag({ x: 5, y: 5, z: 7 }, "b");
+    graph.addNode(a);
+    graph.addNode(b);
+
+    const fdg = new ForceDirectedGraph(graph);
+    const f = fdg.netElectrostaticForceAtNode(a);
+
+    assertClose(f.x, 0, 1e-12, "the z-only case must stay on the z axis");
+    assertClose(f.y, 0, 1e-12, "the z-only case must stay on the z axis");
+    assert.ok(f.z < 0, "a is pushed toward -z");
+});
+
+test("z integrates exactly like x and y", () => {
+    const graph = new Graph();
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
+    graph.addNode(a);
+
+    const fdg = new ForceDirectedGraph(graph);
+
+    const v = fdg.velocityAtTag(a, { x: 3, y: -4, z: 12 });
+    assertClose(v.x, 3 * K.physics.timeStep, 1e-12, `vx was ${v.x}`);
+    assertClose(v.y, -4 * K.physics.timeStep, 1e-12, `vy was ${v.y}`);
+    assertClose(v.z, 12 * K.physics.timeStep, 1e-12, `vz was ${v.z}`);
+
+    a.velocity = v;
+    fdg.step(CANVAS_W, CANVAS_H);
+
+    // A lone node has no force, so this step is the friction decay only.
+    assertClose(a.position.z, 12 * K.physics.timeStep * K.physics.friction, 1e-12, `z was ${a.position.z}`);
 });

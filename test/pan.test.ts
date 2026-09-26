@@ -35,8 +35,8 @@ function withFixture<T>(fn: (ui: PanFixture) => T): T {
     canvas.height = 600;
 
     const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0 }, "a");
-    const b = new Tag({ x: 100, y: 100 }, "b");
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
+    const b = new Tag({ x: 100, y: 100, z: 0 }, "b");
     graph.addNode(a);
     graph.addNode(b);
     graph.addEdge(a, b);
@@ -83,8 +83,8 @@ test("the first middle move only anchors the pan and moves nothing", () => {
 
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 400, clientY: 300 }));
 
-        assert.deepEqual({ ...a.position }, { x: 0, y: 0 });
-        assert.deepEqual({ ...b.position }, { x: 100, y: 100 });
+        assert.deepEqual({ ...a.position }, { x: 0, y: 0, z: 0 });
+        assert.deepEqual({ ...b.position }, { x: 100, y: 100, z: 0 });
         assert.deepEqual({ ...controller.state.lastMiddleDragPos }, { x: 400, y: 300 });
     });
 });
@@ -94,7 +94,7 @@ test("releasing the middle button clears the pan anchor and stops panning", () =
         controller.onMouseDown(mouseEvent({ button: 1, clientX: 100, clientY: 100 }));
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 150, clientY: 120 }));
 
-        const paused = { x: a.position.x, y: a.position.y };
+        const paused = { x: a.position.x, y: a.position.y, z: a.position.z };
 
         controller.onMouseUp(mouseEvent({ button: 1, clientX: 150, clientY: 120 }));
 
@@ -126,8 +126,8 @@ test("left-drag still moves only the selected node to the cursor", () => {
 
         controller.onMouseMove(mouseEvent({ button: 0, clientX: 400, clientY: 300 }));
 
-        assert.deepEqual({ ...a.position }, { x: 100, y: 0 });
-        assert.deepEqual({ ...b.position }, { x: 100, y: 100 });
+        assert.deepEqual({ ...a.position }, { x: 100, y: 0, z: 0 });
+        assert.deepEqual({ ...b.position }, { x: 100, y: 100, z: 0 });
     });
 });
 
@@ -149,7 +149,7 @@ test("pointer mapping uses the canvas rect, so an offset canvas stays accurate",
         // on the 600x600 fixture. The scroll offsets must not be added.
         controller.onMouseMove(mouseEvent({ clientX: 250, clientY: 150 }));
 
-        assert.deepEqual({ ...a.position }, { x: -100, y: 180 });
+        assert.deepEqual({ ...a.position }, { x: -100, y: 180, z: 0 });
     });
 });
 
@@ -162,7 +162,7 @@ test("a middle move while the left button is up does not follow the node-drag pa
         controller.onMouseMove(mouseEvent({ button: 0, clientX: 400, clientY: 300 }));
 
         // b1Down pans from the anchor; the selected node is not teleported.
-        assert.deepEqual({ ...a.position }, { x: 0, y: 0 });
+        assert.deepEqual({ ...a.position }, { x: 0, y: 0, z: 0 });
         assert.deepEqual({ ...controller.state.lastMiddleDragPos }, { x: 400, y: 300 });
     });
 });
@@ -188,7 +188,7 @@ test("handlers run on a controller that was never initialized", () => {
 
     withFakeDom(elements, dom => {
         const graph = new Graph();
-        graph.addNode(new Tag({ x: 0, y: 0 }, "a"));
+        graph.addNode(new Tag({ x: 0, y: 0, z: 0 }, "a"));
 
         const controller = newUIController(elements, { width: 600, height: 600, graph });
 

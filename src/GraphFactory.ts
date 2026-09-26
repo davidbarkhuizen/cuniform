@@ -1,6 +1,6 @@
 import { Graph } from "./Graph";
 import { K } from "./K";
-import { point } from "./Point2D";
+import { point3 } from "./Point3D";
 import { Tag } from "./Tag";
 
 export class GraphFactory {
@@ -19,13 +19,17 @@ export class GraphFactory {
 				const x = (-K.space.W_0 / 2.0) + (Math.random() * K.space.W_0);
 				const y = (-K.space.H_0 / 2.0) + (Math.random() * K.space.H_0);
 
+				// z stays on the 2D plane until 3D generation is switched on
+				// deliberately; the shipped demo is unchanged until then.
+				const z = 0;
+
 				// Compare by value: indexOf on a fresh object literal never matches.
 				const key = `${x},${y}`;
 				if (used.has(key))
 					continue;
 
 				used.add(key);
-				return point(x, y);
+				return point3(x, y, z);
 			}
 
 			throw new Error("constructXYFactory: could not generate a unique position");

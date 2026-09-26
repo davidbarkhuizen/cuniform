@@ -58,7 +58,7 @@ test("toModel is the exact inverse of toCanvas, at any canvas aspect ratio", () 
 
 test("step() caches translatedPosition through the same Viewport mapping", () => {
     const graph = new Graph();
-    const a = new Tag({ x: 100, y: -40 }, "a");
+    const a = new Tag({ x: 100, y: -40, z: 0 }, "a");
     graph.addNode(a);
 
     const fdg = new ForceDirectedGraph(graph);
@@ -82,11 +82,11 @@ test("the retired mapping wrappers and test-only solver methods stay retired", (
 
 test("nothing clamps a node to the model square", () => {
     const graph = new Graph();
-    const far = new Tag({ x: 5000, y: -5000 }, "far");
+    const far = new Tag({ x: 5000, y: -5000, z: 0 }, "far");
     graph.addNode(far);
 
     const solver = new ForceDirectedGraph(graph);
     solver.step(800, 600);
 
-    assert.deepEqual(far.position, { x: 5000, y: -5000 }, "an isolated node must be free to drift");
+    assert.deepEqual(far.position, { x: 5000, y: -5000, z: 0 }, "an isolated node must be free to drift");
 });
