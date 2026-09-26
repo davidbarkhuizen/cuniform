@@ -55,8 +55,7 @@ test("position advances by the velocity on each unpinned step", () => {
     a.velocity = { x: 3, y: -4, z: 0 };
     fdg.step(CANVAS_W, CANVAS_H);
 
-    // velocity is overwritten by the integrator first (a lone node has no
-    // force, so this is 0.9 * v), then position advances by the new velocity.
+    // Velocity is overwritten first (0.9 * v for a lone node), then position advances by it.
     assertClose(a.position.x, 3 * K.physics.friction, 1e-9);
     assertClose(a.position.y, -4 * K.physics.friction, 1e-9);
 });

@@ -1,32 +1,16 @@
-/**
- * Dragging the floating overlay panel needs to leave the controls inside it
- * alone. A press is owned by the innermost interactive element under it, so the
- * check walks the ancestor chain from the event target.
- */
+/** Structural element shape, so the ancestor walk needs no DOM dependency. */
 interface PressTarget {
     tagName?: string;
     parentElement?: PressTarget | null;
 }
 
-/**
- * Elements that own their own press. A pointerdown on one of these must not
- * start a panel drag.
- *
- * The reason is pointer capture: `onPointerDown` captures the pointer so the
- * drag keeps tracking outside the panel, and a captured pointer retargets the
- * compatibility `click` to the capturing element. Without this guard, every
- * control inside the panel - the export and reset links, the camera console
- * buttons - would have its click swallowed by the panel.
- */
+// Elements that own their own press. Pointer capture retargets the compatibility
+// `click` to the panel, so without this guard a control's click would be swallowed.
 const INTERACTIVE_TAGS = new Set([
     'A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL', 'SUMMARY',
 ]);
 
-/**
- * Drags the floating overlay panel. Pointer events are used rather than HTML5
- * drag-and-drop so the same code handles mouse, touch and pen, and so the panel
- * can track the cursor continuously instead of jumping on release.
- */
+/** Drags the floating overlay panel; pointer events cover mouse, touch and pen continuously. */
 export class DragController {
 
 	public startPointerX: number = 0;
@@ -40,16 +24,13 @@ export class DragController {
 
     public element: HTMLElement;
 
-	/** The pointer currently dragging, or null when the panel is idle. */
 	private activePointerId: number | null = null;
 
 	constructor(element: HTMLElement) {
 
 		this.element = element
 
-		// touch-action: none stops the browser scrolling the page instead of
-		// dragging the panel; user-select: none stops a mouse drag selecting
-		// the labels as it moves.
+		// touch-action: none stops page scrolling during a drag; user-select: none stops label selection.
 		this.element.style.touchAction = 'none';
 		this.element.style.userSelect = 'none';
 
@@ -61,13 +42,11 @@ export class DragController {
 
 	onPointerDown = (event: PointerEvent) => {
 
-		// Primary button, touch or pen only: a right- or middle-click on the
-		// panel must not move it.
+		// A right- or middle-click must not move the panel.
 		if (event.button !== 0)
 			return;
 
-		// A press that starts on a control belongs to that control, not to the
-		// panel. Capturing it here would retarget the control's click away.
+		// A press starting on a control belongs to that control, not the panel.
 		if (this.ownsInteractivePress(event.target))
 			return;
 
@@ -98,8 +77,7 @@ export class DragController {
 		this.dragX = event.clientX - this.startPointerX;
 		this.dragY = event.clientY - this.startPointerY;
 
-		// Track the pointer while the drag is live; writing only on release
-		// made the panel snap to its final position at the end.
+		// Apply each move so the panel tracks the pointer instead of jumping on release.
 		this.applyPosition();
 	}
 
@@ -117,12 +95,8 @@ export class DragController {
 			this.element.releasePointerCapture(event.pointerId);
 	}
 
-	/**
-	 * True when the press started on an interactive element inside the panel.
-	 *
-	 * Walks the ancestor chain rather than calling closest(), so the check works
-	 * on the dependency-free test DOM as well as in the browser.
-	 */
+	// Walks the ancestor chain rather than closest(), so the check works on the
+	// dependency-free test DOM as well as the browser.
 	private ownsInteractivePress(target: EventTarget | null): boolean {
 
 		const panel = this.element as unknown as PressTarget | null;
@@ -142,7 +116,6 @@ export class DragController {
 		return false;
 	}
 
-	/** Write the accumulated delta onto the panel, in px. */
 	private applyPosition() {
 		this.element.style.top = `${this.dragY + this.startTop}px`;
 		this.element.style.left = `${this.dragX + this.startLeft}px`;

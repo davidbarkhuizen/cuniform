@@ -87,9 +87,8 @@ test("net force is the sum of the two force kernels", () => {
 });
 
 test("netForceAtNode is meaningful before the first step()", () => {
-    // The old implementation read two caches that only step() wrote, so a
-    // pre-step call silently returned {0, 0} - which is exactly how
-    // convergence.test.ts's balance assertion went vacuous.
+    // Pre-step calls used to read step()-only caches and return {0, 0}, making
+    // convergence.test.ts's balance assertion vacuous.
     const { a, fdg } = pairAt(100);
 
     const e = fdg.netElectrostaticForceAtNode(a);
@@ -102,7 +101,7 @@ test("netForceAtNode is meaningful before the first step()", () => {
 });
 
 test("step() writes no force data onto a Tag", () => {
-    // Force is now step-local, so a Tag can never hold a half-written tick.
+    // Force is step-local, so a Tag never holds a half-written tick.
     const { graph, fdg } = pairAt(100);
 
     fdg.step(CANVAS_W, CANVAS_H);
@@ -114,8 +113,6 @@ test("step() writes no force data onto a Tag", () => {
 });
 
 test("coincident pairs separate deterministically, and the other edges still add up", () => {
-    // `a` and `b` sit exactly on top of each other (r === 0), joined by two
-    // duplicate edges and a self-loop at `a`; only the a-c edge has length.
     const graph = new Graph();
     const a = new Tag({ x: 5, y: 5, z: 0 }, "a");
     const b = new Tag({ x: 5, y: 5, z: 0 }, "b");
@@ -128,17 +125,13 @@ test("coincident pairs separate deterministically, and the other edges still add
 
     const fdg = new ForceDirectedGraph(graph);
 
-    // Repulsion: the coincident b is pushed away along the deterministic -x
-    // direction at the clamped magnitude, and c pushes a to -x at the exact
-    // law. The two contributions simply add.
     const clamped = REPULSION_CONSTANT / Math.pow(K.physics.minimumInteractionRadius, K.physics.repulsionExponent);
     const repel = fdg.netElectrostaticForceAtNode(a);
     assertClose(repel.x, -clamped - REPULSION_CONSTANT / Math.pow(10, 1.9), 1e-9, `repulsion was ${repel.x}`);
     assertClose(repel.y, 0, 1e-12, "repulsion must stay radial");
 
-    // Springs: the duplicate zero-length edges and the self-loop are still
-    // skipped (addRadial owns the r === 0 radial guard), leaving only the
-    // compressed 10-unit a-c spring (k * (10 - l) = -2).
+    // Duplicate zero-length edges and the self-loop are skipped by addRadial's
+    // r === 0 guard.
     const spring = fdg.netSpringForceAtNode(a);
     assertClose(
         spring.x,
@@ -148,13 +141,11 @@ test("coincident pairs separate deterministically, and the other edges still add
     );
     assertClose(spring.y, 0, 1e-12, "the spring must stay radial");
 
-    // Nothing divided by zero, on either kernel.
     assert.ok(
         [repel.x, repel.y, spring.x, spring.y].every(Number.isFinite),
         `non-finite force from a coincident pair: ${repel.x},${repel.y},${spring.x},${spring.y}`
     );
 
-    // Equal and opposite: b's repulsion from a mirrors a's.
     const repelB = fdg.netElectrostaticForceAtNode(b);
     assertClose(repelB.x, clamped - REPULSION_CONSTANT / Math.pow(10, 1.9), 1e-9, `b repulsion was ${repelB.x}`);
 });
@@ -174,7 +165,6 @@ test("exactly coincident unconnected nodes separate instead of staying a fixed p
     assert.ok(separation > 0, "a coincident pair must not remain coincident");
     assert.ok(Number.isFinite(separation), "the separation must stay finite");
 
-    // Newton's third law holds: the earlier node goes -x, the later one +x.
     assert.ok(
         a.position.x < 0 && b.position.x > 0,
         `expected a < 0 < b, got ${a.position.x} and ${b.position.x}`
@@ -187,10 +177,8 @@ test("exactly coincident unconnected nodes separate instead of staying a fixed p
 });
 
 test("paired repulsion equals the per-node reference exactly", () => {
-    // The fixtures most likely to expose a divergence: a random graph, the
-    // duplicate-edge / self-loop / coincident fixture, and a lone node. The
-    // accumulation order is argued bitwise-identical to netElectrostaticForceAtNode,
-    // so a difference of exactly 0 is required, not a tolerance.
+    // The paired accumulation order is bitwise-identical to the per-node
+    // reference, so the difference must be exactly 0, not within a tolerance.
     const fixtures: Graph[] = [newGraph(8, 3)];
 
     const coincident = new Graph();
@@ -217,8 +205,7 @@ test("paired repulsion equals the per-node reference exactly", () => {
         graph.vertices.forEach((tag, i) => {
             const reference = fdg.netElectrostaticForceAtNode(tag);
 
-            // eps = 0 takes assertClose's absolute branch, so the difference
-            // must be zero while -0 vs 0 is still tolerated.
+            // eps = 0 takes assertClose's absolute branch: exactly 0, but -0 vs 0 still tolerated.
             assertClose(paired[i].x, reference.x, 0, `${tag.label} x`);
             assertClose(paired[i].y, reference.y, 0, `${tag.label} y`);
         });
@@ -246,16 +233,12 @@ test("one step evaluates repulsion once per unordered pair", () => {
         Math.hypot = realHypot;
     }
 
-    // Five unconnected nodes have no springs, so every hypot call is
-    // repulsion: C(5,2) = 10 for the paired pass, where the old per-node scan
-    // made 20.
+    // No springs here, so every hypot call is repulsion: C(5,2) = 10, where the
+    // old per-node scan made 20.
     assert.equal(calls, 10, `expected one evaluation per unordered pair, got ${calls}`);
 });
 
 test("an off-plane pair obeys the same radial repulsion law in z", () => {
-    // Two unconnected nodes stacked along z: the radial law is a function of
-    // the scalar radius only, so the force must read exactly as it does in 2D
-    // with r replaced by the 3D distance.
     const graph = new Graph();
     const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
     const b = new Tag({ x: 0, y: 0, z: 40 }, "b");
@@ -284,15 +267,13 @@ test("a z-separated spring feels the unmodified radial law", () => {
     const fdg = new ForceDirectedGraph(graph);
     const f = fdg.netSpringForceAtNode(a);
 
-    // Stretched along z only: k * 15 pulls a toward its neighbour at +z.
     assertClose(f.z, K.physics.springConstant * 15, 1e-9, `z spring was ${f.z}`);
     assertClose(f.x, 0, 1e-12);
     assertClose(f.y, 0, 1e-12);
 });
 
 test("a pair coincident in (x, y) but separated in z is an ordinary radial case", () => {
-    // "Coincident" now means all three deltas are zero; a z-only separation
-    // must not take the (-1, 0, 0) tie-break branch.
+    // Only an all-zero delta takes the (-1, 0, 0) tie-break; a z-only separation must not.
     const graph = new Graph();
     const a = new Tag({ x: 5, y: 5, z: 0 }, "a");
     const b = new Tag({ x: 5, y: 5, z: 7 }, "b");
@@ -322,6 +303,5 @@ test("z integrates exactly like x and y", () => {
     a.velocity = v;
     fdg.step(CANVAS_W, CANVAS_H);
 
-    // A lone node has no force, so this step is the friction decay only.
     assertClose(a.position.z, 12 * K.physics.timeStep * K.physics.friction, 1e-12, `z was ${a.position.z}`);
 });

@@ -14,18 +14,9 @@ export class ForceDirectedGraph {
         this.graph = graph;
     }
 
-	/**
-	 * Superpose one radial force onto the running (Fx, Fy, Fz) accumulator: a
-	 * magnitude `m` directed along (dx, dy, dz) toward the other endpoint, where
-	 * `r` is `Math.hypot(dx, dy, dz)`.
-	 *
-	 * The r == 0 guard and the unit vector exist here once, so repulsion and
-	 * springs cannot disagree about direction; only the magnitude law and the
-	 * direction's sign convention differ, and those stay at the call sites.
-	 * `r` is passed in rather than recomputed because both callers already need
-	 * it for their magnitude - recomputing it would double the cost of the
-	 * O(N^2) repulsion pass.
-	 */
+	// r == 0 and the unit vector live here once, so repulsion and springs cannot
+	// disagree about direction. `r` is passed in because both callers already
+	// need it, and recomputing it would double the O(N^2) repulsion pass.
 	private static addRadial(
 		Fx: number,
 		Fy: number,
@@ -47,13 +38,8 @@ export class ForceDirectedGraph {
 		);
 	};
 
-	/**
-	 * The repulsion magnitude law, k*q^2 / max(r, minimumInteractionRadius)^exp.
-	 *
-	 * One home, so the per-node reference below and the paired accumulation in
-	 * step() cannot drift apart. It depends only on the scalar radius, so the
-	 * law is unchanged in 3D.
-	 */
+	// Sole home for the magnitude law, so the per-node reference and the paired
+	// accumulation in step() cannot drift apart.
 	private static repulsionMagnitude(r: number): number {
 
 		var r_law = Math.max(r, K.physics.minimumInteractionRadius);
@@ -70,8 +56,8 @@ export class ForceDirectedGraph {
 
 		var F: Point3D = zero3();
 
-		// Only used to break the exactly-coincident tie below; the paired pass
-		// breaks it by index order, so this reference must agree.
+		// Breaks the coincident tie below; the paired pass breaks it by index
+		// order, so this reference must agree.
 		var selfIndex = this.graph.vertices.indexOf(tagA);
 
 		for(let i = 0; i < this.graph.vertices.length; i++) {
@@ -88,18 +74,12 @@ export class ForceDirectedGraph {
 
 			var r = Math.hypot(deltaX, deltaY, deltaZ);
 
-			// The direction uses the true radius so the force stays exactly
-			// radial; only the magnitude is evaluated at a clamped radius, which
-			// bounds the r -> 0 singularity without altering the law for any
-			// r >= minimumInteractionRadius.
+			// Only the magnitude is evaluated at a clamped radius, bounding the
+			// r -> 0 singularity; the direction uses the true radius.
 			var scalar_force = ForceDirectedGraph.repulsionMagnitude(r);
 
-			// Exactly coincident centres have no radial direction, which would
-			// leave an unconnected pair in a permanent fixed point. Break the
-			// tie deterministically: the earlier node in the graph goes -x and
-			// the later one +x, matching accumulateRepulsion(). A pair that
-			// agrees in (x, y) but differs in z is an ordinary radial case and
-			// never reaches this branch.
+			// Coincident centres have no radial direction and would sit in a
+			// permanent fixed point; tie-break by index, matching the paired pass.
 			var coincident = r === 0;
 			var ux = coincident ? (selfIndex < i ? -1 : 1) : deltaX;
 			var uy = coincident ? 0 : deltaY;
@@ -112,16 +92,9 @@ export class ForceDirectedGraph {
 		return F;
 	};
 
-	/**
-	 * Accumulate all-pairs repulsion into `out`, one evaluation per unordered
-	 * pair. The two forces are equal and opposite, so the magnitude and the
-	 * unit vector are computed once and applied with opposite signs.
-	 *
-	 * Newton's third law, and the reason this halves the O(N^2) hot loop.
-	 *
-	 * Internal: public so the equivalence test can call it, but step() is its
-	 * only production caller.
-	 */
+	// One evaluation per unordered pair: the forces are equal and opposite, so
+	// magnitude and unit vector are computed once. Public only so the
+	// equivalence test can call it; step() is the sole production caller.
 	accumulateRepulsion(out: Point3D[]): void {
 
 		const verts = this.graph.vertices;
@@ -134,8 +107,7 @@ export class ForceDirectedGraph {
 
 				const b = verts[j];
 
-				// Away from b for a, away from a for b: the same (dx, dy, dz)
-				// with opposite signs.
+				// Away from b for a, away from a for b: one delta, opposite signs.
 				const deltaX = a.position.x - b.position.x;
 				const deltaY = a.position.y - b.position.y;
 				const deltaZ = a.position.z - b.position.z;
@@ -143,11 +115,9 @@ export class ForceDirectedGraph {
 
 				const magnitude = ForceDirectedGraph.repulsionMagnitude(r);
 
-				// Exactly coincident centres have no radial direction. Break
-				// the tie deterministically (earlier node -x, later node +x) so
-				// the pair separates instead of sitting in a fixed point; the
-				// substituted vector is unit length, so addRadial() needs no
-				// special case.
+				// Coincident centres have no radial direction; break the tie by
+				// index (earlier node -x) so the pair separates instead of
+				// sitting in a fixed point.
 				const coincident = r === 0;
 				const ux = coincident ? -1 : deltaX;
 				const uy = coincident ? 0 : deltaY;
@@ -167,8 +137,8 @@ export class ForceDirectedGraph {
 		var k = K.physics.springConstant;
 		var l = K.physics.equilibriumDisplacement;
 
-		// Walking the node's adjacency list visits each edge once per endpoint,
-		// so the whole per-step spring pass is O(V + E) rather than O(V*E).
+		// The adjacency walk is O(V + E), not O(V*E): each edge is visited once
+		// per endpoint.
 		var incident = this.graph.incidentEdges(tag);
 
 		for(let i = 0; i < incident.length; i++) {
@@ -188,9 +158,8 @@ export class ForceDirectedGraph {
 
 			var r = Math.hypot(deltaX, deltaY, deltaZ);
 
-			// Hooke's law: k*(r - l) is positive when the spring is stretched
-			// (r > l) so the node is pulled toward its neighbour, and negative
-			// when compressed (r < l) so it is pushed away.
+			// Hooke's law: positive when stretched pulls toward the neighbour,
+			// negative when compressed pushes away.
 			var scalar_force = k * (r - l);
 
 			F = ForceDirectedGraph.addRadial(F.x, F.y, F.z, deltaX, deltaY, deltaZ, r, scalar_force);
@@ -199,14 +168,10 @@ export class ForceDirectedGraph {
 		return F;
 	};
 
-	/**
-	 * Net force on `tag`, recomputed from the current positions. Pure: it reads
-	 * no cached field, so it is meaningful before the first step() and can
-	 * never observe a half-written tick.
-	 */
+	// Pure: reads no cached field, so it is meaningful before the first step()
+	// and can never observe a half-written tick.
 	netForceAtNode(tag: Tag): Point3D {
 
-		// net Force = net Electrostatic Force + net Spring Force
 
 		var e = this.netElectrostaticForceAtNode(tag);
 		var s = this.netSpringForceAtNode(tag);
@@ -218,25 +183,13 @@ export class ForceDirectedGraph {
 		return point3(nX, nY, nZ);
 	};
 
-	/**
-	 * Damped, semi-implicit Euler, one axis at a time:
-	 *
-	 *   v_new = v_old * FRICTION + F_net * TIME_STEP
-	 *
-	 * Velocity is updated before position (see step()), which is what makes
-	 * the integration symplectic and keeps stiff springs stable. The integrator
-	 * is per-axis and the laws are radial, so z needs no new stability argument.
-	 *
-	 * `force` defaults to the net force at the node's current position; step()
-	 * passes the force it already computed from the frozen snapshot so the
-	 * O(N^2) kernel is not recomputed.
-	 */
+	// Damped, semi-implicit Euler. Velocity must be updated before position (see
+	// step()) or stiff springs go unstable. `force` defaults to the net force at
+	// the node's current position.
 	velocityAtTag(tag: Tag, force: Point3D = this.netForceAtNode(tag)): Point3D {
 
 		var f = force;
 
-		// RECORD PREVIOUS VELOCITY
-		//
 		var vx_old = tag.velocity.x;
 		var vy_old = tag.velocity.y;
 		var vz_old = tag.velocity.z;
@@ -244,8 +197,6 @@ export class ForceDirectedGraph {
 		var friction = K.physics.friction;
 		var time_step = K.physics.timeStep;
 
-		// NEW V = (OLD V * FRICTION) + (CURRENT NET FORCE * TIME_STEP)
-		//
 		var vx_new = (vx_old * friction) + f.x * time_step;
 		var vy_new = (vy_old * friction) + f.y * time_step;
 		var vz_new = (vz_old * friction) + f.z * time_step;
@@ -253,18 +204,9 @@ export class ForceDirectedGraph {
 		return point3(vx_new, vy_new, vz_new);
 	};
 
-	/**
-	 * Advance the simulation by exactly one step. Physics only: this method
-	 * reads no DOM global and does no drawing, so it can be run headlessly.
-	 *
-	 * `isPinned` reports nodes the user is dragging; a pinned node keeps the
-	 * position written by the pointer handler and its integrated displacement
-	 * is discarded. Drawing is a separate call to `render()`.
-	 *
-	 * `projector` defaults to a fresh identity-camera projector for the canvas,
-	 * so existing step(w, h) call sites keep compiling and a caller with no
-	 * camera gets the old 2D mapping back exactly.
-	 */
+	// Advance the simulation by exactly one step. Physics only, with no drawing,
+	// so it can run headlessly. A pinned node keeps the position the pointer
+	// handler wrote and loses its velocity, so releasing a drag does not fling it.
 	step(
 		canvasWidth: number,
 		canvasHeight: number,
@@ -274,10 +216,8 @@ export class ForceDirectedGraph {
 
 		const vertices = this.graph.vertices;
 
-		// PASS 1 - repulsion once per unordered pair, springs once per incident
-		// edge. Both are pure functions of the frozen pre-step positions, so
-		// every node sees the same snapshot. No force data is written onto a
-		// Tag; the arrays below are this tick's only home for it.
+		// Both passes read the frozen pre-step positions, so every node sees the
+		// same snapshot.
 		const electrostatic: Point3D[] = vertices.map(() => zero3());
 		this.accumulateRepulsion(electrostatic);
 
@@ -288,13 +228,10 @@ export class ForceDirectedGraph {
 			return point3(e.x + s.x, e.y + s.y, e.z + s.z);
 		});
 
-		// PASS 2 - velocities. The force already computed above is passed in,
-		// so the O(N^2) repulsion kernel is not run a second time.
+		// The force computed above is passed in, so the O(N^2) repulsion kernel is
+		// not run a second time.
 		const velocities = vertices.map((tag, i) => this.velocityAtTag(tag, forces[i]));
 
-		// PASS 3 - positions. A dragged node keeps the position the pointer
-		// handler wrote and has its velocity zeroed, so releasing the mouse
-		// does not fling it.
 		for (let i = 0; i < vertices.length; i++) {
 			const tag = vertices[i];
 
@@ -304,7 +241,6 @@ export class ForceDirectedGraph {
 			else {
 				tag.velocity = velocities[i];
 
-				// The displacement is the damped velocity computed above.
 				const displacement = tag.displacement;
 				tag.position.x = tag.position.x + displacement.x;
 				tag.position.y = tag.position.y + displacement.y;
@@ -312,10 +248,8 @@ export class ForceDirectedGraph {
 			}
 		}
 
-		// PASS 4 - refresh the canvas-space cache and the view depth.
-		//
-		// One projector for the whole pass: the camera and the viewport are
-		// loop invariants, so they are resolved once per tick, not per node.
+		// One projector for the whole pass: the camera and viewport are loop
+		// invariants, so they are resolved once per tick, not per node.
 		for (const node of vertices) {
 			const projected = projector.project(node.position);
 

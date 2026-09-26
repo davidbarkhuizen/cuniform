@@ -26,7 +26,6 @@ function cameraState(controller: UIController) {
     };
 }
 
-/** Choose the molecules branch and click the chip for `id`. */
 function chooseMolecule(controller: UIController, id: string): void {
     const wizard = controller.wizard!;
 

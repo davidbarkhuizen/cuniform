@@ -16,16 +16,8 @@ import {
 } from "./support/physics";
 
 /**
- * Repulsion is k*q^2/r^1.9, which is singular as r -> 0. The solver guards the
- * exact r == 0 case, but a pair a fraction of a unit apart used to produce an
- * enormous force: at r = 0.857 (one canvas pixel at a 700px canvas) a node was
- * thrown ~1340 model units - more than twice the 600-unit world - in a single
- * step. That state is reachable through the UI, because a dragged node's
- * position is written straight from the pointer (UIController) while only the
- * dragged node is pinned, so the *other* node absorbs the force.
- *
- * These tests pin down the bound and prove the reference law is untouched
- * wherever it is actually defined.
+ * The r -> 0 singularity used to fling a node ~1340 units in one step; reachable
+ * because a drag pins only the dragged node, so the other absorbs the force.
  */
 
 test("the minimum interaction radius is a positive, finite guard", () => {
@@ -33,8 +25,7 @@ test("the minimum interaction radius is a positive, finite guard", () => {
 
     assert.ok(Number.isFinite(minR) && minR > 0, `guard radius was ${minR}`);
 
-    // The guard must not reach into the radii the reference law is specified
-    // and tested at (the smallest is r = 10 in forces.test.ts).
+    // The guard must not reach r = 10, the smallest radius tested in forces.test.ts.
     assert.ok(minR <= 10, `guard radius ${minR} would alter the reference law at r = 10`);
 });
 
@@ -56,7 +47,6 @@ test("repulsion magnitude is clamped below the minimum interaction radius", () =
             1e-9,
             `r=${r}: |F| was ${Math.abs(f.x)}, expected the clamped bound ${bound}`
         );
-        // Direction must still be the exact radial one (a is pushed to -x).
         assert.ok(f.x < 0, `r=${r}: the clamped force must still push away`);
         assertClose(f.y, 0, 1e-12, `r=${r}: the clamped force must stay radial`);
     }
@@ -81,8 +71,8 @@ test("repulsion is exactly the reference law at and above the guard radius", () 
 });
 
 test("dragging a node onto another cannot fling the free node across the world", () => {
-    // The reachable failure: one canvas pixel, i.e. 600/700 model units, is the
-    // closest a pointer-driven drag can place two node centres apart.
+    // One canvas pixel (600/700 model units) is the closest a pointer-driven
+    // drag can place two node centres apart.
     const onePixel = K.space.W_0 / 700;
 
     const graph = new Graph();
@@ -106,8 +96,7 @@ test("dragging a node onto another cannot fling the free node across the world",
 
     assert.ok(firstStep < 20, `first step moved ${firstStep} units, expected a bounded nudge`);
 
-    // Keep the pointer parked on top of the node and let the system relax. A
-    // pinned node's position is never integrated, so parking it once is enough.
+    // A pinned node's position is never integrated, so parking the pointer once is enough.
     pinned.position = { x: 0, y: 0, z: 0 };
     const maxDistanceFromOrigin = maxAbsPosition(fdg, graph, 3000, tag => tag === pinned);
 
@@ -120,8 +109,7 @@ test("dragging a node onto another cannot fling the free node across the world",
         "the free node's position must stay finite"
     );
 
-    // The guard must not change where the pair ends up: the same reference
-    // equilibrium as an undisturbed single edge.
+    // The guard must not change where the pair settles: the undisturbed single-edge equilibrium.
     const settled = Math.hypot(
         free.position.x - pinned.position.x,
         free.position.y - pinned.position.y,

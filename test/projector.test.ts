@@ -9,7 +9,6 @@ import { Viewport } from "../src/Viewport";
 import { assertClose } from "./support/assert";
 import { readSource } from "./support/files";
 
-/** The default camera with `overrides` applied. */
 function camera(overrides: Partial<CameraView> = {}): CameraView {
     return { ...defaultCameraView(), ...overrides };
 }
@@ -18,10 +17,7 @@ function distance3(a: Point3D, b: Point3D): number {
     return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
-/**
- * A deterministic xorshift32 in [-1, 1), so a failing random fixture is
- * reproducible rather than merely reported.
- */
+// Deterministic xorshift32 in [-1, 1), so a failing random fixture is reproducible.
 function makeRandom(seed: number): () => number {
     let state = seed >>> 0;
 
@@ -41,8 +37,7 @@ test("forCanvas defaults to the identity camera that reduces to the 2D view", ()
     assert.deepEqual(projector.camera.orientation, identity());
     assert.deepEqual(projector.camera.target, { x: 0, y: 0, z: 0 });
 
-    // The 1:1 anchor needs focalLength === distance; if that ever drifts, the
-    // exact-equality test below is what fails.
+    // The 1:1 anchor needs focalLength === distance; drift breaks the equality below.
     assert.equal(projector.camera.focalLength, projector.camera.distance);
 });
 
@@ -58,8 +53,7 @@ test("the identity camera with z = 0 equals Viewport.toCanvas exactly", () => {
         for (const [x, y] of points) {
             const p = point3(x, y, 0);
 
-            // Exact deepEqual, not a tolerance: focalLength is a power of two,
-            // so the identity projection is bit-exact rather than merely close.
+            // Exact deepEqual: focalLength is a power of two, so the identity is bit-exact.
             assert.deepEqual(
                 projector.toCanvas(p),
                 viewport.toCanvas({ x, y }),
@@ -137,8 +131,7 @@ test("unproject at a point's depth is the exact inverse of project", () => {
         camera({ orientation: fromYawPitch(0.6, 0.3) }),
         camera({ orientation: fromYawPitch(-1.2, -0.9), target: point3(-50, 20, 80), distance: 900 }),
         camera({ orientation: fromYawPitch(2.4, K.camera.maxPitch), target: point3(120, -160, 150), distance: 1400 }),
-        // A rolled orientation: the round trip must not depend on there being
-        // only two Euler angles.
+        // Rolled: the round trip must not depend on there being only two Euler angles.
         camera({ orientation: multiply(rotZ(0.5), fromYawPitch(0.6, 0.3)), target: point3(10, -20, 30) }),
     ];
 
@@ -151,8 +144,7 @@ test("unproject at a point's depth is the exact inverse of project", () => {
             const p = point3(rnd() * 300, rnd() * 300, rnd() * 300);
             const { screen, depth } = projector.project(p);
 
-            // The guard makes the projection deliberately non-invertible
-            // inside the near plane; those points are culled, not round-tripped.
+            // The guard makes projection non-invertible inside the near plane; those points are culled.
             if (projector.isCulled(depth))
                 continue;
 
@@ -189,8 +181,7 @@ test("unproject from a canvas point matches the projected-plane inverse", () => 
 test("a nearer point projects farther from the centre than a farther one", () => {
     const projector = Projector.forCanvas(600, 600);
 
-    // The camera sits at z = -distance looking toward +z, so smaller z is
-    // nearer and must be magnified.
+    // The camera sits at z = -distance looking toward +z, so smaller z is nearer.
     const near = projector.project(point3(100, 0, -100));
     const far = projector.project(point3(100, 0, 100));
 
@@ -207,8 +198,7 @@ test("the near plane culls and bounds the perspective divide", () => {
     assert.equal(projector.isCulled(nearPlane - 1), true);
     assert.equal(projector.isCulled(nearPlane + 1e-9), false, "just inside is not culled");
 
-    // Behind the near plane: the divide is evaluated at the guard, so the
-    // result stays finite instead of blowing up.
+    // Behind the near plane the divide is evaluated at the guard, so it stays finite.
     const behind = projector.project(point3(100, 0, -K.camera.distance - 100));
 
     assert.ok(behind.depth < nearPlane, `depth was ${behind.depth}`);

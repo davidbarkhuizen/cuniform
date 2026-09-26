@@ -281,8 +281,7 @@ test("export revokes the object URL it created", async () => {
 
         assert.deepEqual(dom.objectUrls.revoked, [], "revocation must be deferred, not synchronous");
 
-        // The revoke runs from setTimeout(..., 0), so let the macrotask run
-        // while the fake URL namespace is still installed.
+        // The revoke runs from setTimeout(..., 0); flush it while the fake URL namespace is installed.
         await flushDeferred();
 
         assert.deepEqual(dom.objectUrls.revoked, dom.objectUrls.created);
@@ -292,8 +291,7 @@ test("export revokes the object URL it created", async () => {
 test("UIController exports through an object URL, never a data: URL", () => {
     const source = readSource("UIController.ts");
 
-    // The original bug: window.open(canvas.toDataURL(...)) opens a window that
-    // no current browser permits to navigate. The scheme is the contract.
+    // Regression: window.open(toDataURL(...)) navigates a window no browser permits; the scheme is the contract.
     assert.ok(!/\bwindow\.open\b/.test(source), "export must not use window.open");
     assert.ok(/\bURL\.createObjectURL\b/.test(source), "export must build an object URL");
     assert.ok(/\bURL\.revokeObjectURL\b/.test(source), "the object URL must be released");
@@ -336,8 +334,7 @@ test("a completed reset swaps the graph without rebuilding the menu or double-re
 
 test("initialize is idempotent: a second call doubles nothing", () => {
     withUIController(({ dom, elements, canvas, controller }) => {
-        // withController already initialized once; initialize again without
-        // terminating, as a careless caller would.
+        // withController already initialized once; initialize again without terminating.
         controller.initialize();
 
         assert.equal(dom.intervals.length, 1, "one simulation timer after two initializes");

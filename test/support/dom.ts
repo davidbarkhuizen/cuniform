@@ -1,11 +1,5 @@
-/**
- * Minimal, dependency-free DOM stand-ins for exercising the UI-facing modules
- * (DragController, UIController, entrypoint) under `node --test`.
- *
- * The physics solver is deliberately DOM-free and needs none of this; these
- * fakes exist only so the non-solver code can be tested headlessly without
- * pulling in jsdom.
- */
+// Minimal DOM stand-ins for the UI-facing modules under `node --test`; the
+// physics solver is DOM-free and needs none of this.
 
 import { Graph } from "../../src/Graph";
 import { UIController } from "../../src/UIController";
@@ -47,21 +41,15 @@ export class FakeElement {
     width = 0;
     height = 0;
     innerHTML = '';
-    /** The value of a form control; the wizard drives its inputs through it. */
     value = '';
-    /** True when a form control is disabled; the generate button starts here. */
     disabled = false;
-    /** The element's classes, read back by the component's assertions. */
     className = '';
-    /** True once focus() has been called; the fake tracks no real focus. */
     focused = false;
-    /** Attributes set through setAttribute(), keyed by name. */
     attributes: Record<string, string> = {};
     /** Anchor-only fields, so an export download can be observed. */
     href = '';
     download = '';
     children: FakeElement[] = [];
-    /** Overrides what getBoundingClientRect() returns. */
     rect: FakeRect = rect();
 
     private listeners: Map<string, Listener[]> = new Map();
@@ -100,7 +88,6 @@ export class FakeElement {
         this.listeners.set(type, list.filter(f => f !== fn));
     }
 
-    /** Number of listeners currently registered for `type`. */
     listenerCount(type: string): number {
         return (this.listeners.get(type) ?? []).length;
     }
@@ -116,7 +103,6 @@ export class FakeElement {
         return this.rect;
     }
 
-    /** Pointer ids captured through setPointerCapture(). */
     private capturedPointers: Set<number> = new Set();
 
     setPointerCapture(pointerId: number) {
@@ -170,27 +156,18 @@ export class FakeContext2D {
     /** The current alpha, set by the renderer for the depth fade. */
     globalAlpha = 1;
 
-    /** strokeStyle captured at each stroke() call, in order. */
     strokes: string[] = [];
-    /** fillStyle captured at each fill() call, in order. */
     fills: string[] = [];
-    /** fillStyle captured at each fillText() call, in order. */
     texts: string[] = [];
-    /** globalAlpha captured at each stroke()/fill()/fillText() call, in order. */
     strokeAlphas: number[] = [];
     fillAlphas: number[] = [];
     textAlphas: number[] = [];
-    /** The string passed to each fillText() call, in order. */
     textLabels: string[] = [];
-    /** Arguments captured at each arc() call, in order. */
     arcs: number[][] = [];
     /** The radius of the arc the nth fill() acted on, in order. */
     fillRadii: number[] = [];
-    /** Every draw call in issue order, across kinds. */
     ops: DrawOp[] = [];
-    /** Arguments captured at each setTransform() call, in order. */
     transforms: number[][] = [];
-    /** Arguments captured at each clearRect() call, in order. */
     clears: number[][] = [];
 
     /** The most recent arc() radius, so the next fill() can be annotated. */
@@ -267,22 +244,15 @@ export interface FakeDom {
     window: any;
     elements: Record<string, FakeElement>;
     intervals: Array<{ id: number; fn: (...args: any[]) => void }>;
-    /** Listeners registered on `window`, so viewport events can be fired. */
     windowListeners: Map<string, Listener[]>;
-    /** Every element createElement() has built, in creation order. */
     createdElements: FakeElement[];
     /** Object-URL traffic, so a blob: export can be observed. */
     objectUrls: { created: string[]; revoked: string[] };
     restore: () => void;
 }
 
-/**
- * Install `document`, `window` and timer stubs on globalThis for the duration
- * of a test, returning a handle that restores the previous values.
- *
- * setInterval is intercepted so an initialized UIController cannot keep the
- * node test process alive; call `intervals[i].fn()` to advance the timer.
- */
+// Install DOM/timer stubs on globalThis, returning a restore handle.
+// setInterval is stubbed so an initialized UIController cannot keep node alive.
 export function installFakeDom(elements: Record<string, FakeElement> = {}): FakeDom {
 
     const global = globalThis as any;
@@ -309,8 +279,7 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
         },
     };
 
-    // Object URLs are recorded rather than created: the test only needs to
-    // know that a blob: URL was minted, handed to a download, and released.
+    // Object URLs are recorded, not created: tests only assert the traffic.
     const objectUrls: { created: string[]; revoked: string[] } = { created: [], revoked: [] };
 
     const urlStub = {
@@ -375,11 +344,8 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
     };
 }
 
-/**
- * Build the element map the demo entrypoint expects. IDs listed in `omit` are
- * left out, so a test can simulate a missing element without `delete` (which
- * strict TS rejects on an index signature).
- */
+// The element map the demo entrypoint expects; IDs in `omit` are left out
+// (`delete` on the index signature is rejected by strict TS).
 export function demoElements(omit: string[] = []): Record<string, FakeElement> {
     const all: Record<string, FakeElement> = {
         body: new FakeElement('BODY'),
@@ -402,10 +368,7 @@ export function demoElements(omit: string[] = []): Record<string, FakeElement> {
     return out;
 }
 
-/**
- * Install the fake DOM, run `fn` against it and always restore afterwards.
- * Every UI-facing test used to hand-write this `try/finally` wrapper.
- */
+/** Install the fake DOM, run `fn` against it, always restore afterwards. */
 export function withFakeDom<T>(
     elements: Record<string, FakeElement>,
     fn: (dom: FakeDom) => T
@@ -419,15 +382,9 @@ export function withFakeDom<T>(
     }
 }
 
-/**
- * Build a UIController over the `demoElements()` map, hiding the nine
- * `as unknown as` casts every UI test used to repeat.
- *
- * `width`/`height` pin the logical size for fixtures that bypass
- * resizeCanvas(); `graph` makes the controller's solver wrap that graph (the
- * same thing initialize() would have built), so fixtures read
- * `controller.solver` and `controller.state` rather than window globals.
- */
+// Build a UIController over the `demoElements()` map. `width`/`height` pin the
+// logical size for fixtures that bypass resizeCanvas(); `graph` is wrapped by
+// the controller's solver, as initialize() would have done.
 export function newUIController(
     elements: Record<string, FakeElement>,
     opts: { width?: number; height?: number; graph?: Graph } = {}
@@ -470,14 +427,10 @@ export const CANVAS_EVENTS = [
 /** The camera console's own delegated listeners, one per event type. */
 export const CAMERA_CONSOLE_EVENTS = ['pointerdown', 'keydown', 'keyup', 'click'];
 
-/**
- * The window listeners that end a held console button, wherever the pointer
- * happens to be. blur covers the pointerup the browser never delivers when the
- * window loses focus.
- */
+// Window listeners that end a held console button anywhere; `blur` covers the
+// pointerup the browser never delivers when the window loses focus.
 export const CAMERA_HOLD_RELEASE_EVENTS = ['pointerup', 'pointercancel', 'blur'];
 
-/** A controller over the demo elements, as the UI-facing suites use it. */
 export interface UIControllerFixture {
     dom: FakeDom;
     elements: Record<string, FakeElement>;
@@ -492,15 +445,12 @@ export interface UIControllerOptions {
     /** The fake body size resizeCanvas() reads. Defaults to the fake 800x600. */
     bodyWidth?: number;
     bodyHeight?: number;
-    /** The fake window's devicePixelRatio. */
     devicePixelRatio?: number;
-    /** The graph the controller's solver wraps. */
     graph?: Graph;
     /** Run initialize() first. Defaults to true: most fixtures want the listeners. */
     initialize?: boolean;
 }
 
-/** Build the fixture over an installed DOM. Shared by the sync and async wrappers. */
 function uiFixture(
     dom: FakeDom,
     elements: Record<string, FakeElement>,
@@ -522,7 +472,6 @@ function uiFixture(
     return { dom, elements, canvas, controller };
 }
 
-/** The demo element map with any body-size override applied before install. */
 function preparedElements(options: UIControllerOptions): Record<string, FakeElement> {
     const elements = demoElements();
 
@@ -535,10 +484,7 @@ function preparedElements(options: UIControllerOptions): Record<string, FakeElem
     return elements;
 }
 
-/**
- * The install/config/initialize/restore block every UI-facing suite used to
- * hand-write. The DOM is restored even when `fn` throws.
- */
+/** Install, configure, initialize, run `fn`, always restore — even on throw. */
 export function withUIController<T>(
     fn: (ui: UIControllerFixture) => T,
     options: UIControllerOptions = {}
@@ -553,11 +499,8 @@ export function withUIController<T>(
     }
 }
 
-/**
- * As withUIController(), but keeps the fake DOM installed until `fn` settles.
- * Export defers its object-URL revocation to a timer, so a caller that awaits
- * it must not have had the fake URL namespace restored underneath it.
- */
+// As withUIController(), but the DOM stays installed until `fn` settles: export
+// defers object-URL revocation to a timer.
 export async function withUIControllerAsync<T>(
     fn: (ui: UIControllerFixture) => Promise<T> | T,
     options: UIControllerOptions = {}
@@ -582,12 +525,7 @@ export interface FakeMouseEvent {
     defaultPrevented: boolean; preventDefault: () => void;
 }
 
-/**
- * A mouse event stand-in that records whether `preventDefault()` was called.
- * The four per-file helpers this replaces had drifted: context-menu recorded
- * suppression, pan's `preventDefault` was a no-op (so its suppression was
- * unassertable) and drag-controller carried only screen coordinates.
- */
+// Mouse-event stand-in that records whether `preventDefault()` was called.
 export function mouseEvent(props: Partial<FakeMouseEvent> = {}): MouseEvent {
     const event: FakeMouseEvent = {
         button: 0, clientX: 0, clientY: 0, shiftKey: false,
@@ -605,10 +543,7 @@ export interface FakeWheelEvent {
     defaultPrevented: boolean; preventDefault: () => void;
 }
 
-/**
- * A wheel-event stand-in for the dolly. `deltaY` is what the handler reads;
- * the coordinates are carried so a caller can build a realistic event.
- */
+// Wheel-event stand-in for the dolly; `deltaY` is what the handler reads.
 export function wheelEvent(props: Partial<FakeWheelEvent> = {}): WheelEvent {
     const event: FakeWheelEvent = {
         deltaY: 0, clientX: 0, clientY: 0,
@@ -630,12 +565,8 @@ export interface FakePointerEvent {
     stopPropagation: () => void;
 }
 
-/**
- * A pointer-event stand-in for the panel drag. It carries the fields the
- * controller reads: a viewport coordinate, the primary button, and the pointer
- * id used to tell one finger from another. `propagationStopped` records whether
- * a handler stopped the event before it reached an ancestor's listener.
- */
+// Pointer-event stand-in for the panel drag; `propagationStopped` records
+// whether a handler stopped the event before it reached an ancestor's listener.
 export function pointerEvent(props: Partial<FakePointerEvent> = {}): PointerEvent {
     const event: FakePointerEvent = {
         button: 0, clientX: 0, clientY: 0, pointerId: 1,
@@ -661,7 +592,6 @@ export interface FakeKeyboardEvent {
     preventDefault: () => void;
 }
 
-/** A keyboard-event stand-in carrying the key, modifiers and target. */
 export function keyEvent(props: Partial<FakeKeyboardEvent> = {}): KeyboardEvent {
     const event: FakeKeyboardEvent = {
         key: '', shiftKey: false, repeat: false, target: null,

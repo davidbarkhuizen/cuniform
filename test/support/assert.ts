@@ -1,24 +1,10 @@
-/**
- * Shared assertion helpers.
- *
- * The physics and mapping tests are full of tolerance checks written inline as
- * `Math.abs(actual - expected) < eps`. Stating the comparison once here removes
- * the repetition without loosening anything: every call site keeps the epsilon
- * its inline check used.
- */
+// Shared tolerance assertions. Each call site keeps the epsilon its inline
+// check used, so none of them is loosened.
 
 import assert from "node:assert/strict";
 
-/**
- * Assert that `actual` is within `eps` of `expected`.
- *
- * The comparison is relative-or-absolute: the accepted difference is
- * `eps * max(1, |expected|)`. That keeps a tight epsilon tight around zero
- * (where the physics tests live) while letting a loose one (say `1.0` for a
- * settled distance) survive a large magnitude. The existing inline checks
- * ranged over `1e-6 .. 1e-12`, so a single absolute epsilon would have silently
- * weakened the tightest of them.
- */
+// Asserts `actual` is within `eps` of `expected`. The tolerance is
+// `eps * max(1, |expected|)`: tight near zero, scale-tolerant at magnitude.
 export function assertClose(
     actual: number,
     expected: number,
@@ -34,11 +20,7 @@ export function assertClose(
     );
 }
 
-/**
- * Assert that two matrices agree element-wise within `eps`. The camera tests
- * compare whole orientations, and a per-element loop at every call site hid
- * which entry had drifted.
- */
+/** Assert two matrices agree element-wise within `eps`. */
 export function assertMatClose(
     actual: readonly number[],
     expected: readonly number[],

@@ -3,23 +3,20 @@ import { Point2D } from './Point2D';
 
 export class State {
 
-    // Assigned by reset(), which the constructor calls and the controller calls
-    // on mouse-out, on a graph swap and on initialize(). The definite
-    // assignment assertion is what lets reset() be their only home.
+    // Assigned only by reset(); the definite assignment assertion depends on that.
     public b0Down!: boolean;
     public b1Down!: boolean; 
     public b2Down!: boolean;
 
     /**
-     * Canvas-space pointer position at the previous middle-button move, used as
-     * the anchor for the current middle-drag gesture - orbit or pan. Null when
-     * no middle drag is in progress.
+     * Canvas-space pointer position at the previous middle-button move; anchor for the
+     * current orbit or pan drag. Null when no middle drag is in progress.
      */
     public lastMiddleDragPos!: Point2D | null;
 
     /**
-     * The live view camera. Owned here beside the button flags so a reset()
-     * rebuilds the graph without losing the user's viewing angle.
+     * The live view camera, owned here so a reset() rebuilds the graph without
+     * losing the viewing angle.
      */
     public readonly camera: Camera = new Camera();
 
@@ -29,9 +26,8 @@ export class State {
 	}
 
 	/**
-	 * Clear every button flag and the gesture anchor. One home for the reset
-	 * that onMouseOut(), loadGraph() and initialize() all need, so a flag added
-	 * later cannot be missed by one of them.
+	 * Clear every button flag and the gesture anchor; the one reset home for mouse-out,
+	 * a graph swap and initialize, so a new flag cannot be missed.
 	 */
 	reset(): void {
 		this.b0Down = false;

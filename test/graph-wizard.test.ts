@@ -461,11 +461,7 @@ test("onComplete is never called without a choice", () => {
 
 // ------------------------------------------------------------- focus trap
 
-/**
- * Record the visual order in which `controls` receive focus. Each entry is
- * [name, element]; focus() calls append to the returned array as they happen,
- * so a test can clear it between gestures.
- */
+/** Record focus order for [name, element] controls; the array can be cleared between gestures. */
 function trackFocus(controls: Array<[string, HTMLElement]>): string[] {
     const order: string[] = [];
 
@@ -520,8 +516,7 @@ test("Tab wraps at both ends of the visible controls", () => {
 });
 
 test("the wizard never echoes the search text into markup", () => {
-    // Text read from an input is data, not markup: writing it back through
-    // innerHTML is the js/xss-through-dom sink CodeQL flags.
+    // Input text is data, not markup: writing it back through innerHTML is the CodeQL js/xss-through-dom sink.
     for (const line of readSource("GraphWizard.ts").split("\n")) {
         if (!line.includes("innerHTML"))
             continue;
@@ -543,8 +538,7 @@ test("Tab skips the disabled generate button", () => {
             ["back", wizard.backButton],
         ]);
 
-        // From the order field: one tab reaches branching, the next reaches
-        // back, stepping over the disabled generate button.
+        // Two tabs from the order field reach back, stepping over the disabled generate.
         el(wizard.element).dispatch("keydown", keyEvent({ key: "Tab" }));
         el(wizard.element).dispatch("keydown", keyEvent({ key: "Tab" }));
 
@@ -563,8 +557,7 @@ test("Tab skips the hidden cancel button on a mandatory wizard", () => {
         wizard.open("choose");
         order.length = 0;
 
-        // Three tabs visit the two choices and back, then wrap to the first
-        // choice without ever reaching the hidden cancel button.
+        // Three tabs visit both choices and back, wrapping to the first, never the hidden cancel.
         for (let i = 0; i < 3; i++)
             el(wizard.element).dispatch("keydown", keyEvent({ key: "Tab" }));
 

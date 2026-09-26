@@ -15,18 +15,11 @@ const NODE_SELECTED = K.colours.nodeSelected;
 const EDGE_DEFAULT = K.colours.edgeDefault;
 const EDGE_INCIDENT = K.colours.edgeIncident;
 
-/**
- * The renderer's marker radius. Not exported by Renderer, but the flat-scene
- * golden below pins it, so the literal is asserted rather than hidden.
- */
+/** Renderer's marker radius; not exported, so the flat-scene golden pins the literal. */
 const NODE_RADIUS = 5;
 
-/**
- * A path a - b - c - d, so selecting any interior node has two incident edges
- * and one unrelated edge to compare against. Every node sits at the camera
- * distance: the flat scene the shipped demo has, where the depth cue is the
- * identity and equal depths preserve the old edges-then-nodes order.
- */
+// A path a - b - c - d: an interior selection gives two incident edges and one
+// unrelated edge. Every node sits at the camera distance (the flat demo scene).
 function build() {
     const graph = new Graph();
     const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
@@ -44,7 +37,6 @@ function build() {
     return { graph, a, b, c, d };
 }
 
-/** Nodes at explicit view depths, with one edge joining the first two. */
 function withDepths(depths: number[], labels: string[] = []) {
     const graph = new Graph();
     const nodes = depths.map((depth, i) => {
@@ -71,7 +63,6 @@ function draw(graph: Graph): FakeContext2D {
     return drawWith(graph, defaultCameraView());
 }
 
-/** The fill radius for a lone node at `depth`. */
 function radiusAt(depth: number): number {
     const graph = new Graph();
     const node = new Tag({ x: 0, y: 0, z: 0 }, "n");
@@ -81,11 +72,7 @@ function radiusAt(depth: number): number {
     return draw(graph).fillRadii[0];
 }
 
-/**
- * The first `edgeCount` stroke() calls are the edges: at equal depth the stable
- * sort keeps the old "all edges, then all nodes" order. A selected node appends
- * one more stroke for its ring.
- */
+// At equal depth the stable sort keeps the old "all edges, then all nodes" order.
 function edgeStrokes(context: FakeContext2D, edgeCount: number): string[] {
     return context.strokes.slice(0, edgeCount);
 }
@@ -102,7 +89,7 @@ test("an edge incident to the selected node is highlighted distinctly", () => {
     assert.equal(strokes[1], EDGE_DEFAULT);
     assert.equal(strokes[2], EDGE_DEFAULT);
 
-    // The extra stroke is the selected node's ring, not another edge.
+    // The fourth stroke is the selection ring, not another edge.
     assert.equal(context.strokes.length, 4);
 });
 
@@ -127,13 +114,12 @@ test("the selected node is filled with the selected colour", () => {
 
     const { fills } = draw(graph);
 
-    // One fill per vertex, in vertex order a, b, c, d.
+    // Fills are in vertex order a, b, c, d.
     assert.deepEqual(fills, [NODE_DEFAULT, NODE_SELECTED, NODE_DEFAULT, NODE_DEFAULT]);
 });
 
 test("nodes, edges and labels each use a distinct colour", () => {
-    // The default node must not disappear into the mesh of edges beneath it,
-    // and the label must stay legible against both.
+    // The node must not disappear into the edges, nor the label into either.
     assert.notEqual(NODE_DEFAULT, EDGE_DEFAULT);
     assert.notEqual(K.colours.label, NODE_DEFAULT);
     assert.notEqual(K.colours.label, EDGE_DEFAULT);
@@ -144,15 +130,13 @@ test("labels are drawn in the label colour, not the node fill", () => {
 
     const context = draw(graph);
 
-    // One label per vertex, in vertex order.
+    // Labels are in vertex order.
     assert.deepEqual(context.texts, [K.colours.label, K.colours.label, K.colours.label, K.colours.label]);
 });
 
 test("render reproduces the pre-refactor draw sequence exactly", () => {
-    // Golden capture of every recorder array, in order, taken from the
-    // renderer before it moved out of ForceDirectedGraph. The recorders
-    // reduce drawing to comparable primitives, so this is a whole-frame
-    // equivalence check rather than three colour spot-checks.
+    // Golden capture taken before the renderer moved out of ForceDirectedGraph:
+    // a whole-frame equivalence check rather than colour spot-checks.
     const { graph, b } = build();
     b.isSelected = true;
 
@@ -164,8 +148,7 @@ test("render reproduces the pre-refactor draw sequence exactly", () => {
     assert.deepEqual(context.transforms, [[1, 0, 0, 1, 0, 0]]);
     assert.deepEqual(context.clears, [[0, 0, 800, 600]]);
 
-    // The depth cue is the identity at the camera distance: full opacity and
-    // the unclamped 2D marker radius, so the flat frame is unchanged.
+    // At the camera distance the cue is the identity: full opacity, 2D radius.
     assert.deepEqual(context.fillRadii, [NODE_RADIUS, NODE_RADIUS, NODE_RADIUS, NODE_RADIUS]);
     assert.ok(
         context.strokeAlphas.every(a => a === K.depthCue.maxAlpha),
@@ -178,10 +161,8 @@ test("render reproduces the pre-refactor draw sequence exactly", () => {
 });
 
 test("render takes the context, the graph and the camera, and no label-spacing parameter", () => {
-    // Regression for 5.4: the unused label-spacing parameter was removed. The
-    // signature is render(context, graph, camera); label spacing lives only in
-    // K.label, and the camera is what keeps the cull/focal math in step with
-    // the projection.
+    // Regression for 5.4: the unused label-spacing parameter was removed;
+    // spacing lives in K.label and the camera keeps cull/focal in step.
     const { graph } = build();
 
     assert.equal(render.length, 3);
@@ -191,9 +172,8 @@ test("render takes the context, the graph and the camera, and no label-spacing p
 });
 
 test("the renderer is the only module that draws", () => {
-    // The point of the split: drawing sits behind one module boundary, so the
-    // solver cannot quietly grow a canvas call. UIController still owns the
-    // context it hands to render(), but it issues no drawing call itself.
+    // Drawing sits behind one module boundary, so the solver cannot grow a
+    // canvas call; UIController owns the context but issues no drawing call.
     const drawingCall = /\b(clearRect|beginPath|moveTo|lineTo|arc|stroke|fill|fillText)\s*\(/;
     const sources = readAllSources();
     const drawers = Object.keys(sources).filter(name => drawingCall.test(sources[name]));
@@ -209,7 +189,6 @@ test("the painter's algorithm draws farthest-first across edges and nodes", () =
 
     const context = draw(graph);
 
-    // Far node, then the edge, then the near node.
     assert.deepEqual(
         context.ops.map(op => (op.kind === "text" ? `text:${op.text}` : op.kind)),
         ["fill", "text:far", "stroke", "fill", "text:near"]
@@ -218,8 +197,7 @@ test("the painter's algorithm draws farthest-first across edges and nodes", () =
 });
 
 test("a nearer node overpaints a farther one when they overlap", () => {
-    // Equal x, so the two circles coincide on the canvas: whichever is drawn
-    // last is the one a viewer sees, and it must be the nearer node.
+    // Equal x: the circles coincide, so the last drawn is the one seen.
     const graph = new Graph();
     const near = new Tag({ x: 10, y: 0, z: 0 }, "near");
     const far = new Tag({ x: 10, y: 0, z: 0 }, "far");
@@ -239,8 +217,7 @@ test("node radius scales with 1/depth and is clamped at both ends", () => {
     const near = radiusAt(512);
     const far = radiusAt(2048);
 
-    // radius = NODE_RADIUS * focalLength / depth, so a four-fold depth is a
-    // four-fold smaller radius.
+    // radius = NODE_RADIUS * focalLength / depth: four-fold depth, four-fold smaller.
     assertClose(near / far, 4, 1e-9, `radius ratio was ${near / far}`);
 
     // At the camera distance the cue is the identity: the 2D marker radius.
@@ -262,7 +239,6 @@ test("the selection ring scales with the node radius", () => {
 
     const context = draw(graph);
 
-    // Two arcs: the fill circle and the larger selection ring.
     const [fill, ring] = context.arcs;
 
     assertClose(fill[2], radiusAt(512), 1e-9, "the fill circle uses the depth radius");
@@ -330,14 +306,12 @@ test("a node just inside the near plane is still drawn", () => {
 // ------------------------------------------------- the camera argument
 
 test("render culls against the near plane of the camera it is given", () => {
-    // The renderer must read the cull boundary from the same camera the caller
-    // projected with, not from the K defaults, or drawing and hit-testing can
-    // disagree about the boundary.
+    // The renderer must read the cull boundary from the caller's camera, not
+    // the K defaults, or drawing and hit-testing disagree at the boundary.
     const { graph } = withDepths([100], ["solo"]);
 
     assert.deepEqual(draw(graph).textLabels, ["solo"], "the default near plane (50) draws depth 100");
 
-    // A near plane above the depth culls it; one below it still draws it.
     const raised = { ...defaultCameraView(), nearPlane: 200 };
     const lowered = { ...defaultCameraView(), nearPlane: 10 };
 
@@ -346,8 +320,8 @@ test("render culls against the near plane of the camera it is given", () => {
 });
 
 test("render sizes nodes with the focal length of the camera it is given", () => {
-    // Same coupling for the depth cue: the radius formula's focal length must
-    // be the camera's, or a custom-camera frame is sized for a different lens.
+    // Same coupling for the cue: the radius must use the camera's focal length,
+    // or a custom-camera frame is sized for a different lens.
     const { graph } = withDepths([K.camera.distance], ["solo"]);
 
     const base = drawWith(graph, defaultCameraView()).fillRadii[0];

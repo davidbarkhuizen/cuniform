@@ -43,7 +43,6 @@ test("a fused bicycle closes two rings and shares the fusion atoms", () => {
     const incident = topology.bonds.filter(bond => bond.a === 3 || bond.b === 3);
     assert.equal(incident.length, 3);
 
-    // Both fusion atoms are joined to the other ring's closure.
     const fusion = bondBetween(topology, 3, 8);
     assert.ok(fusion, "the closing bond must join the two fusion atoms");
     assert.equal(fusion!.order, 1);

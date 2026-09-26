@@ -1,37 +1,22 @@
 import { K } from "./K";
 import { MoleculeTopology, parseSmiles } from "./Smiles";
 
-/**
- * The molecule catalog: one flagship example per indole-alkaloid structural
- * family.
- *
- * Every row was verified against the PubChem CID on the record. The SMILES is
- * copied verbatim from that CID's isomeric form and the systematic name from
- * its IUPAC name; `formula` is the published molecular formula. Because the
- * heavy-atom count derived from the SMILES must equal the formula's
- * non-hydrogen count (a catalog test asserts exactly that), a transcription
- * error in either field fails CI rather than silently distorting the graph.
- */
+// The molecule catalog: one flagship example per indole-alkaloid family, each
+// row PubChem-verified; the SMILES and formula must agree on heavy-atom count (a test asserts it).
 
 export interface Molecule {
-    /** Stable kebab-case key used by a GraphSpec. */
+    /** Kebab-case key used by a GraphSpec. */
     id: string;
-    /** The word-cloud chip, e.g. "Ibogaine". */
     commonName: string;
-    /** The full systematic name; the tooltip and the panel's graph line. */
     systematicName: string;
-    /** The parent ring system, e.g. "ibogan" - compact and technical. */
     parentSystem: string;
-    /** The structural family this molecule is the flagship example of. */
     family: string;
-    /** Molecular formula as published, e.g. "C20H26N2O". */
     formula: string;
-    /** Isomeric SMILES verified against `pubchemCid`. */
+    /** Isomeric SMILES, verified against `pubchemCid`. */
     smiles: string;
     pubchemCid: number;
-    /** Alternate names the search also matches. */
+    /** Also matched by search. */
     synonyms?: string[];
-    /** One line on why this is the family's flagship example. */
     note?: string;
 }
 
@@ -41,7 +26,7 @@ export interface CatalogEntry extends Molecule {
     heavyAtoms: number;
     bondCount: number;
     ringCount: number;
-    /** The word-cloud font scale, in em, across `K.wordCloud`. */
+    /** Font scale in em, across `K.wordCloud`. */
     tagScale: number;
 }
 
@@ -274,12 +259,8 @@ export const MOLECULES: Molecule[] = [
     },
 ];
 
-/**
- * Every entry, parsed and measured once at module load.
- *
- * A parse failure here fails loudly at startup, which is the right behaviour
- * for data that is supposed to be verified against a PubChem record.
- */
+// Every entry parsed and measured once at module load; a parse failure fails
+// loudly at startup, which is the point for PubChem-verified data.
 const PARSED = MOLECULES.map(molecule => {
 
     const topology = parseSmiles(molecule.smiles);
@@ -293,16 +274,13 @@ const PARSED = MOLECULES.map(molecule => {
     };
 });
 
-/** The heavy-atom span the word cloud normalises over. */
+// The heavy-atom span the cloud normalises over.
 const HEAVY_ATOM_COUNTS = PARSED.map(entry => entry.heavyAtoms);
 const MIN_HEAVY_ATOMS = Math.min(...HEAVY_ATOM_COUNTS);
 const MAX_HEAVY_ATOMS = Math.max(...HEAVY_ATOM_COUNTS);
 
-/**
- * `heavyAtoms` mapped linearly onto `[minTagScale, maxTagScale]`: the smallest
- * molecule gets the smallest size and the largest the biggest. A pure function
- * of the catalog, so the cloud looks the same every time.
- */
+// `heavyAtoms` mapped linearly onto `[minTagScale, maxTagScale]`; pure, so the
+// cloud looks the same every time.
 function tagScaleFor(heavyAtoms: number): number {
 
     if (MAX_HEAVY_ATOMS === MIN_HEAVY_ATOMS)
@@ -329,11 +307,8 @@ export function moleculeById(id: string): Molecule {
     return found;
 }
 
-/**
- * Everything a query is matched against, lowercased. The common-name chips
- * still find a molecule by its technical name and vice versa; the formula is
- * there so "C20H26N2O" is a search.
- */
+// Everything a query matches against, lowercased: names, family and formula, so
+// a common-name chip still finds a molecule by its technical name.
 function searchText(entry: CatalogEntry): string {
     return [
         entry.commonName,
@@ -345,11 +320,8 @@ function searchText(entry: CatalogEntry): string {
     ].join(" ").toLowerCase();
 }
 
-/**
- * Case-insensitive substring match, all terms, across every name and the
- * formula. An empty or whitespace-only query matches everything, so the empty
- * search box shows the whole cloud.
- */
+/** Case-insensitive substring match, all terms, across every name and the formula.
+ * An empty query matches everything, so an empty search box shows the whole cloud. */
 export function filterCatalog(query: string, entries: CatalogEntry[] = CATALOG): CatalogEntry[] {
 
     const terms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
@@ -387,7 +359,6 @@ export function families(entries: CatalogEntry[] = CATALOG): string[] {
     return out;
 }
 
-/** The full systematic name, family and formula, for a chip's title and aria-label. */
 export function moleculeTooltip(entry: CatalogEntry): string {
     return `${entry.systematicName} — ${entry.family} (${entry.formula})`;
 }

@@ -31,8 +31,7 @@ test("increasing model y moves up the canvas", () => {
 });
 
 test("the scale is uniform when the canvas aspect ratio differs from the model square", () => {
-    // Model is square; canvas 1200x600 is not. A model offset of 100 units on
-    // either axis must map to the same number of pixels.
+    // Model is square, canvas 1200x600 is not: a 100-unit offset must scale the same on both axes.
     const viewport = Viewport.forCanvas(1200, 600);
     const horizontal = viewport.toCanvas({ x: 100, y: 0 });
     const vertical = viewport.toCanvas({ x: 0, y: 100 });
@@ -69,8 +68,7 @@ test("step() caches translatedPosition and depth through the projector", () => {
 
     fdg.step(800, 600, () => false, projector);
 
-    // The cache is written from the post-step position, so re-projecting that
-    // same position must reproduce it exactly.
+    // The cache is written from the post-step position, so re-projecting it must reproduce it.
     const expected = projector.project(a.position);
 
     assert.deepEqual(a.translatedPosition, projector.viewport.toCanvas(expected.screen));
@@ -85,13 +83,11 @@ test("step() caches translatedPosition and depth through the projector", () => {
 test("the retired mapping wrappers and test-only solver methods stay retired", () => {
     const solver = readSource("ForceDirectedGraph.ts");
 
-    // Both once duplicated Viewport.forCanvas(w, h). wrapTranslate had no src/
-    // caller at all; wrapReverse's callers now ask Viewport directly.
+    // Both once duplicated Viewport.forCanvas(w, h); callers now ask Viewport directly.
     assert.ok(!/wrapTranslate/.test(solver), "wrapTranslate had no caller; use Viewport directly");
     assert.ok(!/wrapReverse/.test(solver), "wrapReverse duplicated Viewport.forCanvas().toModel()");
 
-    // Displacement is Tag.displacement, the getter production reads; the
-    // accessor was a second way to say the same thing with no src/ caller.
+    // displacementAtNode duplicated Tag.displacement, the getter production reads.
     assert.ok(!/displacementAtNode/.test(solver), "displacement lives on Tag, not the solver");
 });
 

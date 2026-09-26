@@ -19,8 +19,7 @@ test("a fresh camera is the identity orientation at the K defaults", () => {
 });
 
 test("a fresh camera and defaultCameraView() describe the same view", () => {
-    // The constructor, reset() and Projector.defaultCameraView() all describe
-    // "the default camera"; pin them to one another so they cannot drift.
+    // The constructor, reset() and defaultCameraView() must not drift apart.
     const camera = new Camera();
     const view = defaultCameraView();
 
@@ -55,8 +54,7 @@ test("orbit clamps the elevation to the turntable guard, at both signs", () => {
     camera.orbit(0, 1e6);
     assertClose(camera.elevation, K.camera.maxPitch, 1e-12, "elevation");
 
-    // A second huge drag towards the same pole must stay on the guard rather
-    // than tumbling through it and coming out the far side.
+    // A second huge drag must stay on the guard, not tumble through the pole.
     camera.orbit(0, 1e6);
     assertClose(camera.elevation, K.camera.maxPitch, 1e-12, "elevation after a second drag");
 
@@ -104,8 +102,7 @@ test("panBy moves only the target", () => {
 // ---------------------------------------------------------- local rotation
 
 test("rotateLocal is a left multiplication about the named camera axis", () => {
-    // A deliberately rolled, yawed, pitched start: the point is that each
-    // button composes on the camera's frame, not on the world's.
+    // A rolled, yawed, pitched start: each button composes on the camera's frame.
     const start = multiply(fromYawPitch(0.4, -0.3), rotZ(0.2));
 
     const cases: Array<{ axis: 'x' | 'y' | 'z'; step: (angle: number) => Mat3 }> = [
@@ -140,9 +137,7 @@ test("opposite rotateLocal steps cancel", () => {
 });
 
 test("anticlockwise is the right-hand positive sense about each camera axis", () => {
-    // The on-screen reading of the console's sign convention, asserted in
-    // camera space: +x is right, +y is up and +z is along the view axis. Any
-    // small angle shows the sense; this is not the console's tuned step.
+    // The sign convention in camera space: +x right, +y up, +z along the view axis.
     const step = 0.05;
 
     const aboutX = new Camera();
@@ -167,8 +162,8 @@ test("rotateLocal is free 3-DOF and does not trap the camera at a pole", () => {
     camera.rotateLocal('x', Math.PI / 2);
     assertClose(camera.elevation, Math.PI / 2, 1e-12, "the console may reach the pole");
 
-    // A horizontal drag then yaws, with the pitch axis falling back rather
-    // than dividing by ~zero; a vertical drag re-engages the guard.
+    // At the pole a yaw falls back rather than dividing by ~zero; a vertical drag
+    // re-engages the guard.
     camera.orbit(10, 0);
     assert.ok(camera.orientation.every(Number.isFinite), "no NaN at the pole");
     assertClose(camera.elevation, Math.PI / 2, 1e-12, "a pure yaw must not tilt");

@@ -9,20 +9,14 @@ export interface ContextMenuEntry {
 }
 
 /**
- * A small absolutely-positioned menu shown at the cursor on right-click, or
- * from the keyboard via Shift+F10.
- *
- * Entries are real `button`s, so Enter and Space activate them natively; the
- * menu itself handles Escape to close and the arrow keys to move between
- * entries. Built from plain DOM calls so it needs no markup or CSS changes and
- * can be driven headlessly through the test DOM stub.
+ * A small absolutely-positioned menu shown at the cursor on right-click or Shift+F10. Entries are
+ * real `button`s so Enter and Space work natively; the menu handles Escape and the arrow keys.
  */
 export class ContextMenu {
 
     element: HTMLElement;
     entries: ContextMenuEntry[] = [];
 
-    /** Which entry has focus, so the arrow keys know where to move from. */
     private focusedIndex = 0;
 
     constructor(items: ContextMenuItem[], private readonly onDismiss?: () => void) {
@@ -50,9 +44,7 @@ export class ContextMenu {
             entry.setAttribute('role', 'menuitem');
             entry.innerHTML = item.label;
 
-            // A button's own chrome is reset so it looks like the old div; the
-            // point of the change is that it is focusable and keyboard-
-            // activated, not that it looks different.
+            // Reset the button chrome so a row renders as plain menu text.
             this.setStyle(entry, {
                 display: 'block',
                 width: '100%',
@@ -69,8 +61,7 @@ export class ContextMenu {
             entry.addEventListener('click', () => {
                 this.hide();
                 item.onSelect();
-                // Return focus to the canvas so the keyboard shortcuts keep
-                // working after an entry is activated by Enter or Space.
+                // Return focus to the canvas so keyboard shortcuts keep working.
                 this.onDismiss?.();
             });
 
@@ -95,8 +86,7 @@ export class ContextMenu {
         this.element.style.top = `${y}px`;
         this.element.style.display = 'block';
 
-        // Land focus in the menu so Tab, the arrow keys and Enter all work
-        // without a further pointer event.
+        // Land focus in the menu so the keyboard works without a pointer event.
         this.focusedIndex = 0;
         this.entries[0]?.element.focus();
     }
@@ -126,11 +116,7 @@ export class ContextMenu {
         this.entries[this.focusedIndex].element.focus();
     }
 
-    /**
-     * Apply inline styles by name. Typed as `Partial<CSSStyleDeclaration>` so
-     * the camelCase keys are checked against the real style properties rather
-     * than written through an `any` hole.
-     */
+    // Typed as Partial<CSSStyleDeclaration> so the camelCase keys are checked.
     private setStyle(element: HTMLElement, styles: Partial<CSSStyleDeclaration>) {
         Object.assign(element.style, styles);
     }

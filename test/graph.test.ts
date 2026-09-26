@@ -72,9 +72,7 @@ test("hasEdge ignores edge direction", () => {
 });
 
 test("Graph carries no removeNode machinery", () => {
-    // Nothing in src/ removes a node, and rebuildAdjacency existed only to
-    // serve removeNode. Both are recoverable from git history if a caller ever
-    // appears.
+    // Nothing in src/ removes a node; both helpers are recoverable from git history if a caller appears.
     const source = readSource("Graph.ts");
 
     assert.ok(!/removeNode/.test(source), "removeNode had no src/ caller");
@@ -82,8 +80,7 @@ test("Graph carries no removeNode machinery", () => {
 });
 
 test("a tag owns its own points rather than sharing point()/zero() results", () => {
-    // point() and zero() are factories exactly so that this holds: a shared
-    // ZERO constant would alias every tag's velocity together.
+    // point()/zero() are factories so this holds; a shared ZERO constant would alias every tag's velocity.
     const origin = { x: 3, y: 4, z: 5 };
     const a = new Tag(origin, "a");
     const b = new Tag(origin, "b");

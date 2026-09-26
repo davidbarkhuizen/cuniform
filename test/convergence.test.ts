@@ -28,9 +28,8 @@ test("at equilibrium the spring and repulsion forces balance", () => {
     const spring = fdg.netSpringForceAtNode(a);
     const net = fdg.netForceAtNode(a);
 
-    // Guards against this assertion going vacuous again: the individual forces
-    // are substantial, and only their sum cancels. Before M4, netForceAtNode
-    // read zeroed Tag caches here, so this passed against 0 rather than 0.00076.
+    // Guards against this assertion going vacuous again: netForceAtNode used to
+    // read zeroed Tag caches here, so the balance passed against 0.
     assert.ok(Math.abs(repel.x) > 1, "the individual forces must be non-trivial");
     assert.ok(Math.abs(spring.x) > 1, "the individual forces must be non-trivial");
 
@@ -41,8 +40,7 @@ test("at equilibrium the spring and repulsion forces balance", () => {
 test("a 10-node graph converges instead of oscillating", () => {
     const graph = newGraph(10, 2);
 
-    // The generated fixture must actually be 3D, or this would silently be
-    // retesting the 2D case.
+    // Without this the fixture would silently retest the 2D case.
     assert.ok(
         graph.vertices.some(v => v.position.z !== 0),
         "the generated graph must have depth"
@@ -65,8 +63,6 @@ test("a 10-node graph converges instead of oscillating", () => {
 });
 
 test("a single edge separated only along z settles at the analytic equilibrium", () => {
-    // The radial law depends on the scalar distance, so the 2D equilibrium
-    // distance must survive when the separation is entirely out of plane.
     const { graph, a, b, fdg } = edgeBetween({ x: 0, y: 0, z: -200 }, { x: 0, y: 0, z: 200 });
 
     maxTravelPerStep(fdg, graph, 4000);

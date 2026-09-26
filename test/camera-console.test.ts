@@ -20,21 +20,14 @@ import {
     withUIController,
 } from "./support/dom";
 
-/**
- * The camera console section of the floating panel.
- *
- * The buttons are static markup in web/index.html, so these drive them the way
- * the browser does: a pointerdown (or keydown) that bubbles to the container
- * with the pressed button as the target. Holding a button rotates one small
- * step per simulation tick; releasing it stops.
- */
+// The console buttons are static markup in web/index.html, so these drive them
+// as the browser does: a bubbling pointerdown/keydown with the button as target.
 
 /** One simulation tick's worth of console rotation, in radians. */
 const PER_TICK = K.camera.rotateRadiansPerSecond * K.physics.timerTickPeriodMS / 1000;
 
 const ROTATIONS: Record<string, (angle: number) => Mat3> = { x: rotX, y: rotY, z: rotZ };
 
-/** The orientation `ticks` steps of `direction` about `axis` produces. */
 function stepFor(axis: string, direction: string, ticks: number): Mat3 {
     return ROTATIONS[axis]((direction === 'acw' ? 1 : -1) * PER_TICK * ticks);
 }
@@ -51,7 +44,6 @@ function withFixture<T>(fn: (ui: ConsoleFixture) => T): T {
     );
 }
 
-/** A button carrying the markup's data contract. */
 function button(axis: string, direction: string): FakeElement {
     const element = new FakeElement('BUTTON');
     element.setAttribute('data-axis', axis);
@@ -59,12 +51,10 @@ function button(axis: string, direction: string): FakeElement {
     return element;
 }
 
-/** A press, as it arrives bubbled from a button at the container. */
 function pressDown(consoleElement: FakeElement, target: FakeElement): void {
     consoleElement.dispatch('pointerdown', pointerEvent({ target }));
 }
 
-/** Release the held button through a window listener, wherever it is. */
 function release(dom: FakeDom, type: string = 'pointerup'): void {
     for (const fn of dom.windowListeners.get(type) ?? [])
         fn(pointerEvent());
@@ -92,8 +82,7 @@ test("each console button rotates about its own axis from the first press", () =
 });
 
 test("a held button applies one small step per simulation tick", () => {
-    // The whole point of the hold: the increments are small and paced by the
-    // render tick, not one fixed jump per press.
+    // The hold: small increments paced by the render tick, not one jump per press.
     assert.ok(PER_TICK < Math.PI / 36, `one step should be small, got ${PER_TICK} rad`);
 
     withFixture(({ controller, consoleElement }) => {
@@ -151,8 +140,7 @@ test("keyboard: Enter starts a hold, keyup ends it, auto-repeat does not restart
         controller.onTimerTick();
         assertMatClose(controller.state.camera.orientation, stepFor('z', 'acw', 2), 1e-12, "held step");
 
-        // The tick handler advances a held button; a repeat event must not add
-        // its own immediate step on top.
+        // A repeat keydown must not add an immediate step on top of the tick handler.
         consoleElement.dispatch('keydown', keyEvent({ key: 'Enter', target, repeat: true }));
         assertMatClose(controller.state.camera.orientation, stepFor('z', 'acw', 2), 1e-12, "repeat keydown");
 
@@ -168,8 +156,7 @@ test("an assistive-technology click rotates once; a pointer click is already han
 
         assertMatClose(controller.state.camera.orientation, stepFor('x', 'acw', 1), 1e-12, "AT click");
 
-        // A pointer press already rotated on pointerdown, so its click (which
-        // carries a click count) must not rotate a second time.
+        // A pointer press already rotated on pointerdown, so its click must not rotate twice.
         consoleElement.dispatch('click', mouseEvent({ detail: 1, target: button('x', 'acw') }));
 
         assertMatClose(controller.state.camera.orientation, stepFor('x', 'acw', 1), 1e-12, "pointer click");
@@ -195,8 +182,7 @@ test("anticlockwise about z spins the view anticlockwise on screen", () => {
 
         const after = controller.projector().toCanvas(point3(120, 0, 0));
 
-        // Model +y is up the canvas, so an anticlockwise on-screen spin takes a
-        // point on the right towards the top.
+        // Model +y is up the canvas, so an anticlockwise spin takes a right-side point up.
         assert.ok(after.y < before.y, `expected the point to move up, got y ${before.y} -> ${after.y}`);
         assert.ok(after.y < 300, "the point should end above the canvas centre");
     });
