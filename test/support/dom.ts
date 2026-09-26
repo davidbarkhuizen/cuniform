@@ -311,6 +311,9 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
 
     const windowStub = {
         devicePixelRatio: 1,
+        // The viewport the context menu clamps against.
+        innerWidth: 1024,
+        innerHeight: 768,
         open: (): null => null,
         addEventListener: (type: string, fn: Listener) => {
             const list = windowListeners.get(type) ?? [];

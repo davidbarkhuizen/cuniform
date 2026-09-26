@@ -5,6 +5,11 @@ import { point3, Point3D, zero3 } from "./Point3D";
 import { Projector } from "./Projector";
 import { Tag } from "./Tag";
 
+// k*q^2, the numerator of the repulsion law. Hoisted because repulsionMagnitude
+// runs once per pair, and the factors are constants.
+const CHARGE_PRODUCT =
+    K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge;
+
 export class ForceDirectedGraph {
 
     graph: Graph;
@@ -44,12 +49,7 @@ export class ForceDirectedGraph {
 
 		var r_law = Math.max(r, K.physics.minimumInteractionRadius);
 
-		var chargeProduct =
-			K.physics.scalarForceConstant *
-			K.physics.nodeCharge *
-			K.physics.nodeCharge;
-
-		return chargeProduct / Math.pow(r_law, K.physics.repulsionExponent);
+		return CHARGE_PRODUCT / Math.pow(r_law, K.physics.repulsionExponent);
 	};
 
 	netElectrostaticForceAtNode(tagA: Tag): Point3D {
@@ -64,7 +64,7 @@ export class ForceDirectedGraph {
 
 			var tagB = this.graph.vertices[i];
 
-			if(tagB == tagA)
+			if(tagB === tagA)
 				continue;
 
 			// Away from B, so a positive magnitude pushes the pair apart.

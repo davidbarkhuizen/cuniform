@@ -46,6 +46,9 @@ export const K = {
         maxPitch : Math.PI / 2 - 0.01,
         // Dolly clamp, above nearPlane so the target plane is never culled.
         minDistance : 128,
+        // Dolly clamp out, minDistance mirrored at 8x the focal length, so zoom-out
+        // stops while nodes still read as nodes rather than shrinking to the floor.
+        maxDistance : 8192,
         // Wheel zoom rate: distance is multiplied by this once per notch out.
         dollyPerWheelNotch : 1.1,
     },

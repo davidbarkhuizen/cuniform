@@ -7,8 +7,3 @@ export interface Point2D {
 export function point(x: number, y: number): Point2D {
     return { x, y };
 }
-
-/** A fresh origin, not a shared constant: callers assign through these objects. */
-export function zero(): Point2D {
-    return { x: 0, y: 0 };
-}

@@ -296,10 +296,11 @@ export const CATALOG: CatalogEntry[] = PARSED.map(entry => ({
     tagScale: tagScaleFor(entry.heavyAtoms),
 }));
 
-/** Throws for an unknown id; a spec can only come from the catalog. */
-export function moleculeById(id: string): Molecule {
+/** The parsed catalog record for `id`; throws for an unknown id, so a spec can only
+ * come from the catalog. Returned parsed so callers reuse the topology built at load. */
+export function moleculeById(id: string): CatalogEntry {
 
-    const found = MOLECULES.find(molecule => molecule.id === id);
+    const found = CATALOG.find(entry => entry.id === id);
 
     if (!found)
         throw new Error(`moleculeById: unknown molecule id: ${id}`);
@@ -360,5 +361,10 @@ export function families(entries: CatalogEntry[] = CATALOG): string[] {
 }
 
 export function moleculeTooltip(entry: CatalogEntry): string {
-    return `${entry.systematicName} — ${entry.family} (${entry.formula})`;
+
+    const summary = `${entry.systematicName} — ${entry.family} (${entry.formula})`;
+
+    // The note is the catalog's one-line "why this is the family's flagship";
+    // the tooltip is its reader, so it travels with the technical summary.
+    return entry.note ? `${summary}\n${entry.note}` : summary;
 }

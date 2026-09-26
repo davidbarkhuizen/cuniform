@@ -72,7 +72,8 @@ drag: a press that starts on a button never reaches the panel's drag handle.
 - **Shift+middle-drag** — pans the camera target. Node positions are never
   touched, so a pan cannot perturb the simulation.
 - **Wheel** — dollies the camera (zooms). The focal length is constant, so only
-  the camera distance changes; it is clamped above the near plane.
+  the camera distance changes; it is clamped between `camera.minDistance` and
+  `camera.maxDistance`.
 - **Camera console** — three rows, one per camera axis, each with a clockwise
   and an anticlockwise button. A press applies one small step — one simulation
   tick's worth, 3° at the default 60°/s — and **holding turns the view
@@ -96,8 +97,9 @@ drag: a press that starts on a button never reaches the panel's drag handle.
     type; `generate` is disabled while either field is out of range;
   - *molecules* — a searchable word cloud of twenty indole alkaloids. The chip
     is the common name; its tooltip and accessible name carry the full
-    systematic name. Typing filters by common name, systematic name, parent ring
-    system, family, formula or a synonym, and Enter takes the first visible chip.
+    systematic name, the family, the formula and the flagship note. Typing
+    filters by common name, systematic name, parent ring system, family, formula
+    or a synonym, and Enter takes the first visible chip.
   - Escape (or `cancel`) dismisses a reset chooser and leaves the running graph,
     the timer, the listeners and the camera exactly as they were. The first-run
     chooser is mandatory: there is no previous graph to keep, so it has no
@@ -295,7 +297,8 @@ All tuning lives in [`src/K.ts`](src/K.ts):
 | `camera.rotateRadiansPerSecond` | `pi/3` | console rotation speed while a button is held |
 | `camera.orbitRadiansPerPixel` | `0.01` | orbit sensitivity |
 | `camera.maxPitch` | `pi/2 - 0.01` | turntable elevation guard |
-| `camera.minDistance` | `128` | dolly clamp, above `nearPlane` |
+| `camera.minDistance` | `128` | dolly clamp in, above `nearPlane` |
+| `camera.maxDistance` | `8192` | dolly clamp out; 8× `focalLength` |
 | `camera.dollyPerWheelNotch` | `1.1` | wheel zoom rate |
 | `depthCue.minNodeRadiusPx` / `maxNodeRadiusPx` | `2.0` / `12.0` | perspective size clamp |
 | `depthCue.minAlpha` / `maxAlpha` | `0.35` / `1.0` | depth fade range |

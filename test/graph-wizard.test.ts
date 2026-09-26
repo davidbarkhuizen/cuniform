@@ -487,6 +487,27 @@ test("the first control is focused when a step opens", () => {
     });
 });
 
+test("each number field's caption names the input it labels", () => {
+    withWizard(({ wizard }) => {
+        const fields: Array<[string, HTMLInputElement]> = [
+            ["nodes", wizard.orderInput],
+            ["edges per node", wizard.branchingInput],
+        ];
+
+        for (const [name, input] of fields) {
+            const field = el(input).parentElement;
+
+            assert.ok(field, `${name}: the input must sit in a field`);
+
+            const caption = field!.children.find(child => child.tagName === "LABEL");
+
+            assert.ok(caption, `${name}: the field must carry a caption`);
+            assert.ok(el(input).id, `${name}: the input must carry the id the caption names`);
+            assert.equal(caption!.getAttribute("for"), el(input).id, `${name}: the caption must name its input`);
+        }
+    });
+});
+
 test("Tab wraps at both ends of the visible controls", () => {
     withWizard(({ wizard }) => {
 

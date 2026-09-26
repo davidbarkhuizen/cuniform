@@ -235,3 +235,15 @@ test("moleculeTooltip carries the systematic name, family and formula", () => {
     assert.ok(tooltip.includes(entry.formula));
     assert.notEqual(tooltip, entry.commonName);
 });
+
+test("every flagship note travels in its molecule's tooltip", () => {
+    for (const entry of CATALOG) {
+        if (!entry.note)
+            continue;
+
+        assert.ok(
+            moleculeTooltip(entry).includes(entry.note),
+            `${entry.id}: the flagship note must reach the tooltip`
+        );
+    }
+});

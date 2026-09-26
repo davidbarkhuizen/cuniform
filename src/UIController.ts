@@ -358,7 +358,7 @@ export class UIController {
 			event
 		);
 		
-		if (event.button == 0) {
+		if (event.button === 0) {
 			this.state.b0Down = true;		
 				
 			const selectionChanged = handleNodeSelectionAttempt(
@@ -366,15 +366,15 @@ export class UIController {
 				mxy,
 				this.projector()
 			);
-			if (selectionChanged == true)
+			if (selectionChanged)
 				this.updateSelectionInfo();
 		}
-		else if (event.button == 1) {
+		else if (event.button === 1) {
 			this.state.b1Down = true;
 			this.state.lastMiddleDragPos = mxy;
 			event.preventDefault();
 		}
-		else if (event.button == 2) {
+		else if (event.button === 2) {
 			this.state.b2Down = true;
 		}
 	}
@@ -438,15 +438,15 @@ export class UIController {
 
 	onMouseUp = (event: MouseEvent) => {
 	
-		if (event.button == 0) {
+		if (event.button === 0) {
 			this.state.b0Down = false;
 			this.updateSelectionInfo();
 		}
-		else if (event.button == 1) {
+		else if (event.button === 1) {
 			this.state.b1Down = false;
 			this.state.lastMiddleDragPos = null;
 		}
-		else if (event.button == 2)
+		else if (event.button === 2)
 			this.state.b2Down = false;
 	}
 
@@ -590,18 +590,15 @@ export class UIController {
 
 		// One delegated listener per event type on the console container, plus
 		// the guard that stops a press on a button from starting a panel drag.
+		// A held button is released wherever the pointer is, so pointerup is
+		// watched on the window; blur covers the lost focus case.
 		//
 		if (this.cameraConsole) {
 			bind(this.cameraConsole, "pointerdown", this.onCameraPointerDown);
 			bind(this.cameraConsole, "keydown", this.onCameraKeyDown);
 			bind(this.cameraConsole, "keyup", this.onCameraKeyUp);
 			bind(this.cameraConsole, "click", this.onCameraButtonClick);
-		}
 
-		// A held button is released wherever the pointer is, so pointerup is
-		// watched on the window; blur covers the lost focus case.
-		//
-		if (this.cameraConsole) {
 			bind(window, "pointerup", this.onCameraPointerUp);
 			bind(window, "pointercancel", this.onCameraPointerUp);
 			bind(window, "blur", this.onCameraPointerUp);

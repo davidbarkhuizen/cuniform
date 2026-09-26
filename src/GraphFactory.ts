@@ -3,7 +3,6 @@ import { GraphSpec } from "./GraphSpec";
 import { K } from "./K";
 import { moleculeById } from "./Molecules";
 import { point3, Point3D } from "./Point3D";
-import { parseSmiles } from "./Smiles";
 import { Tag } from "./Tag";
 
 // Phyllotaxis spiral aimed at the spring rest length: `sqrt(i / PI)` gives each atom
@@ -33,8 +32,10 @@ export class GraphFactory {
 	// indices: a label at every node would turn a 27-atom molecule into a wall of text.
 	generateMolecule(id: string): Graph {
 
+		// The catalog parsed every SMILES at load, so the topology is reused
+		// rather than re-parsed here.
 		const molecule = moleculeById(id);
-		const topology = parseSmiles(molecule.smiles);
+		const topology = molecule.topology;
 
 		const graph = new Graph();
 		const positions = moleculeSeedPositions(topology.atoms.length);
@@ -107,7 +108,7 @@ export class GraphFactory {
 					v => (v !== tag) && !graph.hasEdge(tag, v)
 				);
 
-				if (candidates.length == 0)
+				if (candidates.length === 0)
 					break;
 
 				graph.addEdge(tag, candidates[Math.floor(Math.random() * candidates.length)]);
