@@ -82,6 +82,21 @@ body
 	text-shadow		: 0 0 14px rgba(34, 211, 238, 0.7);
 }
 
+/*
+ * The current-graph line under the title. A systematic name is long, so it is
+ * small, dim and allowed to break anywhere rather than overflow the panel.
+ */
+.graphLabel
+{
+	margin-top		: 6px;
+
+	font-size		: small;
+	line-height		: 1.35;
+
+	color			: #9fb3c8;
+	overflow-wrap		: anywhere;
+}
+
 .menuOptions
 {
 	display			: flex;

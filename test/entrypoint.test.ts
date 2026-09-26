@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { entrypoint } from "../src/entrypoint";
-import { FakeCanvas, demoElements, withFakeDom } from "./support/dom";
+import { FakeCanvas, demoElements, newUIController, withFakeDom } from "./support/dom";
 import { readAllSources, readSource } from "./support/files";
 
 const IDS: [string, string, string, string] = [
@@ -40,6 +40,33 @@ test("entrypoint initializes when window.Worker is undefined", () => {
     });
 });
 
+test("entrypoint opens the mandatory first-run chooser and still starts the timer", () => {
+    withFakeDom(demoElements(), dom => {
+        const result = quietly(() => entrypoint(...IDS));
+
+        assert.ok(result, "entrypoint should hand back the controller");
+        assert.ok(result.wizard, "the first run must open the graph chooser");
+        assert.equal(result.wizard!.isOpen, true);
+        assert.equal(result.wizard!.step, "choose");
+        assert.equal(dom.intervals.length, 1, "the simulation timer should be running");
+        assert.ok(result.solver.graph.vertices.length > 0, "the chooser needs a placeholder graph behind it");
+    });
+});
+
+test("initialize() itself never opens the chooser", () => {
+    const elements = demoElements();
+
+    withFakeDom(elements, dom => {
+        const controller = newUIController(elements);
+
+        controller.initialize();
+
+        assert.ok(controller.wizard === null, "the chooser is a startup step, not a lifecycle one");
+        assert.notEqual(controller.timer, null);
+        assert.equal(dom.intervals.length, 1);
+    });
+});
+
 test("entrypoint reports failure when the canvas element is missing", () => {
     withFakeDom(demoElements(['canvas']), dom => {
         const result = quietly(() => entrypoint(...IDS));
@@ -72,7 +99,7 @@ test("entrypoint still initializes when the optional drag panel is missing", () 
 });
 
 test("entrypoint reports failure when any required element is missing", () => {
-    for (const missing of ['body', 'export_canvas_link', 'reset_link', 'selectedNodeInfoLabel', 'selectedNodeInfoList', 'cameraConsole']) {
+    for (const missing of ['body', 'export_canvas_link', 'reset_link', 'selectedNodeInfoLabel', 'selectedNodeInfoList', 'currentGraphLabel', 'cameraConsole']) {
         withFakeDom(demoElements([missing]), dom => {
             const result = quietly(() => entrypoint(...IDS));
 

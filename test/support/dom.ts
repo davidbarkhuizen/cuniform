@@ -389,6 +389,7 @@ export function demoElements(omit: string[] = []): Record<string, FakeElement> {
         selectionInfoPanel: new FakeElement('DIV'),
         selectedNodeInfoLabel: new FakeElement('LABEL'),
         selectedNodeInfoList: new FakeElement('UL'),
+        currentGraphLabel: new FakeElement('DIV'),
         cameraConsole: new FakeElement('DIV'),
     };
 
@@ -419,7 +420,7 @@ export function withFakeDom<T>(
 }
 
 /**
- * Build a UIController over the `demoElements()` map, hiding the eight
+ * Build a UIController over the `demoElements()` map, hiding the nine
  * `as unknown as` casts every UI test used to repeat.
  *
  * `width`/`height` pin the logical size for fixtures that bypass
@@ -442,6 +443,7 @@ export function newUIController(
         elements.reset_link as unknown as HTMLElement,
         elements.selectedNodeInfoLabel as unknown as HTMLElement,
         elements.selectedNodeInfoList as unknown as HTMLElement,
+        elements.currentGraphLabel as unknown as HTMLElement,
         elements.cameraConsole as unknown as HTMLElement,
         suppliedGraph ? () => suppliedGraph : undefined
     );

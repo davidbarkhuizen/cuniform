@@ -346,32 +346,38 @@ test("UIController exports through an object URL, never a data: URL", () => {
     assert.ok(/\bURL\.revokeObjectURL\b/.test(source), "the object URL must be released");
 });
 
-test("reset asks for confirmation before rebuilding", () => {
+test("reset opens the graph chooser and leaves the graph alone until a choice", () => {
     withController(({ controller }) => {
-        let asked = 0;
-        (globalThis as any).confirm = () => {
-            asked++;
-            return false;
-        };
+        const before = controller.solver.graph;
 
         entry(controller, 'reset').dispatch('click');
 
-        assert.equal(asked, 1);
+        assert.ok(controller.wizard, "reset opens the chooser");
+        assert.equal(controller.wizard!.isOpen, true);
+        assert.equal(
+            controller.solver.graph,
+            before,
+            "the running graph must be untouched while the chooser is open"
+        );
     });
 });
 
-test("a confirmed reset rebuilds the menu exactly once and does not double-register", () => {
+test("a completed reset swaps the graph without rebuilding the menu or double-registering", () => {
     withController(({ elements, canvas, controller }) => {
-        (globalThis as any).confirm = () => true;
-
         assert.equal(elements.body.children.length, 1, "one menu element after initialize");
 
-        controller.onReset();
+        entry(controller, 'reset').dispatch('click');
+
+        const wizard = controller.wizard!;
+        wizard.orderInput.value = "5";
+        wizard.branchingInput.value = "2";
+        (wizard.generateButton as unknown as FakeElement).dispatch('click');
 
         assert.equal(elements.body.children.length, 1, "reset must not leak a second menu");
         assert.ok(controller.contextMenu);
         assert.equal(canvas.listenerCount('contextmenu'), 1);
         assert.equal(canvas.listenerCount('mousedown'), 1);
+        assert.equal(controller.solver.graph.vertices.length, 5, "the chosen graph is now live");
     });
 });
 

@@ -41,10 +41,19 @@ The canvas fills the viewport: it is stretched over a fixed, full-viewport
 resized. Everything else lives in a single floating overlay panel in the
 top-left corner, split into three sections:
 
-- a **fixed menu** — the `cuniform` title, `export` and `reset`;
+- a **fixed menu** — the `cuniform` title, the current graph, `export` and
+  `reset`;
 - the **currently selected node** — the selection and its neighbours;
 - the **camera console** — six buttons that rotate the camera about its own
   axes.
+
+The panel's current-graph line names the loaded graph technically: the full
+systematic name for a molecule, the node and edge counts for a random graph. It
+is small and wraps, because a systematic name is long.
+
+The graph **chooser** is not part of the panel: it is a modal dialog built in
+`src/GraphWizard.ts` and appended to the body, layered above both the floating
+panel and the context menu. The two overlays can never be open at once.
 
 The panel is opaque and high-contrast so it stays readable over the graph, and
 the whole panel can be dragged out of the way. The console is excluded from that
@@ -79,9 +88,67 @@ drag: a press that starts on a button never reaches the panel's drag handle.
   the keyboard. Its entries are buttons: Tab or the arrow keys move between
   them, Enter or Space activates one, and Escape closes the menu.
 - **Drag the overlay panel** — the panel itself is movable, by mouse or by touch.
+- **Graph chooser** — opens on first run and on every `reset`, and it is the only
+  way a new graph is created. Step one picks a **random** graph or a
+  **molecule**:
+  - *random* — the node count and the maximum edges per node, validated as you
+    type; `generate` is disabled while either field is out of range;
+  - *molecules* — a searchable word cloud of twenty indole alkaloids. The chip
+    is the common name; its tooltip and accessible name carry the full
+    systematic name. Typing filters by common name, systematic name, parent ring
+    system, family, formula or a synonym, and Enter takes the first visible chip.
+  - Escape (or `cancel`) dismisses a reset chooser and leaves the running graph,
+    the timer, the listeners and the camera exactly as they were. The first-run
+    chooser is mandatory: there is no previous graph to keep, so it has no
+    cancel. Tab is trapped inside the dialog.
 
-A `reset` rebuilds the graph but keeps the current viewing angle and zoom,
-including any rotation applied from the console.
+A completed chooser **swaps the graph in place**: the timer, the listeners, the
+context menu and the camera are all left alone, so the viewing angle and zoom
+survive a reset or a molecule load. `initialize()` keeps its lifecycle meaning
+(attach the listeners, build the menu, start the timer) and is not used to
+change content.
+
+## Graphs
+
+A graph is described by a `GraphSpec` ([`src/GraphSpec.ts`](src/GraphSpec.ts)),
+a discriminated value the chooser produces and the controller remembers:
+
+- `{ kind: "random", order, branching }` —
+  `GraphFactory.generateGraph()`: a sparse semi-random graph on `order` nodes,
+  each joined to between 1 and `branching` others, with no self-loops and no
+  duplicate edges. `order` is bounded by `K.chooser` (`2..64`: repulsion is
+  `O(N^2)` per tick) and `branching` by `min(K.chooser.maxBranching, order - 1)`
+  — a graph on `n` nodes has at most `n - 1` distinct neighbours per node, so a
+  larger value would silently produce fewer edges than asked for.
+- `{ kind: "molecule", id }` — a molecular graph from the catalog.
+
+### The molecule catalog
+
+[`src/Molecules.ts`](src/Molecules.ts) holds twenty indole alkaloids, one
+flagship example per structural family: tryptamine, β-carboline, ergoline,
+yohimban, ibogan, aspidosperman, ajmaline, sarpagan, akuammilan, strychnan,
+camptothecin, bisindole, Rauwolfia, carbazole, oxindole, pyrroloindoline,
+eburnane, gelsemium, pyridocarbazole and uleine. Each row carries its PubChem
+CID, its published molecular formula, its IUPAC systematic name and the isomeric
+SMILES verified against that CID.
+
+The SMILES string is the artifact that can be checked at the source, so the
+catalog stores it rather than a hand-copied adjacency list.
+[`src/Smiles.ts`](src/Smiles.ts) reads the subset the catalog needs — the
+organic and aromatic subsets, bracket atoms, branches, ring closures, explicit
+and directional bonds, disconnection — and rejects malformed notation with a
+position-carrying `SmilesError`. A test parses all twenty entries and asserts
+that the heavy-atom count derived from the SMILES equals the non-hydrogen count
+of the formula, so a transcription error in either field fails CI rather than
+silently distorting the graph.
+
+A molecule's heavy atoms become nodes, labelled with element symbols (the
+conventional skeletal reading — per-atom indices turn a 27-atom molecule into a
+wall of text), and its bonds become edges. Bond order is parsed and carried but
+every edge draws as one stroke; element colours and 2D depictions are out of
+scope. The seed is a deterministic phyllotaxis spiral spaced at the spring rest
+length, so a molecule starts near its settled shape and its first frame is
+reproducible.
 
 ## Physics
 
@@ -231,6 +298,11 @@ All tuning lives in [`src/K.ts`](src/K.ts):
 | `camera.dollyPerWheelNotch` | `1.1` | wheel zoom rate |
 | `depthCue.minNodeRadiusPx` / `maxNodeRadiusPx` | `2.0` / `12.0` | perspective size clamp |
 | `depthCue.minAlpha` / `maxAlpha` | `0.35` / `1.0` | depth fade range |
+| `chooser.minOrder` / `maxOrder` | `2` / `64` | random-graph node-count bounds |
+| `chooser.minBranching` / `maxBranching` | `1` / `8` | random-graph edges-per-node bounds; `order - 1` is the hard cap |
+| `molecule.seedSpacing` | `30` | molecule seed phyllotaxis spacing; the spring rest length |
+| `molecule.seedDepthJitter` | `4.5` | molecule seed depth-offset amplitude |
+| `wordCloud.minTagScale` / `maxTagScale` | `0.85` / `1.35` | word-cloud chip font-size range, em |
 
 Keep `timeStep / (1 - friction)` near `1`: that ratio is the terminal per-step
 displacement under a constant force, and it is a real stability constraint, not a
