@@ -86,9 +86,17 @@ export class ContextMenu {
     }
 
     open(x: number, y: number) {
-        this.element.style.left = `${x}px`;
-        this.element.style.top = `${y}px`;
         this.element.style.display = 'block';
+
+        // Shown before measuring, so the clamp uses the menu's real size.
+        const rect = this.element.getBoundingClientRect();
+        const maxLeft = Math.max(0, window.innerWidth - rect.width);
+        const maxTop = Math.max(0, window.innerHeight - rect.height);
+
+        // Clamped to the viewport so a right- or bottom-edge click still shows
+        // the whole menu rather than half of it off-screen.
+        this.element.style.left = `${Math.min(Math.max(x, 0), maxLeft)}px`;
+        this.element.style.top = `${Math.min(Math.max(y, 0), maxTop)}px`;
 
         // Land focus in the menu so the keyboard works without a pointer event.
         this.focusedIndex = 0;

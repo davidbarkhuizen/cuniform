@@ -79,8 +79,8 @@ test("Graph carries no removeNode machinery", () => {
     assert.ok(!/rebuildAdjacency/.test(source), "rebuildAdjacency only served removeNode");
 });
 
-test("a tag owns its own points rather than sharing point()/zero() results", () => {
-    // point()/zero() are factories so this holds; a shared ZERO constant would alias every tag's velocity.
+test("a tag owns its own points rather than aliasing the caller's", () => {
+    // The constructor copies through point3()/point() and zero3(), so no two tags share a point object.
     const origin = { x: 3, y: 4, z: 5 };
     const a = new Tag(origin, "a");
     const b = new Tag(origin, "b");

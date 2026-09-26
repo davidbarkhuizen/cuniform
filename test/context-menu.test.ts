@@ -74,6 +74,32 @@ test("open anchors the menu at the cursor and hide closes it", () => {
     });
 });
 
+test("open clamps the menu inside the viewport", () => {
+    withFakeDom({}, () => {
+        const menu = new ContextMenu([{ label: 'one', onSelect: () => {} }]);
+        const element = el(menu.element);
+
+        // A right/bottom-edge menu of this size, against the fake 1024x768 viewport.
+        element.rect = { ...element.rect, width: 200, height: 100 };
+
+        menu.open(1000, 700);
+
+        assert.equal(element.style.left, '824px', '1024 - 200');
+        assert.equal(element.style.top, '668px', '768 - 100');
+    });
+});
+
+test("open clamps a negative anchor to the viewport origin", () => {
+    withFakeDom({}, () => {
+        const menu = new ContextMenu([{ label: 'one', onSelect: () => {} }]);
+
+        menu.open(-40, -10);
+
+        assert.equal(menu.element.style.left, '0px');
+        assert.equal(menu.element.style.top, '0px');
+    });
+});
+
 test("selecting an entry hides the menu and runs its callback once", () => {
     withFakeDom({}, () => {
         let calls = 0;

@@ -10,6 +10,9 @@ import {
 
 export type WizardStep = "choose" | "random" | "molecules";
 
+// Unique per number field, so a caption can name its input even across rebuilds.
+let nextFieldId = 0;
+
 export interface GraphWizardOptions {
     /** Called once with the chosen spec; the wizard has already closed. */
     onComplete: (spec: GraphSpec) => void;
@@ -217,11 +220,18 @@ export class GraphWizard {
         field.className = "wizardField";
 
         const caption = document.createElement("label");
-        caption.innerHTML = label;
 
         const input = document.createElement("input");
         input.className = "wizardInput";
         input.setAttribute("type", "number");
+
+        // A bare sibling <label> is neither click-through nor announced; naming
+        // the input ties the caption to the field it labels.
+        const id = `wizardField${++nextFieldId}`;
+        caption.setAttribute("for", id);
+        input.id = id;
+
+        caption.innerHTML = label;
 
         field.appendChild(caption);
         field.appendChild(input);

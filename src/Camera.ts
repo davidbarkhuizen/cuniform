@@ -7,14 +7,6 @@ import { CameraView, defaultCameraView } from "./Projector";
 export type CameraAxis = 'x' | 'y' | 'z';
 
 /**
- * The world-space unit direction the camera looks along, read from a
- * world->camera rotation. Camera space looks along +z, so it is the third row.
- */
-export function viewDirection(orientation: Mat3): Point3D {
-    return point3(orientation[6], orientation[7], orientation[8]);
-}
-
-/**
  * How far the look direction is above the world XY plane, radians in
  * [-pi/2, pi/2] - the quantity the turntable guard bounds.
  */
@@ -115,13 +107,17 @@ export class Camera implements CameraView {
     }
 
     /**
-     * Dolly by whole wheel notches; positive zooms out. Clamped above the near
-     * plane, so the target plane itself is never culled.
+     * Dolly by whole wheel notches; positive zooms out. Clamped between
+     * `minDistance` (above the near plane, so the target plane is never culled)
+     * and `maxDistance` (so a far zoom cannot shrink every node to the floor).
      */
     dolly(notches: number): void {
-        this.distance = Math.max(
-            this.distance * Math.pow(K.camera.dollyPerWheelNotch, notches),
-            K.camera.minDistance
+        this.distance = Math.min(
+            Math.max(
+                this.distance * Math.pow(K.camera.dollyPerWheelNotch, notches),
+                K.camera.minDistance
+            ),
+            K.camera.maxDistance
         );
     }
 

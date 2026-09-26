@@ -91,6 +91,17 @@ test("dolly scales the distance and clamps above the near plane", () => {
     assert.ok(camera.distance > camera.nearPlane, "the target plane is never culled");
 });
 
+test("dolly clamps below a maximum distance", () => {
+    const camera = new Camera();
+
+    for (let i = 0; i < 500; i++)
+        camera.dolly(1);
+
+    assert.equal(camera.distance, K.camera.maxDistance);
+    assert.ok(camera.distance > K.camera.distance, "the default sits below the ceiling");
+    assert.ok(K.camera.maxDistance > K.camera.minDistance, "the clamps must not cross");
+});
+
 test("panBy moves only the target", () => {
     const camera = new Camera();
 
