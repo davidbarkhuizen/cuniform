@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { entrypoint } from "../src/entrypoint";
 import { FakeCanvas, demoElements, withFakeDom } from "./support/dom";
-import { readSource } from "./support/files";
+import { readAllSources, readSource } from "./support/files";
 
 const IDS: [string, string, string, string] = [
     'selectionInfoPanel',
@@ -28,14 +28,11 @@ test("entrypoint initializes when window.Worker is undefined", () => {
         // No worker is ever constructed, so its absence must not block startup.
         assert.equal(dom.window.Worker, undefined);
 
-        let result: boolean | undefined;
-        quietly(() => {
-            result = entrypoint(...IDS);
-        });
+        const result = quietly(() => entrypoint(...IDS));
 
-        assert.equal(result, true);
-        assert.ok(dom.window.state, "state should be installed on window");
-        assert.ok(dom.window.fdg, "the graph should be installed on window");
+        assert.ok(result, "entrypoint should hand back the controller");
+        assert.notEqual(result.timer, null, "the simulation timer should be running");
+        assert.ok(result.solver.graph.vertices.length > 0, "the controller should own a live graph");
         assert.equal(dom.intervals.length, 1, "the simulation timer should be running");
         // The fake body is 800x600, and the canvas fills it (dpr 1).
         assert.equal((dom.elements.canvas as FakeCanvas).width, 800);
@@ -45,12 +42,9 @@ test("entrypoint initializes when window.Worker is undefined", () => {
 
 test("entrypoint reports failure when the canvas element is missing", () => {
     withFakeDom(demoElements(['canvas']), dom => {
-        let result: boolean | undefined;
-        quietly(() => {
-            result = entrypoint(...IDS);
-        });
+        const result = quietly(() => entrypoint(...IDS));
 
-        assert.equal(result, false);
+        assert.equal(result, null);
         assert.equal(dom.intervals.length, 0, "nothing should be scheduled on failure");
     });
 });
@@ -61,24 +55,18 @@ test("entrypoint reports failure when getContext('2d') returns null", () => {
     canvas.getContext = () => null;
 
     withFakeDom(elements, dom => {
-        let result: boolean | undefined;
-        quietly(() => {
-            result = entrypoint(...IDS);
-        });
+        const result = quietly(() => entrypoint(...IDS));
 
-        assert.equal(result, false);
+        assert.equal(result, null);
         assert.equal(dom.intervals.length, 0, "nothing should be scheduled on failure");
     });
 });
 
 test("entrypoint still initializes when the optional drag panel is missing", () => {
     withFakeDom(demoElements(['selectionInfoPanel']), dom => {
-        let result: boolean | undefined;
-        quietly(() => {
-            result = entrypoint(...IDS);
-        });
+        const result = quietly(() => entrypoint(...IDS));
 
-        assert.equal(result, true);
+        assert.ok(result);
         assert.equal(dom.intervals.length, 1);
     });
 });
@@ -86,12 +74,9 @@ test("entrypoint still initializes when the optional drag panel is missing", () 
 test("entrypoint reports failure when any required element is missing", () => {
     for (const missing of ['body', 'export_canvas_link', 'reset_link', 'selectedNodeInfoLabel', 'selectedNodeInfoList']) {
         withFakeDom(demoElements([missing]), dom => {
-            let result: boolean | undefined;
-            quietly(() => {
-                result = entrypoint(...IDS);
-            });
+            const result = quietly(() => entrypoint(...IDS));
 
-            assert.equal(result, false, `missing ${missing} should fail startup`);
+            assert.equal(result, null, `missing ${missing} should fail startup`);
             assert.equal(dom.intervals.length, 0, "nothing should be scheduled on failure");
         });
     }
@@ -108,4 +93,18 @@ test("entrypoint no longer requires the unused Worker feature", () => {
 
     assert.ok(!/\.Worker\b/.test(source), "entrypoint must not require window.Worker");
     assert.ok(!/unsupportedRequirements/.test(source), "the dead requirement list should be gone");
+});
+
+test("no source file reaches for state or the solver through window", () => {
+    const sources = readAllSources();
+
+    for (const [name, source] of Object.entries(sources)) {
+        assert.ok(!/window\.state\b/.test(source), `${name} still reads window.state`);
+        assert.ok(!/window\.fdg\b/.test(source), `${name} still reads window.fdg`);
+    }
+
+    assert.ok(
+        !/declare global/.test(sources["UIController.ts"] ?? ""),
+        "the Window augmentation should be gone from UIController.ts"
+    );
 });

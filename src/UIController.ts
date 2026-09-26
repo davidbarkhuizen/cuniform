@@ -1,16 +1,23 @@
 import { ContextMenu } from "./ContextMenu";
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
+import { Graph } from "./Graph";
 import { GraphFactory } from "./GraphFactory";
 import { K } from "./K";
 import { point, Point2D } from "./Point2D";
 import { State } from "./State";
 
-declare global {
-    interface Window {
-        state: State;
-        fdg: ForceDirectedGraph;
-    }
-}
+/**
+ * Builds the graph a fresh (or reset) controller simulates. Supplied by the
+ * caller so the controller's real dependencies are visible in its signature
+ * instead of being read from globals.
+ */
+export type GraphSource = () => Graph;
+
+const defaultGraphSource: GraphSource = () =>
+    new GraphFactory().generateGraph(
+        K.initialConditions.order,
+        K.initialConditions.branching
+    );
 
 /**
  * The canvas as a PNG Blob. Browsers refuse top-frame navigation to a `data:`
@@ -34,6 +41,11 @@ function pngBlob(canvas: HTMLCanvasElement): Blob {
 export class UIController {
 
     timer: ReturnType<typeof setInterval> | null = null;
+
+    /** Controller-owned pointer state; no longer a window global. */
+    readonly state: State = new State();
+
+    private solverRef: ForceDirectedGraph | null = null;
 
     body: HTMLElement;
     canvas: HTMLCanvasElement;
@@ -66,7 +78,8 @@ export class UIController {
 		exportElement: HTMLElement, 
 		resetElement: HTMLElement,
 		selectionInfoLabel: HTMLElement,
-		selectionInfoList: HTMLElement
+		selectionInfoList: HTMLElement,
+        private readonly makeGraph: GraphSource = defaultGraphSource
 	) {
         this.body = body;
         this.canvas = canvas;
@@ -77,27 +90,39 @@ export class UIController {
 		this.selectionInfoList = selectionInfoList;
 	}
 
+    /**
+     * The live solver. Built lazily so a handler that runs before initialize()
+     * (and a test that never initializes) still has one; initialize() replaces
+     * it so a reset rebuilds the graph.
+     */
+    get solver(): ForceDirectedGraph {
+        if (this.solverRef === null)
+            this.solverRef = new ForceDirectedGraph(this.makeGraph());
+
+        return this.solverRef;
+    }
+
 	onMouseOut = () => {
-		window.state.b0Down = false;
-		window.state.b1Down = false;
-		window.state.b2Down = false;
-		window.state.lastMiddleDragPos = null;
+		this.state.b0Down = false;
+		this.state.b1Down = false;
+		this.state.b2Down = false;
+		this.state.lastMiddleDragPos = null;
 	};
 
 	onMouseMove = (event: MouseEvent) => {
 
-		if (window.state.b0Down) {
+		if (this.state.b0Down) {
 
 			// Left-drag: every selected node follows the cursor exactly.
 			const mxy = this.getMousePos(this.canvas, event);
-			const phasePos = window.fdg.wrapReverse(mxy, this.width, this.height);
+			const phasePos = this.solver.wrapReverse(mxy, this.width, this.height);
 
-			for (const vertex of window.fdg.graph.vertices) {
+			for (const vertex of this.solver.graph.vertices) {
 				if (vertex.isSelected)
 					vertex.position = point(phasePos.x, phasePos.y);
 			}
 		}
-		else if (window.state.b1Down) {
+		else if (this.state.b1Down) {
 
 			// Middle-drag: pan the whole graph.
 			this.panTo(this.getMousePos(this.canvas, event));
@@ -111,26 +136,26 @@ export class UIController {
 	 */
 	panTo = (mxy: Point2D) => {
 
-		const last = window.state.lastMiddleDragPos;
+		const last = this.state.lastMiddleDragPos;
 
 		// First move of a pan establishes the anchor; there is no delta yet.
 		if (last == null) {
-			window.state.lastMiddleDragPos = mxy;
+			this.state.lastMiddleDragPos = mxy;
 			return;
 		}
 
-		const now = window.fdg.wrapReverse(mxy, this.width, this.height);
-		const before = window.fdg.wrapReverse(last, this.width, this.height);
+		const now = this.solver.wrapReverse(mxy, this.width, this.height);
+		const before = this.solver.wrapReverse(last, this.width, this.height);
 
 		const dx = now.x - before.x;
 		const dy = now.y - before.y;
 
-		for (const vertex of window.fdg.graph.vertices) {
+		for (const vertex of this.solver.graph.vertices) {
 			vertex.position.x += dx;
 			vertex.position.y += dy;
 		}
 
-		window.state.lastMiddleDragPos = mxy;
+		this.state.lastMiddleDragPos = mxy;
 	};
 
 	onMouseDown = (event: MouseEvent) => {
@@ -143,20 +168,20 @@ export class UIController {
 		);
 		
 		if (event.button == 0) {
-			window.state.b0Down = true;		
+			this.state.b0Down = true;		
 				
-			const selectionChanged = window.fdg.handleNodeSelectionAttempt(mxy, this.width, this.height);
+			const selectionChanged = this.solver.handleNodeSelectionAttempt(mxy, this.width, this.height);
 			if (selectionChanged == true)
 				this.updateSelectionInfo();
 		}
 		else if (event.button == 1) {
 			// Middle button starts a pan; prevent the browser's autoscroll.
-			window.state.b1Down = true;
-			window.state.lastMiddleDragPos = mxy;
+			this.state.b1Down = true;
+			this.state.lastMiddleDragPos = mxy;
 			event.preventDefault();
 		}
 		else if (event.button == 2) {
-			window.state.b2Down = true;
+			this.state.b2Down = true;
 		}
 	}
 
@@ -169,7 +194,7 @@ export class UIController {
 
 		event.preventDefault();
 
-		if (!window.state.b2Down)
+		if (!this.state.b2Down)
 			return;
 
 		this.openContextMenu(event.clientX, event.clientY);
@@ -209,15 +234,15 @@ export class UIController {
 	onMouseUp = (event: MouseEvent) => {
 	
 		if (event.button == 0) {
-			window.state.b0Down = false;
+			this.state.b0Down = false;
 			this.updateSelectionInfo();
 		}
 		else if (event.button == 1) {
-			window.state.b1Down = false;
-			window.state.lastMiddleDragPos = null;
+			this.state.b1Down = false;
+			this.state.lastMiddleDragPos = null;
 		}
 		else if (event.button == 2)
-			window.state.b2Down = false;
+			this.state.b2Down = false;
 	}
 
 	// reset, export handlers
@@ -258,19 +283,19 @@ export class UIController {
 	};
 
 	clearSelection = () => {
-		window.fdg.graph.clearSelection();
+		this.solver.graph.clearSelection();
 		this.updateSelectionInfo();
 	};
 
 	onTimerTick = () => {
 		// Advance the physics, then draw. The solver is told which node is
 		// pinned via a predicate, so it never reads browser state itself.
-		window.fdg.step(
+		this.solver.step(
 			this.width,
 			this.height,
-			tag => tag.isSelected && window.state.b0Down
+			tag => tag.isSelected && this.state.b0Down
 		);
-		window.fdg.render(this.context2D);
+		this.solver.render(this.context2D);
 	};
 	
 	/**
@@ -329,7 +354,7 @@ export class UIController {
 
 	updateSelectionInfo = () => {
 	
-		const selectedNode = window.fdg.graph.selectedVertex();
+		const selectedNode = this.solver.graph.selectedVertex();
 		
 		const selectedNodeInfoLabel = this.selectionInfoLabel;
 		const list = this.selectionInfoList;
@@ -350,7 +375,7 @@ export class UIController {
 		else {
 			selectedNodeInfoLabel.innerHTML = selectedNode.label;
 	
-			window.fdg.graph.neighbours(selectedNode)
+			this.solver.graph.neighbours(selectedNode)
 			.forEach(
 				neighbour => {
 					const neighbourString = neighbour.label;
@@ -396,13 +421,16 @@ export class UIController {
 	initialize = () => {
 
 		this.resizeCanvas();
-	
-		window.state = new State();
-			
-		const gFactory = new GraphFactory();
-		const graph = gFactory.generateGraph(K.initialConditions.order, K.initialConditions.branching);
-		window.fdg = new ForceDirectedGraph(graph);
-	
+
+		// Reset the existing state object rather than allocating a new one, so
+		// handlers holding a reference see the cleared flags.
+		this.state.b0Down = false;
+		this.state.b1Down = false;
+		this.state.b2Down = false;
+		this.state.lastMiddleDragPos = null;
+
+		this.solverRef = new ForceDirectedGraph(this.makeGraph());
+
 		this.buildContextMenu();
 
 		this.toggleEventListeners(true);

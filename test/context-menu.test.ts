@@ -165,8 +165,8 @@ test("the contextmenu listener is registered exactly once", () => {
 });
 
 test("clear selection deselects every node and resets the info panel", () => {
-    withController(({ dom, controller, elements }) => {
-        const vertices = dom.window.fdg.graph.vertices;
+    withController(({ controller, elements }) => {
+        const vertices = controller.solver.graph.vertices;
         vertices[0].isSelected = true;
         vertices[1].isSelected = true;
 

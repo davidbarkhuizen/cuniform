@@ -45,7 +45,7 @@ function withFixture<T>(fn: (ui: PanFixture) => T): T {
         // The logical size initialize() would have computed; mapping uses it.
         const controller = newUIController(elements, { width: 600, height: 600, graph });
 
-        return fn({ dom, canvas, controller, graph, fdg: dom.window.fdg, a, b });
+        return fn({ dom, canvas, controller, graph, fdg: controller.solver, a, b });
     });
 }
 
@@ -77,20 +77,20 @@ test("successive middle moves accumulate the pan", () => {
 });
 
 test("the first middle move only anchors the pan and moves nothing", () => {
-    withFixture(({ dom, controller, a, b }) => {
+    withFixture(({ controller, a, b }) => {
         // Simulate a pan already marked down without an anchor.
-        dom.window.state.b1Down = true;
+        controller.state.b1Down = true;
 
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 400, clientY: 300 }));
 
         assert.deepEqual({ ...a.position }, { x: 0, y: 0 });
         assert.deepEqual({ ...b.position }, { x: 100, y: 100 });
-        assert.deepEqual({ ...dom.window.state.lastMiddleDragPos }, { x: 400, y: 300 });
+        assert.deepEqual({ ...controller.state.lastMiddleDragPos }, { x: 400, y: 300 });
     });
 });
 
 test("releasing the middle button clears the pan anchor and stops panning", () => {
-    withFixture(({ dom, controller, a }) => {
+    withFixture(({ controller, a }) => {
         controller.onMouseDown(mouseEvent({ button: 1, clientX: 100, clientY: 100 }));
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 150, clientY: 120 }));
 
@@ -98,8 +98,8 @@ test("releasing the middle button clears the pan anchor and stops panning", () =
 
         controller.onMouseUp(mouseEvent({ button: 1, clientX: 150, clientY: 120 }));
 
-        assert.equal(dom.window.state.b1Down, false);
-        assert.equal(dom.window.state.lastMiddleDragPos, null);
+        assert.equal(controller.state.b1Down, false);
+        assert.equal(controller.state.lastMiddleDragPos, null);
 
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 300, clientY: 300 }));
 
@@ -108,21 +108,21 @@ test("releasing the middle button clears the pan anchor and stops panning", () =
 });
 
 test("middle mousedown records the anchor and prevents autoscroll", () => {
-    withFixture(({ dom, controller }) => {
+    withFixture(({ controller }) => {
         const event = mouseEvent({ button: 1, clientX: 100, clientY: 100 });
 
         controller.onMouseDown(event);
 
-        assert.equal(dom.window.state.b1Down, true);
-        assert.deepEqual({ ...dom.window.state.lastMiddleDragPos }, { x: 100, y: 100 });
+        assert.equal(controller.state.b1Down, true);
+        assert.deepEqual({ ...controller.state.lastMiddleDragPos }, { x: 100, y: 100 });
         assert.equal(event.defaultPrevented, true);
     });
 });
 
 test("left-drag still moves only the selected node to the cursor", () => {
-    withFixture(({ dom, controller, a, b }) => {
+    withFixture(({ controller, a, b }) => {
         a.isSelected = true;
-        dom.window.state.b0Down = true;
+        controller.state.b0Down = true;
 
         controller.onMouseMove(mouseEvent({ button: 0, clientX: 400, clientY: 300 }));
 
@@ -132,31 +132,52 @@ test("left-drag still moves only the selected node to the cursor", () => {
 });
 
 test("a middle move while the left button is up does not follow the node-drag path", () => {
-    withFixture(({ dom, controller, a }) => {
+    withFixture(({ controller, a }) => {
         a.isSelected = true;
-        dom.window.state.b0Down = false;
-        dom.window.state.b1Down = true;
+        controller.state.b0Down = false;
+        controller.state.b1Down = true;
 
         controller.onMouseMove(mouseEvent({ button: 0, clientX: 400, clientY: 300 }));
 
         // b1Down pans from the anchor; the selected node is not teleported.
         assert.deepEqual({ ...a.position }, { x: 0, y: 0 });
-        assert.deepEqual({ ...dom.window.state.lastMiddleDragPos }, { x: 400, y: 300 });
+        assert.deepEqual({ ...controller.state.lastMiddleDragPos }, { x: 400, y: 300 });
     });
 });
 
 test("mouseout releases every button and the pan anchor", () => {
-    withFixture(({ dom, controller }) => {
-        dom.window.state.b0Down = true;
-        dom.window.state.b1Down = true;
-        dom.window.state.b2Down = true;
-        dom.window.state.lastMiddleDragPos = { x: 1, y: 2 };
+    withFixture(({ controller }) => {
+        controller.state.b0Down = true;
+        controller.state.b1Down = true;
+        controller.state.b2Down = true;
+        controller.state.lastMiddleDragPos = { x: 1, y: 2 };
 
         controller.onMouseOut();
 
-        assert.equal(dom.window.state.b0Down, false);
-        assert.equal(dom.window.state.b1Down, false);
-        assert.equal(dom.window.state.b2Down, false);
-        assert.equal(dom.window.state.lastMiddleDragPos, null);
+        assert.equal(controller.state.b0Down, false);
+        assert.equal(controller.state.b1Down, false);
+        assert.equal(controller.state.b2Down, false);
+        assert.equal(controller.state.lastMiddleDragPos, null);
+    });
+});
+
+test("handlers run on a controller that was never initialized", () => {
+    const elements = demoElements();
+
+    withFakeDom(elements, dom => {
+        const graph = new Graph();
+        graph.addNode(new Tag({ x: 0, y: 0 }, "a"));
+
+        const controller = newUIController(elements, { width: 600, height: 600, graph });
+
+        // initialize() used to install these globals; no handler may still need
+        // them, and none may throw on a controller that was never initialized.
+        delete dom.window.state;
+        delete dom.window.fdg;
+
+        assert.doesNotThrow(() => controller.onMouseOut());
+        assert.doesNotThrow(() => controller.panTo({ x: 10, y: 10 }));
+        assert.doesNotThrow(() => controller.panTo({ x: 20, y: 20 }));
+        assert.doesNotThrow(() => controller.onTimerTick());
     });
 });
