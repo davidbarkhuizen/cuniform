@@ -217,3 +217,62 @@ test("nodes and the selection highlight contrast strongly with the edges", () =>
         "labels must stay legible over the edges"
     );
 });
+
+// ------------------------------------------------------------------ wizard
+
+test("the graph wizard layers above the floating panel", () => {
+    const css = readWeb("stylez.css");
+    const wizard = cssRule(css, ".graphWizard");
+
+    assert.match(wizard, /position\s*:\s*fixed/, "the wizard is a full-screen overlay");
+
+    const zIndex = /z-index\s*:\s*(\d+)/.exec(wizard);
+    assert.ok(zIndex, "the wizard needs an explicit z-index");
+
+    const panelZIndex = Number(
+        /z-index\s*:\s*(\d+)/.exec(cssRule(css, ".selectionInfoPanel"))?.[1] ?? "0"
+    );
+    assert.ok(
+        Number(zIndex![1]) > panelZIndex,
+        "the wizard must sit above the panel and the context menu"
+    );
+});
+
+test("the wizard stylesheet covers every class the component builds", () => {
+    const css = readWeb("stylez.css");
+
+    const selectors = [
+        ".wizardPanel",
+        ".wizardTitle",
+        ".wizardStep",
+        ".wizardChoice",
+        ".wizardField",
+        ".wizardInput",
+        ".wizardTags",
+        ".wizardTagFamily",
+        ".wizardFooter",
+        ".wizardPrimary",
+        ".wizardBack",
+        ".wizardCancel",
+        ".wizardValidation",
+        ".wizardEmpty",
+        ".wizardCount",
+    ];
+
+    for (const selector of selectors)
+        assert.notEqual(css.indexOf(selector), -1, `${selector} rule is missing`);
+
+    // `.wizardTag` is a prefix of `.wizardTagFamily`, so anchor on the line.
+    assert.notEqual(css.indexOf(".wizardTag\n"), -1, ".wizardTag rule is missing");
+    assert.match(cssRule(css, ".wizardTag\n"), /border-radius/, "a chip should read as a pill");
+});
+
+test("the wizard's step containers are hidden by class and toggled inline", () => {
+    const css = readWeb("stylez.css");
+
+    assert.match(
+        cssRule(css, ".wizardStep"),
+        /display\s*:\s*none/,
+        "only the active step is shown; the rest are display:none until toggled"
+    );
+});
