@@ -1,6 +1,6 @@
 import { Graph } from "./Graph";
 import { K } from "./K";
-import { Point2D } from "./Point2D";
+import { point, Point2D, zero } from "./Point2D";
 import { Tag } from "./Tag";
 import { Viewport } from "./Viewport";
 
@@ -127,20 +127,20 @@ export class ForceDirectedGraph {
 		dy: number,
 		r: number,
 		magnitude: number
-	) {
+	): Point2D {
 
 		if (r === 0)
-			return { x : Fx, y : Fy };
+			return point(Fx, Fy);
 
-		return {
-			x : Fx + (magnitude * dx) / r,
-			y : Fy + (magnitude * dy) / r
-		};
+		return point(
+			Fx + (magnitude * dx) / r,
+			Fy + (magnitude * dy) / r
+		);
 	};
 
-	netElectrostaticForceAtNode(tagA: Tag) {
+	netElectrostaticForceAtNode(tagA: Tag): Point2D {
 
-		var F = { x : 0.0, y : 0.0 };
+		var F: Point2D = zero();
 
 		for(let i = 0; i < this.graph.vertices.length; i++) {
 
@@ -169,9 +169,9 @@ export class ForceDirectedGraph {
 		return F;
 	};
 
-	netSpringForceAtNode(tag: Tag) {
+	netSpringForceAtNode(tag: Tag): Point2D {
 
-		var F = { x : 0.0, y : 0.0 };
+		var F: Point2D = zero();
 
 		var k = K.physics.springConstant;
 		var l = K.physics.equilibriumDisplacement;
@@ -203,7 +203,7 @@ export class ForceDirectedGraph {
 		return F;
 	};
 
-	netForceAtNode(tag: Tag) {
+	netForceAtNode(tag: Tag): Point2D {
 
 		// net Force = net Electrostatic Force + net Spring Force
 
@@ -213,10 +213,7 @@ export class ForceDirectedGraph {
 		var nX = e.x + s.x;
 		var nY = e.y + s.y;
 
-		return {
-			x : nX,
-			y : nY
-		};
+		return point(nX, nY);
 	};
 
 	/**
@@ -227,7 +224,7 @@ export class ForceDirectedGraph {
 	 * Velocity is updated before position (see step()), which is what makes
 	 * the integration symplectic and keeps stiff springs stable.
 	 */
-	velocityAtTag(tag: Tag) {
+	velocityAtTag(tag: Tag): Point2D {
 
 		var f = this.netForceAtNode(tag);
 
@@ -244,17 +241,14 @@ export class ForceDirectedGraph {
 		var vx_new = (vx_old * friction) + f.x * time_step;
 		var vy_new = (vy_old * friction) + f.y * time_step;
 
-		return {
-			x : vx_new,
-			y : vy_new
-		};
+		return point(vx_new, vy_new);
 	};
 
 	/**
 	 * Per-step displacement. velocityAtTag() has already applied FRICTION and
 	 * TIME_STEP, so this is just the node's current velocity (see Tag.displacement).
 	 */
-	displacementAtNode(tag: Tag) {
+	displacementAtNode(tag: Tag): Point2D {
 		return tag.velocity;
 	};
 
@@ -308,7 +302,7 @@ export class ForceDirectedGraph {
 		for(i = 0; i < this.graph.vertices.length; i++) {
 			var tag = this.graph.vertices[i];
 			if (isPinned(tag)) {
-				tag.velocity = { x : 0, y : 0 };
+				tag.velocity = zero();
 			} 
 			else {
 				var displacement = tag.displacement;

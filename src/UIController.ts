@@ -2,7 +2,7 @@ import { ContextMenu } from "./ContextMenu";
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { GraphFactory } from "./GraphFactory";
 import { K } from "./K";
-import { Point2D } from "./Point2D";
+import { point, Point2D } from "./Point2D";
 import { State } from "./State";
 
 declare global {
@@ -75,7 +75,7 @@ export class UIController {
 
 			for (const vertex of window.fdg.graph.vertices) {
 				if (vertex.isSelected)
-					vertex.position = {x: phasePos.x, y: phasePos.y};
+					vertex.position = point(phasePos.x, phasePos.y);
 			}
 		}
 		else if (window.state.b1Down) {
@@ -182,7 +182,7 @@ export class UIController {
 	 
 		// return relative mouse position
 		//
-		return new Point2D(
+		return point(
 			evt.clientX - left + window.pageXOffset,
 			evt.clientY - top + window.pageYOffset
 		)

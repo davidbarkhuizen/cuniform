@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
+import { Tag } from "../src/Tag";
 import { tag } from "./support/physics";
 
 test("removing a tag that is not in the graph leaves the vertices untouched", () => {
@@ -129,4 +130,21 @@ test("hasEdge and removeNode ignore edge direction", () => {
 
     graph.removeNode(a);
     assert.deepEqual(graph.edges, []);
+});
+
+test("a tag owns its own points rather than sharing point()/zero() results", () => {
+    // point() and zero() are factories exactly so that this holds: a shared
+    // ZERO constant would alias every tag's velocity and force accumulators.
+    const origin = { x: 3, y: 4 };
+    const a = new Tag(origin, "a");
+    const b = new Tag(origin, "b");
+
+    a.position.x = 99;
+    a.velocity.x = 1;
+
+    assert.deepEqual(origin, { x: 3, y: 4 }, "the constructor must not alias the caller's point");
+    assert.deepEqual({ ...a.translatedPosition }, { x: 3, y: 4 }, "position and translatedPosition must not alias");
+    assert.deepEqual({ ...b.velocity }, { x: 0, y: 0 }, "one tag's velocity must not move another's");
+    assert.notStrictEqual(a.velocity, b.velocity);
+    assert.notStrictEqual(a.netElectrostaticForce, a.netSpringForce);
 });

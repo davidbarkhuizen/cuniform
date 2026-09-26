@@ -1,4 +1,4 @@
-import { Point2D } from "./Point2D";
+import { point, Point2D, zero } from "./Point2D";
 
 var lastUsedTagIndex = 0;
 function popUnusedTagIdx(): number {
@@ -22,30 +22,12 @@ export class Tag {
         this.idx = popUnusedTagIdx();
         this.label = label;
 
-        this.position = {
-            x : xy.x,
-            y : xy.y
-        };
-        
-        this.translatedPosition = {
-            x : xy.x,
-            y : xy.y
-        };
-        
-        this.netElectrostaticForce = {
-            x : 0,
-            y : 0
-        };
-        
-        this.netSpringForce = {
-            x : 0,
-            y : 0
-        };
-        
-        this.velocity = {
-            x : 0,
-            y : 0
-        };
+        // Copies, not aliases: the tag owns its own points from here on.
+        this.position = point(xy.x, xy.y);
+        this.translatedPosition = point(xy.x, xy.y);
+        this.netElectrostaticForce = zero();
+        this.netSpringForce = zero();
+        this.velocity = zero();
     }
 
     /**
