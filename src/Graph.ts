@@ -42,6 +42,16 @@ export class Graph {
 		this.edges.push({ v1, v2});
 	};
 
+	/** True when an undirected edge already joins v1 and v2. */
+	hasEdge(v1: Tag, v2: Tag) {
+		for (let i = 0; i < this.edges.length; i++) {
+			var e = this.edges[i];
+			if ((e.v1 == v1 && e.v2 == v2) || (e.v1 == v2 && e.v2 == v1))
+				return true;
+		}
+		return false;
+	};
+
 	neighbours(v: Tag) {
 		
 		var set = [];

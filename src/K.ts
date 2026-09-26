@@ -37,7 +37,8 @@ export const K = {
     },
 
     initialConditions: {
-        order : 10,
-        branching : 1
+        // Reference demo: DEMO_GRAPH_SIZE = 11, DEMO_GRAPH_BRANCHING_CONST = 2.
+        order : 11,
+        branching : 2
     }
 };
