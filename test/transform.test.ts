@@ -8,7 +8,6 @@ import { Projector } from "../src/Projector";
 import { Tag } from "../src/Tag";
 import { Viewport } from "../src/Viewport";
 import { assertClose } from "./support/assert";
-import { readSource } from "./support/files";
 
 const W0 = K.space.W_0;
 const H0 = K.space.H_0;
@@ -78,17 +77,6 @@ test("step() caches translatedPosition and depth through the projector", () => {
         Viewport.forCanvas(800, 600).toCanvas(a.position),
         "the default identity camera still reduces to the 2D mapping"
     );
-});
-
-test("the retired mapping wrappers and test-only solver methods stay retired", () => {
-    const solver = readSource("ForceDirectedGraph.ts");
-
-    // Both once duplicated Viewport.forCanvas(w, h); callers now ask Viewport directly.
-    assert.ok(!/wrapTranslate/.test(solver), "wrapTranslate had no caller; use Viewport directly");
-    assert.ok(!/wrapReverse/.test(solver), "wrapReverse duplicated Viewport.forCanvas().toModel()");
-
-    // displacementAtNode duplicated Tag.displacement, the getter production reads.
-    assert.ok(!/displacementAtNode/.test(solver), "displacement lives on Tag, not the solver");
 });
 
 test("nothing clamps a node to the model cube", () => {

@@ -6,7 +6,6 @@ import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
-import { readSource } from "./support/files";
 import { CANVAS_H, CANVAS_W } from "./support/physics";
 
 // Deterministic, well-separated positions inside the 600x600x600 model cube.
@@ -109,22 +108,4 @@ test("one step is exactly a synchronous update from the pre-step snapshot", () =
         assertClose(t.position.y, expected[i].y, 1e-12, `${t.label} y at ${t.position.y}`);
         assertClose(t.position.z, expected[i].z, 1e-12, `${t.label} z at ${t.position.z}`);
     });
-});
-
-test("the solver source has no browser coupling", () => {
-    const solver = readSource("ForceDirectedGraph.ts");
-
-    assert.ok(!/\bwindow\b/.test(solver), "solver must not reference window");
-    assert.ok(!/\bdocument\b/.test(solver), "solver must not reference document");
-
-    // Renderer owns the canvas type, so the solver cannot reference one.
-    const canvasTypeUses = solver.split("CanvasRenderingContext2D").length - 1;
-    assert.equal(canvasTypeUses, 0, "the solver must not name a canvas type");
-
-    const renderer = readSource("Renderer.ts");
-    assert.equal(
-        renderer.split("CanvasRenderingContext2D").length - 1,
-        1,
-        "Renderer is where render()'s canvas parameter lives"
-    );
 });

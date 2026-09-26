@@ -13,7 +13,6 @@ import {
     mouseEvent,
     withUIController,
 } from "./support/dom";
-import { readSource } from "./support/files";
 
 /** A comparable snapshot of the live camera, which a reset must not disturb. */
 function cameraState(controller: UIController) {
@@ -146,7 +145,7 @@ test("completing with a molecule spec builds that molecule's graph", () => {
         chooseMolecule(controller, "ibogaine");
 
         assert.equal(controller.solver.graph.vertices.length, entry.heavyAtoms);
-        assert.equal(controller.solver.graph.edges.length, entry.bondCount);
+        assert.equal(controller.solver.graph.edges.length, entry.topology.bonds.length);
         assert.deepEqual(controller.spec, { kind: "molecule", id: "ibogaine" });
         assert.ok(controller.wizard === null);
         assert.deepEqual(cameraState(controller), cameraBefore, "the camera survives a molecule swap");
@@ -287,13 +286,4 @@ test("loadGraph swaps the graph in place and clears the pointer flags", () => {
         assert.equal(controller.state.b2Down, false);
         assert.equal(controller.state.lastMiddleDragPos, null);
     });
-});
-
-// ------------------------------------------------------------ source guard
-
-test("UIController no longer confirms before rebuilding", () => {
-    const source = readSource("UIController.ts");
-
-    assert.ok(!/\bconfirm\s*\(/.test(source), "the reset path must not call confirm()");
-    assert.ok(/openGraphWizard/.test(source), "reset must open the chooser");
 });

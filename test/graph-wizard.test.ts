@@ -12,7 +12,20 @@ import {
     keyEvent,
     withFakeDom,
 } from "./support/dom";
-import { readSource } from "./support/files";
+
+/** Every element in a fake subtree, so a markup write anywhere can be observed. */
+function subtree(root: FakeElement): FakeElement[] {
+    const out: FakeElement[] = [];
+    const queue = [root];
+
+    while (queue.length > 0) {
+        const element = queue.shift()!;
+        out.push(element);
+        queue.push(...element.children);
+    }
+
+    return out;
+}
 
 interface Fixture {
     wizard: GraphWizard;
@@ -554,14 +567,23 @@ test("Tab wraps at both ends of the visible controls", () => {
     });
 });
 
-test("the wizard never echoes the search text into markup", () => {
-    // Input text is data, not markup: writing it back through innerHTML is the CodeQL js/xss-through-dom sink.
-    for (const line of readSource("GraphWizard.ts").split("\n")) {
-        if (!line.includes("innerHTML"))
-            continue;
+test("the search text is data, never markup", () => {
+    withWizard(({ wizard }) => {
+        const payload = "<img src=x onerror=alert(1)>";
 
-        assert.ok(!line.includes("query"), `the query must not reach innerHTML: ${line.trim()}`);
-    }
+        wizard.open("molecules");
+        wizard.searchInput.value = payload;
+        el(wizard.searchInput).dispatch("input");
+
+        // The filter still runs, and neither the count nor the empty state carries
+        // the user's text; no element in the dialog may render it.
+        assert.equal(wizard.countLabel.innerHTML, `0 of ${wizard.tags.length}`);
+        assert.equal(wizard.emptyLabel.style.display, "block");
+        assert.ok(
+            subtree(el(wizard.element)).every(element => !element.innerHTML.includes(payload)),
+            "the search text must never reach markup"
+        );
+    });
 });
 
 test("Tab skips the disabled generate button", () => {

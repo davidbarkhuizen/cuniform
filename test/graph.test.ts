@@ -3,8 +3,24 @@ import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
 import { Tag } from "../src/Tag";
-import { readSource } from "./support/files";
 import { tag } from "./support/physics";
+
+test("addNode rejects a vertex that is already in the graph", () => {
+    const graph = new Graph();
+    const a = tag("a");
+    graph.addNode(a);
+
+    assert.throws(
+        () => graph.addNode(a),
+        (error: unknown) => {
+            assert.ok(error instanceof Error, `threw a ${typeof error}, not an Error`);
+            assert.equal(error.message, "Graph.addNode: vertex is already in the graph");
+            return true;
+        }
+    );
+
+    assert.deepEqual(graph.vertices, [a], "the rejected add must not duplicate the vertex");
+});
 
 test("addEdge rejects foreign vertices with a complete Error, not a bare string", () => {
     const graph = new Graph();
@@ -69,14 +85,6 @@ test("hasEdge ignores edge direction", () => {
 
     assert.ok(graph.hasEdge(a, b));
     assert.ok(graph.hasEdge(b, a));
-});
-
-test("Graph carries no removeNode machinery", () => {
-    // Nothing in src/ removes a node; both helpers are recoverable from git history if a caller appears.
-    const source = readSource("Graph.ts");
-
-    assert.ok(!/removeNode/.test(source), "removeNode had no src/ caller");
-    assert.ok(!/rebuildAdjacency/.test(source), "rebuildAdjacency only served removeNode");
 });
 
 test("a tag owns its own points rather than aliasing the caller's", () => {

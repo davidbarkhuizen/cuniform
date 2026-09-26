@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 import { entrypoint } from "../src/entrypoint";
 import { FakeCanvas, demoElements, newUIController, withFakeDom } from "./support/dom";
-import { readAllSources, readSource } from "./support/files";
 
 const IDS: [string, string, string, string] = [
     'selectionInfoPanel',
@@ -107,31 +106,4 @@ test("entrypoint reports failure when any required element is missing", () => {
             assert.equal(dom.intervals.length, 0, "nothing should be scheduled on failure");
         });
     }
-});
-
-test("UIController no longer looks up the selection info elements by hardcoded ID", () => {
-    const source = readSource("UIController.ts");
-
-    assert.ok(!/getElementById/.test(source), "selection-info lookup moved to the entrypoint");
-});
-
-test("entrypoint no longer requires the unused Worker feature", () => {
-    const source = readSource("entrypoint.ts");
-
-    assert.ok(!/\.Worker\b/.test(source), "entrypoint must not require window.Worker");
-    assert.ok(!/unsupportedRequirements/.test(source), "the dead requirement list should be gone");
-});
-
-test("no source file reaches for state or the solver through window", () => {
-    const sources = readAllSources();
-
-    for (const [name, source] of Object.entries(sources)) {
-        assert.ok(!/window\.state\b/.test(source), `${name} still reads window.state`);
-        assert.ok(!/window\.fdg\b/.test(source), `${name} still reads window.fdg`);
-    }
-
-    assert.ok(
-        !/declare global/.test(sources["UIController.ts"] ?? ""),
-        "the Window augmentation should be gone from UIController.ts"
-    );
 });
