@@ -25,12 +25,7 @@ export class ForceDirectedGraph {
 
 	render(context: CanvasRenderingContext2D) {
 
-		var selected_node: Tag | null = null;
-		for(let i = 0; i < this.graph.vertices.length; i++)
-		if(this.graph.vertices[i].isSelected) {
-			selected_node = this.graph.vertices[i];
-			break;
-        };
+		const selected_node = this.graph.selectedVertex();
         
 		// Clear the whole backing store in device space, independent of any
 		// devicePixelRatio transform the caller applied for HiDPI.
@@ -334,62 +329,47 @@ export class ForceDirectedGraph {
 		}
 	};
 
+	/**
+	 * Resolve a canvas click to a node and apply it to the selection.
+	 *
+	 * One pass finds the nearest node inside the hit radius, then the whole
+	 * selection is cleared and the hit node is toggled - so clicking a selected
+	 * node deselects it, and clicking empty space clears the selection.
+	 *
+	 * Returns whether anything changed, which the pointer handler uses to decide
+	 * whether the info panel needs repainting.
+	 */
 	handleNodeSelectionAttempt(canvasPos: Point2D, canvasWidth: number, canvasHeight: number) {
 
-		var transformedPos = this.wrapReverse(canvasPos, canvasWidth, canvasHeight);
+		var model = this.wrapReverse(canvasPos, canvasWidth, canvasHeight);
 
-		// calc distance from each node
-		//
-		var r2s = [];
-		// r2 : Node
-		for(let i = 0; i < this.graph.vertices.length; i++) {
-			var node = this.graph.vertices[i];
-			// r2 = (x - mx0)^2 + (y - my0)^2
-			r2s.push(Math.pow(node.position.x - transformedPos.x, 2) + Math.pow(node.position.y - transformedPos.y, 2));
-		}
+		// Best distance so far, seeded with the squared hit radius so only a
+		// node inside it can win.
+		var best = K.ui.minimumNodeSelectionRadius * K.ui.minimumNodeSelectionRadius;
+		var closest: Tag | null = null;
 
-		var closestNode: Tag | null = null;
-		var closestDistance: number | null = null;
+		for (const node of this.graph.vertices) {
 
-		for (let i = 0; i < r2s.length; i++) {
-			if(r2s[i] < (K.ui.minimumNodeSelectionRadius * K.ui.minimumNodeSelectionRadius)) {
-				if(closestNode == null) {
-					closestNode = this.graph.vertices[i];
-					closestDistance = r2s[i];
-					continue;
-				}
-				else if(closestDistance == null || r2s[i] < closestDistance) {
-					closestNode = this.graph.vertices[i];
-					closestDistance = r2s[i];
-				}
+			const deltaX = node.position.x - model.x;
+			const deltaY = node.position.y - model.y;
+			const r2 = deltaX * deltaX + deltaY * deltaY;
+
+			// Strictly closer, so the first of two equidistant nodes wins.
+			if (r2 < best) {
+				best = r2;
+				closest = node;
 			}
 		}
 
-		var selectionChanged = false;
-		
-		for (let i = 0; i < this.graph.vertices.length; i++) {
-			
-			var node = this.graph.vertices[i];
-			
-			// RESET ALL OTHER NODES
-			//
-			if (node != closestNode) {
-				if (node.isSelected == true) {
-				
-					node.isSelected = false;
-					selectionChanged = true;
-				}
-			}
-			
-			// TOGGLE SELECTION ON TARGET NODE
-			//
-			else if (node == closestNode) {
-				
-				node.isSelected = !node.isSelected;
-				selectionChanged = true;				
-			}
-		}
-		
-		return selectionChanged;
+		// Capture the hit node's state before the clear, so the toggle still
+		// flips it: clearing first would always leave it unselected.
+		const hitWasSelected = closest !== null && closest.isSelected;
+		const hadSelection = this.graph.selectedVertex() !== null;
+		this.graph.clearSelection();
+
+		if (closest)
+			closest.isSelected = !hitWasSelected;
+
+		return closest !== null || hadSelection;
 	};
 };
