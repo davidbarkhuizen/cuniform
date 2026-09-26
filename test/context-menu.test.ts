@@ -275,7 +275,7 @@ test("the contextmenu listener is registered exactly once", () => {
 });
 
 test("clear selection deselects every node and resets the info panel", () => {
-    withController(({ controller, elements }) => {
+    withController(({ canvas, controller, elements }) => {
         const vertices = controller.solver.graph.vertices;
         vertices[0].isSelected = true;
         vertices[1].isSelected = true;
@@ -285,6 +285,7 @@ test("clear selection deselects every node and resets the info panel", () => {
         assert.ok(vertices.every((v: any) => v.isSelected === false));
         assert.equal(controller.contextMenu!.isOpen, false);
         assert.equal(elements.selectedNodeInfoLabel.innerHTML, 'Click on a node to select...');
+        assert.equal(canvas.focused, true, "activating an entry should return focus to the canvas");
     });
 });
 

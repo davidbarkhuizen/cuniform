@@ -69,6 +69,9 @@ export class ContextMenu {
             entry.addEventListener('click', () => {
                 this.hide();
                 item.onSelect();
+                // Return focus to the canvas so the keyboard shortcuts keep
+                // working after an entry is activated by Enter or Space.
+                this.onDismiss?.();
             });
 
             // Keeps the arrow-key roving index in step when Tab moves focus.
