@@ -4,15 +4,22 @@
 
 ## Running
 
-    npm install
-    npm run start        # bundles src/ to dist/main.js with webpack
-    source build-and-run.sh   # build, then open dist/index.html in Chrome
+    ./cli install        # npm install
+    ./cli run            # build, then open dist/index.html in Chrome
+
+`cli` is the single entry point for common tasks; `./cli help` lists every
+subcommand. With no recognised option it builds and runs the app.
 
 ## Development
 
-    npm run typecheck    # tsc --noEmit, no emit
-    npm test             # compile test/ and run it under node:test
-    npm run ci           # typecheck + test
+    ./cli typecheck      # tsc --noEmit
+    ./cli test           # compile test/ and run it under node:test
+    ./cli ci             # typecheck + test
+    ./cli build          # webpack bundle only
+    ./cli clean          # remove build artefacts
+
+Each wraps the equivalent npm script (`npm run typecheck`, `npm test`,
+`npm run ci`, `npm run start`).
 
 The simulation is deliberately decoupled from the browser: `ForceDirectedGraph.step()`
 is pure physics and touches neither `window` nor the canvas, so the whole model can
