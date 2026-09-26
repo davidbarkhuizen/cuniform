@@ -313,6 +313,33 @@ test("reset opens the graph chooser and leaves the graph alone until a choice", 
     });
 });
 
+test("the fake DOM blurs the previous element, so a focus steal cannot hide", () => {
+    withFakeDom({}, () => {
+        const first = new FakeElement('BUTTON');
+        const second = new FakeElement('BUTTON');
+
+        first.focus();
+        second.focus();
+
+        assert.equal(second.focused, true);
+        assert.equal(first.focused, false, "focusing one element must blur the last");
+    });
+});
+
+test("resetting from the context menu leaves focus inside the chooser", () => {
+    withUIController(({ canvas, controller }) => {
+        rightClick(canvas);
+
+        entry(controller, 'reset').dispatch('click');
+
+        const wizard = controller.wizard!;
+        const firstChoice = el(wizard.choiceButtons[0].element);
+
+        assert.equal(firstChoice.focused, true, "the chooser's first control keeps focus");
+        assert.equal(canvas.focused, false, "the menu's dismissal must not steal focus back");
+    });
+});
+
 test("a completed reset swaps the graph without rebuilding the menu or double-registering", () => {
     withUIController(({ elements, canvas, controller }) => {
         assert.equal(elements.body.children.length, 1, "one menu element after initialize");

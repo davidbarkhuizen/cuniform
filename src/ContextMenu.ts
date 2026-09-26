@@ -60,9 +60,13 @@ export class ContextMenu {
 
             entry.addEventListener('click', () => {
                 this.hide();
-                item.onSelect();
-                // Return focus to the canvas so keyboard shortcuts keep working.
+                // Return focus before the action runs: an action that opens
+                // another overlay (the graph chooser) focuses its own control
+                // and must not be overridden by this dismissal. Doing it first
+                // also covers the plain actions, whose focus still lands on the
+                // canvas so keyboard shortcuts keep working.
                 this.onDismiss?.();
+                item.onSelect();
             });
 
             // Keeps the arrow-key roving index in step when Tab moves focus.
