@@ -2,7 +2,8 @@
 
 | | |
 | --- | --- |
-| **Status** | Planned |
+| **Status** | Implemented |
+| **Landed** | PRs #73–#76; `main` green at 334 tests |
 | **Area** | new `src/GraphSpec.ts`, `src/Smiles.ts`, `src/Molecules.ts`, `src/GraphWizard.ts`; changed `src/GraphFactory.ts`, `src/UIController.ts`, `src/entrypoint.ts`, `src/K.ts`; `web/index.html`, `web/stylez.css`; `README.md`; `test/**` |
 | **Depends on** | nothing outstanding — `main` was green at 221 tests when this was planned |
 | **Blocks** | nothing |
