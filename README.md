@@ -100,7 +100,8 @@ panel's drag surface.
   **molecule**:
   - *random* — the node count and the maximum new edges per node, validated as
     you type; `generate` is disabled while either field is out of range;
-  - *molecules* — a searchable word cloud of twenty indole alkaloids. The chip
+  - *molecules* — a searchable word cloud of twenty-one molecules: twenty indole
+    alkaloids and chlorophyll a. The chip
     is the common name; its tooltip and accessible name carry the full
     systematic name, the family, the formula and the flagship note. Typing
     filters by common name, systematic name, parent ring system, family, formula
@@ -136,20 +137,24 @@ a discriminated value the chooser produces and the controller remembers:
 
 ### The molecule catalog
 
-[`src/Molecules.ts`](src/Molecules.ts) holds twenty indole alkaloids, one
-flagship example per structural family: tryptamine, β-carboline, ergoline,
+[`src/Molecules.ts`](src/Molecules.ts) holds twenty-one molecules: twenty indole
+alkaloids, one flagship example per structural family, plus chlorophyll a — the
+one entry outside the class. The families run tryptamine, β-carboline, ergoline,
 yohimban, ibogan, aspidosperman, ajmaline, sarpagan, akuammilan, strychnan,
 camptothecin, bisindole, Rauwolfia, carbazole, oxindole, pyrroloindoline,
-eburnane, gelsemium, pyridocarbazole and uleine. Each row carries its PubChem
-CID, its published molecular formula, its IUPAC systematic name and the isomeric
-SMILES verified against that CID.
+eburnane, gelsemium, pyridocarbazole and uleine; chlorophyll a adds the chlorin.
+Each row carries its PubChem CID, its published molecular formula, its IUPAC
+systematic name and an isomeric SMILES verified against that CID — except
+chlorophyll a, whose connected SMILES comes from the PDB chemical component
+dictionary (CLA), because PubChem writes its chelated magnesium as a separate
+ionic component.
 
 The SMILES string is the artifact that can be checked at the source, so the
 catalog stores it rather than a hand-copied adjacency list.
 [`src/Smiles.ts`](src/Smiles.ts) reads the subset the catalog needs — the
 organic and aromatic subsets, bracket atoms, branches, ring closures, explicit
 and directional bonds, disconnection — and rejects malformed notation with a
-position-carrying `SmilesError`. A test parses all twenty entries and asserts
+position-carrying `SmilesError`. A test parses all twenty-one entries and asserts
 that the heavy-atom count derived from the SMILES equals the non-hydrogen count
 of the formula, so a transcription error in either field fails CI rather than
 silently distorting the graph.

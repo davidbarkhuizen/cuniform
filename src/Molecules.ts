@@ -3,6 +3,7 @@ import { MoleculeTopology, parseSmiles } from "./Smiles";
 
 // The molecule catalog: one flagship example per indole-alkaloid family, each
 // row PubChem-verified; the SMILES and formula must agree on heavy-atom count (a test asserts it).
+// Chlorophyll a is the one deliberate exception: a chlorin rather than an indole alkaloid.
 
 export interface Molecule {
     /** Kebab-case key used by a GraphSpec. */
@@ -12,7 +13,8 @@ export interface Molecule {
     parentSystem: string;
     family: string;
     formula: string;
-    /** Isomeric SMILES, verified against `pubchemCid`. */
+    /** Isomeric SMILES, verified against `pubchemCid`; chlorophyll a uses the PDB CCD's
+     * chelated-magnesium form, since PubChem writes that metal as a separate component. */
     smiles: string;
     pubchemCid: number;
     /** Also matched by search. */
@@ -254,6 +256,18 @@ export const MOLECULES: Molecule[] = [
         smiles: "CCC1C2CCN(C1C3=C(C2=C)NC4=CC=CC=C43)C",
         pubchemCid: 252320,
         note: "a rearranged aspidosperma skeleton missing the tryptamine bridge",
+    },
+    {
+        id: "chlorophyll-a",
+        commonName: "Chlorophyll a",
+        systematicName: "magnesium methyl (3R,21S,22S)-16-ethenyl-11-ethyl-12,17,21,26-tetramethyl-4-oxo-22-[3-oxo-3-[(E,7R,11R)-3,7,11,15-tetramethylhexadec-2-enoxy]propyl]-23,25-diaza-7,24-diazanidahexacyclo[18.2.1.15,8.110,13.115,18.02,6]hexacosa-1,5,8(26),9,11,13(25),14,16,18,20(23)-decaene-3-carboxylate",
+        parentSystem: "chlorin",
+        family: "Chlorophyll (chlorin)",
+        formula: "C55H72MgN4O5",
+        smiles: "CCC1=C(C2=Cc3c(c(c4n3[Mg]56[N]2=C1C=C7N5C8=C([C@H](C(=O)C8=C7C)C(=O)OC)C9=[N]6C(=C4)[C@H]([C@@H]9CCC(=O)OC/C=C(\\C)/CCC[C@H](C)CCC[C@H](C)CCCC(C)C)C)C)C=C)C",
+        pubchemCid: 12085802,
+        synonyms: ["Chl a"],
+        note: "the exception: a chlorin, not an indole alkaloid — four pyrroles chelating one magnesium, the pigment that runs photosynthesis",
     },
 ];
 
