@@ -4,6 +4,8 @@ import { Graph } from "./Graph";
 import { GraphFactory } from "./GraphFactory";
 import { K } from "./K";
 import { point, Point2D } from "./Point2D";
+import { render } from "./Renderer";
+import { handleNodeSelectionAttempt } from "./Selection";
 import { State } from "./State";
 import { Viewport } from "./Viewport";
 
@@ -172,7 +174,11 @@ export class UIController {
 		if (event.button == 0) {
 			this.state.b0Down = true;		
 				
-			const selectionChanged = this.solver.handleNodeSelectionAttempt(mxy, this.width, this.height);
+			const selectionChanged = handleNodeSelectionAttempt(
+				this.solver.graph,
+				mxy,
+				Viewport.forCanvas(this.width, this.height)
+			);
 			if (selectionChanged == true)
 				this.updateSelectionInfo();
 		}
@@ -297,7 +303,7 @@ export class UIController {
 			this.height,
 			tag => tag.isSelected && this.state.b0Down
 		);
-		this.solver.render(this.context2D);
+		render(this.context2D, this.solver.graph);
 	};
 	
 	/**
