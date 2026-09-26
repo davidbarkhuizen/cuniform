@@ -178,10 +178,16 @@ export class ForceDirectedGraph {
 
 			var r = Math.sqrt(r2);
 
+			// The direction uses the true radius so the force stays exactly
+			// radial; only the magnitude is evaluated at a clamped radius, which
+			// bounds the r -> 0 singularity without altering the law for any
+			// r >= minimumInteractionRadius.
+			var r_law = Math.max(r, K.physics.minimumInteractionRadius);
+
 			var sin_theta = deltaY / r;
 			var cos_theta = deltaX / r;
 
-			var scalar_force = K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge / Math.pow(r, K.physics.repulsionExponent);
+			var scalar_force = K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge / Math.pow(r_law, K.physics.repulsionExponent);
 
 			var Fy = scalar_force * sin_theta;
 			var Fx = scalar_force * cos_theta;

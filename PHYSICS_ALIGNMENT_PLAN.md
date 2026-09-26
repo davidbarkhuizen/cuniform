@@ -54,9 +54,12 @@ added a `cli` entry point; that is repository tooling, not part of this plan.
    adding no dependencies. (The pinned `ts-node@9` is incompatible with
    `typescript@4.9.5` and aborts at startup, so it is not used.)
 
-Phase 6 extensions were intentionally **not** implemented: they are deliberate
-divergences from the reference and belong in separate, clearly-labelled changes.
-They remain the only outstanding part of this plan (§5 Phase 6 below).
+Phase 6 extensions were intentionally **not** implemented at the time: they are
+deliberate divergences from the reference and belong in separate,
+clearly-labelled changes. They remain the only outstanding part of this plan
+(§5 Phase 6 below), with one exception: the `r -> 0` singularity guard has since
+landed, as a minimum interaction radius rather than the denominator softening
+originally sketched.
 
 ---
 
@@ -500,18 +503,32 @@ Covers the graph-construction defects raised in the earlier review.
 fast; all seeded positions unique (or the constraint is explicitly dropped with
 a comment).
 
-### Phase 6 — Optional extensions (explicitly *not* the reference) — ⬜ Not implemented (deliberate)
+### Phase 6 — Optional extensions (explicitly *not* the reference) — ⬜ Mostly not implemented (deliberate)
 
 Do not fold any of these into Phase 1–5 PRs. Each is a deliberate divergence
 from the reference doc and should be a separate, clearly-labelled change:
 
-- centring / weak centripetal force (doc §12.1);
-- Fruchterman–Reingold temperature or a per-step velocity/displacement clamp
-  (doc §12.2);
-- denominator softening `r² + ε` (doc §12.3);
-- degree-normalised or per-edge-weighted springs (doc §12.5);
-- Kamada–Kawai per-pair rest lengths (doc §12.6);
-- `O(E)` spring accumulation and Barnes–Hut repulsion (doc §12.7).
+- **Open** — centring / weak centripetal force (doc §12.1);
+- **Open** — Fruchterman–Reingold temperature or a per-step velocity/displacement
+  clamp (doc §12.2). The temperature schedule was judged unnecessary: the damped
+  integrator already converges, so cooling would solve a problem this code does
+  not have. No velocity-clamp threshold is inert across the reference's own
+  valid radii, so that half was deliberately not added either.
+- **Landed** — the `r -> 0` singularity (doc §12.3) is now bounded by
+  `K.physics.minimumInteractionRadius`: the repulsion power law is evaluated at
+  `max(r, minimumInteractionRadius)`, so the force stays exactly radial and is
+  unchanged for every `r >= minimumInteractionRadius`.
+  **Deviation from the sketch:** denominator softening `r² + ε` was rejected.
+  At the reachable one-pixel separation (~`0.86` model units) an `ε` large
+  enough to matter is `≈ 127`, which changes the force at `r = 10` by over 50%
+  and abandons the reference law. The radius clamp is exact everywhere the
+  reference law is specified, so the acceptance numbers (`r* ~= 65.46`, the
+  `1e-9` force identities) still hold.
+- **Open** — degree-normalised or per-edge-weighted springs (doc §12.5);
+- **Open** — Kamada–Kawai per-pair rest lengths (doc §12.6);
+- **Half done** — `O(E)` spring accumulation and Barnes–Hut repulsion (doc
+  §12.7). The `O(E)` accumulation landed with the adjacency list; Barnes–Hut
+  remains open.
 
 ---
 
@@ -526,7 +543,10 @@ The refactor is complete when, on a sparse graph with the reference constants:
 4. a two-node edge settles at `r* ≈ 65.46`;
 5. a 10-node graph converges (mean maximum per-step travel `< 1.0` over the
    final 50 of 500 ticks);
-6. there is no boundary clamp and no velocity/force clamp in the physics path;
+6. there is no boundary clamp and no velocity/force clamp in the physics path.
+   (The later `minimumInteractionRadius` guard bounds the force law's own
+   singularity rather than clamping the integrated velocity or the summed force
+   — see Phase 6.)
 7. the model→canvas transform is uniform and centred.
 
 Items 4 and 5 are already reproduced by a standalone model of the reference

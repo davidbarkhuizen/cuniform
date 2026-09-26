@@ -57,6 +57,11 @@ brought into line with it. It is a damped relaxation, not an energy minimisation
   directed from the node toward its neighbour. `r > l` pulls, `r < l` pushes.
 - **Net force** is the plain sum of the two. There is no mass, no gravity, no
   cooling schedule and no boundary.
+- **Singularity guard** — repulsion is singular as `r -> 0`, and the exact
+  `r == 0` guard only catches perfect coincidence, so the power law is evaluated
+  at `max(r, minimumInteractionRadius)` instead. The force stays exactly radial
+  and every `r >= minimumInteractionRadius` is untouched, so the reference law
+  is unchanged; this is a documented non-reference extension.
 - **Integration** is damped, semi-implicit Euler at a fixed step, one step per
   timer tick:
 
@@ -91,6 +96,7 @@ All tuning lives in [`src/K.ts`](src/K.ts):
 | `nodeCharge` | `10.0` | `q` in the repulsion law |
 | `scalarForceConstant` | `100.0` | Coulomb `k`; `k*q^2 = 10000` |
 | `repulsionExponent` | `1.9` | repulsion falls off as `r^-1.9` |
+| `minimumInteractionRadius` | `10.0` | repulsion is evaluated at `max(r, this)`, bounding the `r -> 0` singularity |
 | `timeStep` | `0.1` | integration gain, **not** seconds |
 | `friction` | `0.9` | per-step velocity retained |
 | `timerTickperiodMS` | `50` | one simulation step per tick |
@@ -115,10 +121,12 @@ large graph.
 
 - Unconnected nodes and detached components drift away indefinitely: nothing is
   centripetal, matching the reference. "Centre the graph" remains a backlog item.
-- No cooling schedule and no velocity clamp, so the `r -> 0` repulsion
-  singularity is guarded only against exact coincidence.
+- No cooling schedule and no velocity clamp. The `r -> 0` repulsion singularity
+  is bounded by `minimumInteractionRadius`, but that still permits a single
+  bounded step of up to `k*q^2 / minimumInteractionRadius^1.9` model units when
+  two centres are dragged together.
 - Spring forces are not normalised by node degree, so high-degree nodes are
   pulled harder than leaves.
 
-See `PHYSICS_ALIGNMENT_PLAN.md` §5 Phase 6 for these as deliberately-deferred,
-non-reference extensions.
+See `PHYSICS_ALIGNMENT_PLAN.md` §5 Phase 6 for these as non-reference
+extensions; the singularity guard has since landed there.

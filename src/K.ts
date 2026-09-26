@@ -14,6 +14,16 @@ export const K = {
         timeStep: 0.1,
         friction: 0.9,
 	    timerTickperiodMS : 50,
+        // Robustness guard, not part of the reference model. Repulsion is
+        // singular as r -> 0, and the exact r == 0 guard only catches perfect
+        // coincidence: a pair a fraction of a unit apart would otherwise be
+        // flung across the world in a single step. The repulsion power law is
+        // evaluated at max(r, minimumInteractionRadius), so the force is
+        // bounded while the direction stays exact. Every r >= this value is
+        // untouched, so the reference law is unchanged over the range the
+        // reference (and the tests) actually exercise; see
+        // PHYSICS_ALIGNMENT_PLAN.md §5 Phase 6.
+        minimumInteractionRadius : 10.0,
     },
 
     ui: {
