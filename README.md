@@ -40,9 +40,8 @@ be exercised headlessly in `test/`.
 ## Physics
 
 The model is a port of the reference implementation documented in
-[`pygforce/force-directed-graph-physics.md`](../pygforce/force-directed-graph-physics.md);
-[`PHYSICS_ALIGNMENT_PLAN.md`](PHYSICS_ALIGNMENT_PLAN.md) records how cuniform was
-brought into line with it. It is a damped relaxation, not an energy minimisation:
+[`pygforce/force-directed-graph-physics.md`](../pygforce/force-directed-graph-physics.md).
+It is a damped relaxation, not an energy minimisation:
 
 - **Repulsion** — every node repels every other node, all pairs:
 
@@ -127,6 +126,8 @@ large graph.
   two centres are dragged together.
 - Spring forces are not normalised by node degree, so high-degree nodes are
   pulled harder than leaves.
+- Spring rest lengths are uniform across every edge; distance-aware
+  (Kamada–Kawai) per-pair rest lengths are not used.
 
-See `PHYSICS_ALIGNMENT_PLAN.md` §5 Phase 6 for these as non-reference
-extensions; the singularity guard has since landed there.
+These are deliberate divergences from the reference model rather than defects.
+Of them, only the `r -> 0` singularity guard is implemented.
