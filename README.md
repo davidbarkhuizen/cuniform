@@ -5,7 +5,7 @@
 ## Running
 
     ./cli install        # npm install
-    ./cli run            # build, then open dist/index.html in a browser
+    ./cli run            # build, then open web/index.html in a browser
 
 `cli` is the single entry point for common tasks; `./cli help` lists every
 subcommand. With no recognised option it prints usage.
@@ -22,6 +22,10 @@ Each wraps the equivalent npm script (`npm run typecheck`, `npm test`,
 `npm run ci`, `npm run start`). `npm run dev` rebuilds while you edit, and
 `BROWSER=... ./cli run` (or `bash build-and-run.sh --build-only`) controls how
 the demo is launched.
+
+`web/` holds the hand-maintained shell (`index.html`, `stylez.css`); it loads
+the generated `dist/main.js`. `dist/` is build output only and is ignored by
+git.
 
 The simulation is deliberately decoupled from the browser: `ForceDirectedGraph.step()`
 is pure physics and touches neither `window` nor the canvas, so the whole model can

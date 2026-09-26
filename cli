@@ -19,7 +19,7 @@ clean () {
     # only build outputs are webpack's bundle and the test compilation, so
     # removing them achieves the same "force everything to rebuild" result
     # without needing sudo.
-    rm -rf dist/main.js dist/main.js.map dist/src .test-build
+    rm -rf dist .test-build
     echo "... cleaned build artefacts"
 }
 

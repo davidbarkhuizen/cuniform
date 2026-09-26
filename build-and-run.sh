@@ -27,4 +27,4 @@ if ! command -v "$browser" >/dev/null 2>&1; then
     exit 1
 fi
 
-"$browser" --allow-file-access-from-files dist/index.html
+"$browser" --allow-file-access-from-files web/index.html

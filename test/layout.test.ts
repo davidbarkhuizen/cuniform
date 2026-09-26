@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { K } from "../src/K";
-import { readDist } from "./support/files";
+import { readWeb } from "./support/files";
 
 /**
  * The layout lives in the two static demo assets rather than in TypeScript, so
@@ -29,7 +29,7 @@ function cssRule(css: string, selector: string): string {
 // ------------------------------------------------------------------ markup
 
 test("the title and the export/reset links live inside the floating panel", () => {
-    const panel = panelMarkup(readDist("index.html"));
+    const panel = panelMarkup(readWeb("index.html"));
 
     for (const id of ["export_canvas_link", "reset_link"]) {
         assert.ok(panel.includes(`id="${id}"`), `${id} should be inside the overlay panel`);
@@ -40,7 +40,7 @@ test("the title and the export/reset links live inside the floating panel", () =
 });
 
 test("the panel is split into a fixed menu section and a selected-node section", () => {
-    const panel = panelMarkup(readDist("index.html"));
+    const panel = panelMarkup(readWeb("index.html"));
 
     const menu = panel.indexOf('class="overlayMenu"');
     const selection = panel.indexOf('class="selectionSection"');
@@ -60,7 +60,7 @@ test("the panel is split into a fixed menu section and a selected-node section",
 });
 
 test("the old second title line is gone", () => {
-    const html = readDist("index.html");
+    const html = readWeb("index.html");
 
     assert.ok(
         !html.includes("force directed graphs in javascript"),
@@ -71,7 +71,7 @@ test("the old second title line is gone", () => {
 // -------------------------------------------------------------------- css
 
 test("the canvas container fills the viewport and the canvas fills it", () => {
-    const css = readDist("stylez.css");
+    const css = readWeb("stylez.css");
 
     const container = cssRule(css, ".canvas-container");
     assert.match(container, /position\s*:\s*fixed/);
@@ -85,7 +85,7 @@ test("the canvas container fills the viewport and the canvas fills it", () => {
 });
 
 test("the overlay panel is opaque and outlined rather than washed out", () => {
-    const panel = cssRule(readDist("stylez.css"), ".selectionInfoPanel");
+    const panel = cssRule(readWeb("stylez.css"), ".selectionInfoPanel");
 
     assert.match(panel, /background-color\s*:/);
     assert.match(panel, /border\s*:/);
