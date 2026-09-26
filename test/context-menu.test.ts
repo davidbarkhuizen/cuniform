@@ -126,6 +126,33 @@ test("right-click opens the context menu at the cursor and suppresses the browse
     });
 });
 
+test("macOS Ctrl+click opens the menu without changing the selection", () => {
+    withUIController(({ canvas, controller }) => {
+        const selected = controller.solver.graph.vertices[0];
+        selected.isSelected = true;
+
+        // macOS reports Ctrl+click as a primary press plus a contextmenu event.
+        canvas.dispatch('mousedown', mouseEvent({ button: 0, ctrlKey: true, clientX: 250, clientY: 150 }));
+        canvas.dispatch('contextmenu', mouseEvent({ ctrlKey: true, clientX: 250, clientY: 150 }));
+
+        assert.equal(controller.contextMenu!.isOpen, true, "the Ctrl+click gesture opens the menu");
+        assert.equal(
+            controller.solver.graph.selectedVertex(),
+            selected,
+            "the context-menu gesture must not touch the selection"
+        );
+    });
+});
+
+test("a Ctrl contextmenu with no preceding press still opens", () => {
+    withUIController(({ canvas, controller }) => {
+        // Safari has not always delivered the primary press before the contextmenu.
+        canvas.dispatch('contextmenu', mouseEvent({ ctrlKey: true, clientX: 10, clientY: 10 }));
+
+        assert.equal(controller.contextMenu!.isOpen, true);
+    });
+});
+
 test("the menu offers export, reset and clear selection", () => {
     withUIController(({ controller }) => {
         assert.deepEqual(

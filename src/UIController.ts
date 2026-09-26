@@ -359,6 +359,15 @@ export class UIController {
 		);
 		
 		if (event.button === 0) {
+
+			// macOS Ctrl+click is the context-menu gesture, and the browser reports
+			// it as a primary press with ctrlKey set. Flag it so the contextmenu
+			// event that follows opens the menu, and do not touch the selection.
+			if (event.ctrlKey) {
+				this.state.b2Down = true;
+				return;
+			}
+
 			this.state.b0Down = true;		
 				
 			const selectionChanged = handleNodeSelectionAttempt(
@@ -379,13 +388,14 @@ export class UIController {
 		}
 	}
 
-	// Right-click. The native menu is always suppressed; ours opens only while
-	// the right button is actually held, so a programmatic event cannot.
+	// Right-click, or the Ctrl+click gesture macOS reports as a primary press. The
+	// native menu is always suppressed; ours opens only for one of those two, so a
+	// programmatic event cannot.
 	onContextMenu = (event: MouseEvent) => {
 
 		event.preventDefault();
 
-		if (!this.state.b2Down)
+		if (!this.state.b2Down && !event.ctrlKey)
 			return;
 
 		this.openContextMenu(event.clientX, event.clientY);
@@ -440,6 +450,10 @@ export class UIController {
 	
 		if (event.button === 0) {
 			this.state.b0Down = false;
+
+			// A Ctrl+click flagged b2Down as a context-menu press; release it too.
+			this.state.b2Down = false;
+
 			this.updateSelectionInfo();
 		}
 		else if (event.button === 1) {

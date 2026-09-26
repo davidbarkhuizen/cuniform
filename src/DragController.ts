@@ -24,14 +24,22 @@ export class DragController {
 
     public element: HTMLElement;
 
-	private activePointerId: number | null = null;
+    // The grip a touch drag must start on, or null when the whole element is the
+    // drag surface. Mouse and pen always drag the whole element.
+    private readonly touchHandle: HTMLElement | null;
 
-	constructor(element: HTMLElement) {
+    private activePointerId: number | null = null;
+
+	constructor(element: HTMLElement, touchHandle: HTMLElement | null = null) {
 
 		this.element = element
+		this.touchHandle = touchHandle;
 
-		// touch-action: none stops page scrolling during a drag; user-select: none stops label selection.
-		this.element.style.touchAction = 'none';
+		// The panel body must stay touch-scrollable, so `touch-action: none` goes on
+		// the handle when there is one; without a handle the element is the surface.
+		(touchHandle ?? element).style.touchAction = 'none';
+
+		// user-select: none stops label selection during a drag.
 		this.element.style.userSelect = 'none';
 
 		this.element.addEventListener('pointerdown', this.onPointerDown);
@@ -48,6 +56,10 @@ export class DragController {
 
 		// A press starting on a control belongs to that control, not the panel.
 		if (this.ownsInteractivePress(event.target))
+			return;
+
+		// A touch on the panel body scrolls it; only the handle starts a touch drag.
+		if (event.pointerType === 'touch' && this.touchHandle && !this.isWithin(this.touchHandle, event.target))
 			return;
 
 		this.activePointerId = event.pointerId;
@@ -108,6 +120,23 @@ export class DragController {
 			const tagName = element.tagName;
 
 			if (typeof tagName === 'string' && INTERACTIVE_TAGS.has(tagName.toUpperCase()))
+				return true;
+
+			element = element.parentElement ?? null;
+		}
+
+		return false;
+	}
+
+	/** True when `target` is `ancestor` itself or one of its descendants. */
+	private isWithin(ancestor: HTMLElement, target: EventTarget | null): boolean {
+
+		const wanted = ancestor as unknown as PressTarget;
+
+		let element = target as unknown as PressTarget | null;
+
+		while (element) {
+			if (element === wanted)
 				return true;
 
 			element = element.parentElement ?? null;
