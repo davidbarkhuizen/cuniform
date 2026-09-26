@@ -5,38 +5,43 @@ import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
 import { Tag } from "../src/Tag";
 import { UIController } from "../src/UIController";
-import { FakeCanvas, FakeContext2D, demoElements, installFakeDom } from "./support/dom";
+import {
+    FakeCanvas,
+    FakeContext2D,
+    FakeDom,
+    FakeElement,
+    demoElements,
+    mouseEvent,
+    newUIController,
+    withFakeDom,
+} from "./support/dom";
+
+interface Fixture {
+    dom: FakeDom;
+    elements: Record<string, FakeElement>;
+    canvas: FakeCanvas;
+    controller: UIController;
+}
 
 /** body 750x750 => a 750x750 full-screen logical canvas. */
-function setup(dpr: number | undefined) {
+function withController<T>(dpr: number | undefined, fn: (ui: Fixture) => T): T {
     const elements = demoElements();
-    const dom = installFakeDom(elements);
-    dom.window.devicePixelRatio = dpr;
+    elements.body.clientWidth = 750;
+    elements.body.clientHeight = 750;
 
-    const body = elements.body;
-    body.clientWidth = 750;
-    body.clientHeight = 750;
+    return withFakeDom(elements, dom => {
+        dom.window.devicePixelRatio = dpr;
 
-    const canvas = elements.canvas as FakeCanvas;
+        const canvas = elements.canvas as FakeCanvas;
+        const controller = newUIController(elements);
+        controller.initialize();
 
-    const controller = new UIController(
-        body as unknown as HTMLElement,
-        canvas as unknown as HTMLCanvasElement,
-        canvas.context as unknown as CanvasRenderingContext2D,
-        elements.export_canvas_link as unknown as HTMLElement,
-        elements.reset_link as unknown as HTMLElement,
-        elements.selectedNodeInfoLabel as unknown as HTMLElement,
-        elements.selectedNodeInfoList as unknown as HTMLElement
-    );
-
-    controller.initialize();
-
-    return { dom, elements, canvas, controller };
+        return fn({ dom, elements, canvas, controller });
+    });
 }
 
 test("the backing store is scaled by devicePixelRatio while the CSS size stays logical", () => {
-    const { dom, canvas, controller } = setup(2);
-    try {
+    withController(2, ({ canvas, controller }) => {
         assert.equal(controller.width, 750);
         assert.equal(controller.height, 750);
 
@@ -47,52 +52,38 @@ test("the backing store is scaled by devicePixelRatio while the CSS size stays l
         assert.equal(canvas.style.height, '750px');
 
         assert.deepEqual(canvas.context.transforms[0], [2, 0, 0, 2, 0, 0]);
-    } finally {
-        dom.restore();
-    }
+    });
 });
 
 test("a devicePixelRatio of 1 leaves the backing store unscaled", () => {
-    const { dom, canvas, controller } = setup(1);
-    try {
+    withController(1, ({ canvas, controller }) => {
         assert.equal(canvas.width, 750);
         assert.equal(canvas.height, 750);
         assert.equal(canvas.style.width, '750px');
         assert.deepEqual(canvas.context.transforms[0], [1, 0, 0, 1, 0, 0]);
         assert.equal(controller.width, 750);
-    } finally {
-        dom.restore();
-    }
+    });
 });
 
 test("a missing devicePixelRatio falls back to 1", () => {
-    const { dom, canvas } = setup(undefined);
-    try {
+    withController(undefined, ({ canvas }) => {
         assert.equal(canvas.width, 750);
         assert.deepEqual(canvas.context.transforms[0], [1, 0, 0, 1, 0, 0]);
-    } finally {
-        dom.restore();
-    }
+    });
 });
 
 test("the canvas fills the viewport rather than a fraction of it", () => {
-    const { dom, canvas, controller } = setup(1);
-
-    try {
+    withController(1, ({ canvas, controller }) => {
         // The old layout used body.clientWidth * 0.8 and left 20% of the page
         // for the title and menu rows.
         assert.equal(controller.width, 750);
         assert.equal(controller.height, 750);
         assert.equal(canvas.style.width, '750px');
-    } finally {
-        dom.restore();
-    }
+    });
 });
 
 test("a window resize re-sizes the backing store to the new viewport", () => {
-    const { dom, elements, canvas, controller } = setup(2);
-
-    try {
+    withController(2, ({ dom, elements, canvas, controller }) => {
         elements.body.clientWidth = 1000;
         elements.body.clientHeight = 400;
 
@@ -111,25 +102,18 @@ test("a window resize re-sizes the backing store to the new viewport", () => {
 
         const last = canvas.context.transforms[canvas.context.transforms.length - 1];
         assert.deepEqual(last, [2, 0, 0, 2, 0, 0]);
-    } finally {
-        dom.restore();
-    }
+    });
 });
 
 test("terminate removes the resize listener", () => {
-    const { dom, controller } = setup(1);
-
-    try {
+    withController(1, ({ dom, controller }) => {
         controller.terminate();
         assert.equal((dom.windowListeners.get('resize') ?? []).length, 0);
-    } finally {
-        dom.restore();
-    }
+    });
 });
 
 test("physics is stepped with the logical size, not the scaled backing store", () => {
-    const { dom, controller } = setup(2);
-    try {
+    withController(2, ({ dom, controller }) => {
         const calls: number[][] = [];
         const fdg = dom.window.fdg;
 
@@ -142,14 +126,11 @@ test("physics is stepped with the logical size, not the scaled backing store", (
         controller.onTimerTick();
 
         assert.deepEqual(calls, [[750, 750]]);
-    } finally {
-        dom.restore();
-    }
+    });
 });
 
 test("pointer mapping is unaffected by devicePixelRatio", () => {
-    const { dom, controller } = setup(2);
-    try {
+    withController(2, ({ dom, controller }) => {
         const graph = dom.window.fdg.graph;
         graph.vertices.forEach((v: Tag) => { v.isSelected = false; });
 
@@ -159,17 +140,10 @@ test("pointer mapping is unaffected by devicePixelRatio", () => {
 
         // A 750x750 canvas over the 600x600 model scales by 1.25, so the canvas
         // CSS point (450, 300) maps to model (60, 60).
-        controller.onMouseMove({
-            button: 0,
-            clientX: 450,
-            clientY: 300,
-            preventDefault: () => {},
-        } as unknown as MouseEvent);
+        controller.onMouseMove(mouseEvent({ clientX: 450, clientY: 300 }));
 
         assert.deepEqual({ ...node.position }, { x: 60, y: 60 });
-    } finally {
-        dom.restore();
-    }
+    });
 });
 
 test("render clears the whole backing store in device space", () => {

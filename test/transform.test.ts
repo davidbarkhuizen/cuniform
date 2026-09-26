@@ -5,6 +5,7 @@ import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
+import { assertClose } from "./support/assert";
 
 const fdg = new ForceDirectedGraph(new Graph());
 
@@ -35,7 +36,7 @@ test("the scale is uniform when the canvas aspect ratio differs from the model s
     const dx = horizontal.x - 600;
     const dy = 300 - vertical.y;
 
-    assert.ok(Math.abs(dx - dy) < 1e-9, `x scale ${dx} != y scale ${dy}`);
+    assertClose(dx, dy, 1e-9, `x scale ${dx} != y scale ${dy}`);
 });
 
 test("reverse is the exact inverse of translate, at any canvas aspect ratio", () => {
@@ -46,10 +47,9 @@ test("reverse is the exact inverse of translate, at any canvas aspect ratio", ()
         for (const p of points) {
             const canvas = fdg.translate(p, W0, H0, w, h);
             const back = fdg.reverse(canvas, W0, H0, w, h);
-            assert.ok(
-                Math.abs(back.x - p.x) < 1e-9 && Math.abs(back.y - p.y) < 1e-9,
-                `${w}x${h} point ${p.x},${p.y} round-tripped to ${back.x},${back.y}`
-            );
+            const where = `${w}x${h} point ${p.x},${p.y} round-tripped to ${back.x},${back.y}`;
+            assertClose(back.x, p.x, 1e-9, where);
+            assertClose(back.y, p.y, 1e-9, where);
         }
     }
 });

@@ -2,17 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
-import { GraphFactory } from "../src/GraphFactory";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
-
-function generated(order: number, branching: number) {
-    return new GraphFactory().generateGraph(order, branching);
-}
+import { newGraph } from "./support/physics";
 
 test("generateGraph creates exactly `order` vertices", () => {
     for (const order of [1, 2, 10, 50]) {
-        assert.equal(generated(order, 2).vertices.length, order);
+        assert.equal(newGraph(order, 2).vertices.length, order);
     }
 });
 
@@ -21,7 +17,7 @@ test("generated graphs are sparse, not complete", () => {
     const branching = 2;
 
     for (let trial = 0; trial < 50; trial++) {
-        const graph = generated(order, branching);
+        const graph = newGraph(order, branching);
         const complete = (order * (order - 1)) / 2;
 
         assert.ok(
@@ -37,7 +33,7 @@ test("generated graphs are sparse, not complete", () => {
 
 test("generated graphs have no self-loops and no duplicate edges", () => {
     for (let trial = 0; trial < 50; trial++) {
-        const graph = generated(15, 3);
+        const graph = newGraph(15, 3);
 
         for (const e of graph.edges) {
             assert.notEqual(e.v1, e.v2, `trial ${trial}: self-loop`);
@@ -58,7 +54,7 @@ test("generated graphs have no self-loops and no duplicate edges", () => {
 
 test("every vertex is joined to at least one other", () => {
     for (let trial = 0; trial < 20; trial++) {
-        const graph = generated(10, 2);
+        const graph = newGraph(10, 2);
         for (const v of graph.vertices) {
             assert.ok(
                 graph.neighbours(v).length >= 1,
@@ -85,7 +81,7 @@ test("hasEdge is undirected", () => {
 });
 
 test("initial positions are unique", () => {
-    const graph = generated(200, 2);
+    const graph = newGraph(200, 2);
     const keys = new Set(graph.vertices.map(v => `${v.position.x},${v.position.y}`));
     assert.equal(keys.size, 200);
 });

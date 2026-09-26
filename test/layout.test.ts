@@ -1,19 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 import { K } from "../src/K";
+import { readDist } from "./support/files";
 
 /**
  * The layout lives in the two static demo assets rather than in TypeScript, so
  * these read them back and pin down the structure the UI depends on: the
  * floating panel owns the title and menu, and the canvas fills the viewport.
  */
-
-function readDist(name: string): string {
-    return readFileSync(join(__dirname, "..", "..", "dist", name), "utf8");
-}
 
 /** Everything from the overlay panel's opening tag to the end of the body. */
 function panelMarkup(html: string): string {
