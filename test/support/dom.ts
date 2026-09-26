@@ -457,6 +457,121 @@ export function newUIController(
     return controller;
 }
 
+/** The fake element behind an HTMLElement a component hands back. */
+export function el(element: HTMLElement): FakeElement {
+    return element as unknown as FakeElement;
+}
+
+/** Every listener initialize() attaches to the canvas. */
+export const CANVAS_EVENTS = [
+    'mousemove', 'mousedown', 'mouseup', 'mouseout', 'contextmenu', 'keydown', 'wheel',
+];
+
+/** The camera console's own delegated listeners, one per event type. */
+export const CAMERA_CONSOLE_EVENTS = ['pointerdown', 'keydown', 'keyup', 'click'];
+
+/**
+ * The window listeners that end a held console button, wherever the pointer
+ * happens to be. blur covers the pointerup the browser never delivers when the
+ * window loses focus.
+ */
+export const CAMERA_HOLD_RELEASE_EVENTS = ['pointerup', 'pointercancel', 'blur'];
+
+/** A controller over the demo elements, as the UI-facing suites use it. */
+export interface UIControllerFixture {
+    dom: FakeDom;
+    elements: Record<string, FakeElement>;
+    canvas: FakeCanvas;
+    controller: UIController;
+}
+
+export interface UIControllerOptions {
+    /** Pin the logical size before initialize(), which may recompute it. */
+    width?: number;
+    height?: number;
+    /** The fake body size resizeCanvas() reads. Defaults to the fake 800x600. */
+    bodyWidth?: number;
+    bodyHeight?: number;
+    /** The fake window's devicePixelRatio. */
+    devicePixelRatio?: number;
+    /** The graph the controller's solver wraps. */
+    graph?: Graph;
+    /** Run initialize() first. Defaults to true: most fixtures want the listeners. */
+    initialize?: boolean;
+}
+
+/** Build the fixture over an installed DOM. Shared by the sync and async wrappers. */
+function uiFixture(
+    dom: FakeDom,
+    elements: Record<string, FakeElement>,
+    options: UIControllerOptions
+): UIControllerFixture {
+    if (options.devicePixelRatio !== undefined)
+        dom.window.devicePixelRatio = options.devicePixelRatio;
+
+    const canvas = elements.canvas as FakeCanvas;
+    const controller = newUIController(elements, {
+        width: options.width,
+        height: options.height,
+        graph: options.graph,
+    });
+
+    if (options.initialize ?? true)
+        controller.initialize();
+
+    return { dom, elements, canvas, controller };
+}
+
+/** The demo element map with any body-size override applied before install. */
+function preparedElements(options: UIControllerOptions): Record<string, FakeElement> {
+    const elements = demoElements();
+
+    if (options.bodyWidth !== undefined)
+        elements.body.clientWidth = options.bodyWidth;
+
+    if (options.bodyHeight !== undefined)
+        elements.body.clientHeight = options.bodyHeight;
+
+    return elements;
+}
+
+/**
+ * The install/config/initialize/restore block every UI-facing suite used to
+ * hand-write. The DOM is restored even when `fn` throws.
+ */
+export function withUIController<T>(
+    fn: (ui: UIControllerFixture) => T,
+    options: UIControllerOptions = {}
+): T {
+    const elements = preparedElements(options);
+    const dom = installFakeDom(elements);
+
+    try {
+        return fn(uiFixture(dom, elements, options));
+    } finally {
+        dom.restore();
+    }
+}
+
+/**
+ * As withUIController(), but keeps the fake DOM installed until `fn` settles.
+ * Export defers its object-URL revocation to a timer, so a caller that awaits
+ * it must not have had the fake URL namespace restored underneath it.
+ */
+export async function withUIControllerAsync<T>(
+    fn: (ui: UIControllerFixture) => Promise<T> | T,
+    options: UIControllerOptions = {}
+): Promise<T> {
+    const elements = preparedElements(options);
+    const dom = installFakeDom(elements);
+
+    try {
+        return await fn(uiFixture(dom, elements, options));
+    } finally {
+        dom.restore();
+    }
+}
+
 export interface FakeMouseEvent {
     button: number; clientX: number; clientY: number;
     shiftKey: boolean;

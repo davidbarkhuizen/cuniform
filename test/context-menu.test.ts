@@ -4,65 +4,18 @@ import assert from "node:assert/strict";
 import { ContextMenu } from "../src/ContextMenu";
 import { UIController } from "../src/UIController";
 import {
+    CAMERA_HOLD_RELEASE_EVENTS,
+    CANVAS_EVENTS,
     FakeCanvas,
-    FakeDom,
     FakeElement,
-    demoElements,
-    installFakeDom,
+    el,
     keyEvent,
     mouseEvent,
-    newUIController,
     withFakeDom,
+    withUIController,
+    withUIControllerAsync,
 } from "./support/dom";
 import { readSource } from "./support/files";
-
-/** Every listener initialize() attaches to the canvas. */
-const CANVAS_EVENTS = ['mousemove', 'mousedown', 'mouseup', 'mouseout', 'contextmenu', 'keydown', 'wheel'];
-
-/** The fake element behind an HTMLElement the controller hands back. */
-function el(element: HTMLElement): FakeElement {
-    return element as unknown as FakeElement;
-}
-
-interface Fixture {
-    dom: FakeDom;
-    elements: Record<string, FakeElement>;
-    canvas: FakeCanvas;
-    controller: UIController;
-}
-
-function withController<T>(fn: (ui: Fixture) => T): T {
-    const elements = demoElements();
-
-    return withFakeDom(elements, dom => {
-        const canvas = elements.canvas as FakeCanvas;
-        const controller = newUIController(elements);
-
-        controller.initialize();
-
-        return fn({ dom, elements, canvas, controller });
-    });
-}
-
-/**
- * Like withController(), but keeps the fake DOM installed until the callback
- * settles. Export defers its object-URL revocation to a timer, so a caller that
- * awaits it must not have had the fake URL namespace restored underneath it.
- */
-async function withControllerAsync<T>(fn: (ui: Fixture) => Promise<T> | T): Promise<T> {
-    const elements = demoElements();
-    const dom = installFakeDom(elements);
-
-    try {
-        const canvas = elements.canvas as FakeCanvas;
-        const controller = newUIController(elements);
-        controller.initialize();
-
-        return await fn({ dom, elements, canvas, controller });
-    } finally {
-        dom.restore();
-    }
-}
 
 /** Let every pending setTimeout(..., 0) callback run. */
 function flushDeferred() {
@@ -137,7 +90,7 @@ test("selecting an entry hides the menu and runs its callback once", () => {
 // ----------------------------------------------------------- UIController UI
 
 test("right-click opens the context menu at the cursor and suppresses the browser menu", () => {
-    withController(({ canvas, controller }) => {
+    withUIController(({ canvas, controller }) => {
         const contextEvent = rightClick(canvas, 250, 150);
 
         assert.ok(controller.contextMenu, "initialize should build the menu");
@@ -149,7 +102,7 @@ test("right-click opens the context menu at the cursor and suppresses the browse
 });
 
 test("the menu offers export, reset and clear selection", () => {
-    withController(({ controller }) => {
+    withUIController(({ controller }) => {
         assert.deepEqual(
             controller.contextMenu!.entries.map(e => e.label),
             ['export', 'reset', 'clear selection']
@@ -220,7 +173,7 @@ test("Escape hides the menu and calls the dismiss handler once", () => {
 });
 
 test("Shift+F10 opens the actions menu from the keyboard", () => {
-    withController(({ canvas, controller }) => {
+    withUIController(({ canvas, controller }) => {
         const event = keyEvent({ key: 'F10', shiftKey: true });
 
         canvas.dispatch('keydown', event);
@@ -231,7 +184,7 @@ test("Shift+F10 opens the actions menu from the keyboard", () => {
 });
 
 test("the dedicated context-menu key opens the actions menu", () => {
-    withController(({ canvas, controller }) => {
+    withUIController(({ canvas, controller }) => {
         canvas.dispatch('keydown', keyEvent({ key: 'ContextMenu' }));
 
         assert.equal(controller.contextMenu!.isOpen, true);
@@ -239,7 +192,7 @@ test("the dedicated context-menu key opens the actions menu", () => {
 });
 
 test("Escape closes the menu and returns focus to the canvas", () => {
-    withController(({ canvas, controller }) => {
+    withUIController(({ canvas, controller }) => {
         canvas.dispatch('keydown', keyEvent({ key: 'F10', shiftKey: true }));
         assert.equal(controller.contextMenu!.isOpen, true);
 
@@ -251,7 +204,7 @@ test("Escape closes the menu and returns focus to the canvas", () => {
 });
 
 test("a plain F10 leaves the menu closed", () => {
-    withController(({ canvas, controller }) => {
+    withUIController(({ canvas, controller }) => {
         canvas.dispatch('keydown', keyEvent({ key: 'F10' }));
 
         assert.equal(controller.contextMenu!.isOpen, false);
@@ -259,7 +212,7 @@ test("a plain F10 leaves the menu closed", () => {
 });
 
 test("a contextmenu event without a right-button press stays closed but is still suppressed", () => {
-    withController(({ canvas, controller }) => {
+    withUIController(({ canvas, controller }) => {
         const contextEvent = mouseEvent({ clientX: 10, clientY: 10 });
         canvas.dispatch('contextmenu', contextEvent);
 
@@ -269,13 +222,13 @@ test("a contextmenu event without a right-button press stays closed but is still
 });
 
 test("the contextmenu listener is registered exactly once", () => {
-    withController(({ canvas }) => {
+    withUIController(({ canvas }) => {
         assert.equal(canvas.listenerCount('contextmenu'), 1);
     });
 });
 
 test("clear selection deselects every node and resets the info panel", () => {
-    withController(({ canvas, controller, elements }) => {
+    withUIController(({ canvas, controller, elements }) => {
         const vertices = controller.solver.graph.vertices;
         vertices[0].isSelected = true;
         vertices[1].isSelected = true;
@@ -290,7 +243,7 @@ test("clear selection deselects every node and resets the info panel", () => {
 });
 
 test("export navigates to a blob: URL, not a data: URL", async () => {
-    await withControllerAsync(async ({ dom, controller }) => {
+    await withUIControllerAsync(async ({ dom, controller }) => {
         entry(controller, 'export').dispatch('click');
 
         assert.equal(dom.objectUrls.created.length, 1, "export should mint exactly one object URL");
@@ -308,7 +261,7 @@ test("export navigates to a blob: URL, not a data: URL", async () => {
 });
 
 test("export triggers a download named cuniform.png", async () => {
-    await withControllerAsync(async ({ dom, controller }) => {
+    await withUIControllerAsync(async ({ dom, controller }) => {
         entry(controller, 'export').dispatch('click');
 
         const anchor = dom.createdElements.filter(e => e.tagName === 'A').pop();
@@ -323,7 +276,7 @@ test("export triggers a download named cuniform.png", async () => {
 });
 
 test("export revokes the object URL it created", async () => {
-    await withControllerAsync(async ({ dom, controller }) => {
+    await withUIControllerAsync(async ({ dom, controller }) => {
         entry(controller, 'export').dispatch('click');
 
         assert.deepEqual(dom.objectUrls.revoked, [], "revocation must be deferred, not synchronous");
@@ -347,7 +300,7 @@ test("UIController exports through an object URL, never a data: URL", () => {
 });
 
 test("reset opens the graph chooser and leaves the graph alone until a choice", () => {
-    withController(({ controller }) => {
+    withUIController(({ controller }) => {
         const before = controller.solver.graph;
 
         entry(controller, 'reset').dispatch('click');
@@ -363,7 +316,7 @@ test("reset opens the graph chooser and leaves the graph alone until a choice", 
 });
 
 test("a completed reset swaps the graph without rebuilding the menu or double-registering", () => {
-    withController(({ elements, canvas, controller }) => {
+    withUIController(({ elements, canvas, controller }) => {
         assert.equal(elements.body.children.length, 1, "one menu element after initialize");
 
         entry(controller, 'reset').dispatch('click');
@@ -382,7 +335,7 @@ test("a completed reset swaps the graph without rebuilding the menu or double-re
 });
 
 test("initialize is idempotent: a second call doubles nothing", () => {
-    withController(({ dom, elements, canvas, controller }) => {
+    withUIController(({ dom, elements, canvas, controller }) => {
         // withController already initialized once; initialize again without
         // terminating, as a careless caller would.
         controller.initialize();
@@ -396,7 +349,7 @@ test("initialize is idempotent: a second call doubles nothing", () => {
         assert.equal(elements.cameraConsole.listenerCount('click'), 1, "one console click listener");
         assert.equal(elements.cameraConsole.listenerCount('pointerdown'), 1, "one console press listener");
 
-        for (const type of ['pointerup', 'pointercancel', 'blur'])
+        for (const type of CAMERA_HOLD_RELEASE_EVENTS)
             assert.equal((dom.windowListeners.get(type) ?? []).length, 1, `one window ${type} listener`);
 
         assert.equal((dom.windowListeners.get('resize') ?? []).length, 1, "one resize listener");
@@ -404,7 +357,7 @@ test("initialize is idempotent: a second call doubles nothing", () => {
 });
 
 test("a left mousedown closes an open context menu", () => {
-    withController(({ canvas, controller }) => {
+    withUIController(({ canvas, controller }) => {
         rightClick(canvas);
         assert.equal(controller.contextMenu!.isOpen, true);
 
@@ -415,7 +368,7 @@ test("a left mousedown closes an open context menu", () => {
 });
 
 test("terminate detaches every listener initialize attached", () => {
-    withController(({ dom, elements, canvas, controller }) => {
+    withUIController(({ dom, elements, canvas, controller }) => {
         controller.terminate();
 
         for (const type of CANVAS_EVENTS)
@@ -426,7 +379,7 @@ test("terminate detaches every listener initialize attached", () => {
         assert.equal(elements.cameraConsole.listenerCount('click'), 0, "console still listens for click");
         assert.equal(elements.cameraConsole.listenerCount('pointerdown'), 0, "console still listens for pointerdown");
 
-        for (const type of ['pointerup', 'pointercancel', 'blur'])
+        for (const type of CAMERA_HOLD_RELEASE_EVENTS)
             assert.equal((dom.windowListeners.get(type) ?? []).length, 0, `window still listens for ${type}`);
 
         assert.equal((dom.windowListeners.get('resize') ?? []).length, 0, "window still listens for resize");
