@@ -5,39 +5,19 @@ import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { render } from "../src/Renderer";
 import { Tag } from "../src/Tag";
-import { UIController } from "../src/UIController";
 import {
-    FakeCanvas,
     FakeContext2D,
-    FakeDom,
-    FakeElement,
-    demoElements,
+    UIControllerFixture,
     mouseEvent,
-    newUIController,
-    withFakeDom,
+    withUIController,
 } from "./support/dom";
 
-interface Fixture {
-    dom: FakeDom;
-    elements: Record<string, FakeElement>;
-    canvas: FakeCanvas;
-    controller: UIController;
-}
-
 /** body 750x750 => a 750x750 full-screen logical canvas. */
-function withController<T>(dpr: number | undefined, fn: (ui: Fixture) => T): T {
-    const elements = demoElements();
-    elements.body.clientWidth = 750;
-    elements.body.clientHeight = 750;
-
-    return withFakeDom(elements, dom => {
-        dom.window.devicePixelRatio = dpr;
-
-        const canvas = elements.canvas as FakeCanvas;
-        const controller = newUIController(elements);
-        controller.initialize();
-
-        return fn({ dom, elements, canvas, controller });
+function withController<T>(dpr: number | undefined, fn: (ui: UIControllerFixture) => T): T {
+    return withUIController(fn, {
+        devicePixelRatio: dpr,
+        bodyWidth: 750,
+        bodyHeight: 750,
     });
 }
 

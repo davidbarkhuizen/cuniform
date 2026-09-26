@@ -6,44 +6,13 @@ import { defaultGraphSpec, specLabel } from "../src/GraphSpec";
 import { UIController } from "../src/UIController";
 import { CATALOG, moleculeById } from "../src/Molecules";
 import {
-    FakeCanvas,
-    FakeDom,
-    FakeElement,
-    demoElements,
+    CANVAS_EVENTS,
+    el,
     keyEvent,
     mouseEvent,
-    newUIController,
-    withFakeDom,
+    withUIController,
 } from "./support/dom";
 import { readSource } from "./support/files";
-
-/** Every listener initialize() attaches to the canvas. */
-const CANVAS_EVENTS = ['mousemove', 'mousedown', 'mouseup', 'mouseout', 'contextmenu', 'keydown', 'wheel'];
-
-/** The fake element behind an HTMLElement a component hands back. */
-function el(element: HTMLElement): FakeElement {
-    return element as unknown as FakeElement;
-}
-
-interface Fixture {
-    dom: FakeDom;
-    elements: Record<string, FakeElement>;
-    canvas: FakeCanvas;
-    controller: UIController;
-}
-
-function withController<T>(fn: (ui: Fixture) => T): T {
-    const elements = demoElements();
-
-    return withFakeDom(elements, dom => {
-        const canvas = elements.canvas as FakeCanvas;
-        const controller = newUIController(elements);
-
-        controller.initialize();
-
-        return fn({ dom, elements, canvas, controller });
-    });
-}
 
 /** A comparable snapshot of the live camera, which a reset must not disturb. */
 function cameraState(controller: UIController) {
@@ -72,7 +41,7 @@ function chooseMolecule(controller: UIController, id: string): void {
 // ---------------------------------------------------------------- opening
 
 test("onReset opens the chooser and leaves the running graph identical", () => {
-    withController(({ controller }) => {
+    withUIController(({ controller }) => {
         const before = controller.solver.graph;
 
         controller.onReset();
@@ -85,7 +54,7 @@ test("onReset opens the chooser and leaves the running graph identical", () => {
 });
 
 test("onReset suppresses the link's default navigation", () => {
-    withController(({ controller }) => {
+    withUIController(({ controller }) => {
         const event = mouseEvent({});
 
         const result = controller.onReset(event);
@@ -96,7 +65,7 @@ test("onReset suppresses the link's default navigation", () => {
 });
 
 test("the first-run chooser is mandatory and cannot be cancelled", () => {
-    withController(({ controller }) => {
+    withUIController(({ controller }) => {
         controller.onReset();
 
         const wizard = controller.wizard!;
@@ -111,7 +80,7 @@ test("the first-run chooser is mandatory and cannot be cancelled", () => {
 });
 
 test("a chooser after a choice is dismissible and seeded from that choice", () => {
-    withController(({ controller }) => {
+    withUIController(({ controller }) => {
         controller.onReset();
 
         const first = controller.wizard!;
@@ -136,7 +105,7 @@ test("a chooser after a choice is dismissible and seeded from that choice", () =
 // ------------------------------------------------------------- completing
 
 test("completing with a random spec swaps the graph and re-registers nothing", () => {
-    withController(({ dom, elements, canvas, controller }) => {
+    withUIController(({ dom, elements, canvas, controller }) => {
         // Move the camera first, so a reset that churned it would be visible.
         controller.state.camera.orbit(40, 10);
         controller.state.camera.dolly(1);
@@ -167,7 +136,7 @@ test("completing with a random spec swaps the graph and re-registers nothing", (
 });
 
 test("completing with a molecule spec builds that molecule's graph", () => {
-    withController(({ controller }) => {
+    withUIController(({ controller }) => {
         const entry = CATALOG.find(candidate => candidate.id === "ibogaine");
         assert.ok(entry, "ibogaine should be in the catalog");
 
@@ -186,7 +155,7 @@ test("completing with a molecule spec builds that molecule's graph", () => {
 });
 
 test("the panel's graph line names the loaded graph", () => {
-    withController(({ elements, controller }) => {
+    withUIController(({ elements, controller }) => {
         assert.equal(
             elements.currentGraphLabel.innerHTML,
             specLabel(defaultGraphSpec()),
@@ -222,7 +191,7 @@ test("the panel's graph line names the loaded graph", () => {
 // -------------------------------------------------------------- cancelling
 
 test("cancelling leaves the graph, timer, listeners and camera untouched", () => {
-    withController(({ dom, elements, canvas, controller }) => {
+    withUIController(({ dom, elements, canvas, controller }) => {
         // A first choice makes the next chooser dismissible.
         controller.onReset();
         const first = controller.wizard!;
@@ -258,7 +227,7 @@ test("cancelling leaves the graph, timer, listeners and camera untouched", () =>
 // ------------------------------------------------------------ composition
 
 test("openGraphWizard closes an open context menu", () => {
-    withController(({ canvas, controller }) => {
+    withUIController(({ canvas, controller }) => {
         canvas.dispatch('mousedown', mouseEvent({ button: 2, clientX: 250, clientY: 150 }));
         canvas.dispatch('contextmenu', mouseEvent({ clientX: 250, clientY: 150 }));
 
@@ -272,7 +241,7 @@ test("openGraphWizard closes an open context menu", () => {
 });
 
 test("terminate removes an open chooser", () => {
-    withController(({ elements, controller }) => {
+    withUIController(({ elements, controller }) => {
         controller.onReset();
         assert.ok(controller.wizard);
         assert.equal(elements.body.children.length, 2, "the menu and the chooser");
@@ -285,7 +254,7 @@ test("terminate removes an open chooser", () => {
 });
 
 test("initialize with a chosen spec rebuilds that spec", () => {
-    withController(({ controller }) => {
+    withUIController(({ controller }) => {
         controller.onReset();
 
         const wizard = controller.wizard!;
@@ -305,7 +274,7 @@ test("initialize with a chosen spec rebuilds that spec", () => {
 });
 
 test("loadGraph swaps the graph in place and clears the pointer flags", () => {
-    withController(({ controller }) => {
+    withUIController(({ controller }) => {
         controller.state.b0Down = true;
         controller.state.b1Down = true;
         controller.state.b2Down = true;

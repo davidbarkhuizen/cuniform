@@ -5,17 +5,19 @@ import { entrypoint } from "../src/entrypoint";
 import { K } from "../src/K";
 import { identity, Mat3, rotX, rotY, rotZ } from "../src/Mat3";
 import { point3 } from "../src/Point3D";
-import { UIController } from "../src/UIController";
 import { assertMatClose } from "./support/assert";
 import {
+    CAMERA_CONSOLE_EVENTS,
+    CAMERA_HOLD_RELEASE_EVENTS,
     FakeDom,
     FakeElement,
+    UIControllerFixture,
     demoElements,
     keyEvent,
     mouseEvent,
-    newUIController,
     pointerEvent,
     withFakeDom,
+    withUIController,
 } from "./support/dom";
 
 /**
@@ -37,25 +39,16 @@ function stepFor(axis: string, direction: string, ticks: number): Mat3 {
     return ROTATIONS[axis]((direction === 'acw' ? 1 : -1) * PER_TICK * ticks);
 }
 
-interface ConsoleFixture {
-    dom: FakeDom;
-    elements: Record<string, FakeElement>;
-    controller: UIController;
+interface ConsoleFixture extends UIControllerFixture {
     consoleElement: FakeElement;
 }
 
 function withFixture<T>(fn: (ui: ConsoleFixture) => T): T {
-    const elements = demoElements();
-
-    return withFakeDom(elements, dom => {
+    return withUIController(
+        ui => fn({ ...ui, consoleElement: ui.elements.cameraConsole }),
         // 600x600 so a projector can be asked where a model point lands.
-        const controller = newUIController(elements, { width: 600, height: 600 });
-
-        // initialize() is what attaches the console listeners.
-        controller.initialize();
-
-        return fn({ dom, elements, controller, consoleElement: elements.cameraConsole });
-    });
+        { width: 600, height: 600 }
+    );
 }
 
 /** A button carrying the markup's data contract. */
@@ -238,23 +231,23 @@ test("terminate ends a held rotation", () => {
 
 test("initialize attaches the console listeners once and terminate removes them", () => {
     withFixture(({ dom, controller, consoleElement }) => {
-        for (const type of ['pointerdown', 'keydown', 'keyup', 'click'])
+        for (const type of CAMERA_CONSOLE_EVENTS)
             assert.equal(consoleElement.listenerCount(type), 1, `console must listen for ${type} once`);
 
-        for (const type of ['pointerup', 'pointercancel', 'blur'])
+        for (const type of CAMERA_HOLD_RELEASE_EVENTS)
             assert.equal((dom.windowListeners.get(type) ?? []).length, 1, `window must listen for ${type} once`);
 
         controller.terminate();
 
-        for (const type of ['pointerdown', 'keydown', 'keyup', 'click'])
+        for (const type of CAMERA_CONSOLE_EVENTS)
             assert.equal(consoleElement.listenerCount(type), 0, `console still listens for ${type}`);
 
-        for (const type of ['pointerup', 'pointercancel', 'blur'])
+        for (const type of CAMERA_HOLD_RELEASE_EVENTS)
             assert.equal((dom.windowListeners.get(type) ?? []).length, 0, `window still listens for ${type}`);
 
         controller.initialize();
 
-        for (const type of ['pointerdown', 'keydown', 'keyup', 'click'])
+        for (const type of CAMERA_CONSOLE_EVENTS)
             assert.equal(consoleElement.listenerCount(type), 1, `a second initialize must not double ${type}`);
     });
 });

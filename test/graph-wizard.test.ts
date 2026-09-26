@@ -8,15 +8,11 @@ import { CATALOG, moleculeTooltip } from "../src/Molecules";
 import {
     FakeElement,
     demoElements,
+    el,
     keyEvent,
     withFakeDom,
 } from "./support/dom";
 import { readSource } from "./support/files";
-
-/** The fake element behind an HTMLElement the wizard hands back. */
-function el(element: HTMLElement): FakeElement {
-    return element as unknown as FakeElement;
-}
 
 interface Fixture {
     wizard: GraphWizard;

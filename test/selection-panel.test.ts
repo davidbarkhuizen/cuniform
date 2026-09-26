@@ -3,13 +3,10 @@ import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
 import { Tag } from "../src/Tag";
-import { UIController } from "../src/UIController";
 import {
-    FakeDom,
     FakeElement,
-    demoElements,
-    newUIController,
-    withFakeDom,
+    UIControllerFixture,
+    withUIController,
 } from "./support/dom";
 
 /**
@@ -17,10 +14,7 @@ import {
  * only writer, so these drive it directly rather than through a pointer event.
  */
 
-interface Fixture {
-    dom: FakeDom;
-    elements: Record<string, FakeElement>;
-    controller: UIController;
+interface Fixture extends UIControllerFixture {
     graph: Graph;
 }
 
@@ -30,8 +24,6 @@ interface Fixture {
  * list.
  */
 function withFixture<T>(fn: (ui: Fixture) => T): T {
-    const elements = demoElements();
-
     const graph = new Graph();
     const hub = new Tag({ x: 0, y: 0, z: 0 }, "hub");
     const leaves = ["a", "b", "c"].map(name => new Tag({ x: 10, y: 0, z: 0 }, name));
@@ -42,10 +34,8 @@ function withFixture<T>(fn: (ui: Fixture) => T): T {
     graph.addEdge(hub, leaves[1]);
     graph.addEdge(hub, leaves[2]);
 
-    return withFakeDom(elements, dom => {
-        const controller = newUIController(elements, { graph });
-        return fn({ dom, elements, controller, graph });
-    });
+    // initialize() is not needed: updateSelectionInfo() is driven directly.
+    return withUIController(ui => fn({ ...ui, graph }), { graph, initialize: false });
 }
 
 function listItems(elements: Record<string, FakeElement>): string[] {
