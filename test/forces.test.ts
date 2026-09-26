@@ -6,7 +6,7 @@ import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
-import { CANVAS_H, CANVAS_W, pairAt } from "./support/physics";
+import { CANVAS_H, CANVAS_W, newGraph, pairAt } from "./support/physics";
 
 test("repulsion follows k*q^2 / r^1.9 and pushes away from the other node", () => {
     const k = K.physics.scalarForceConstant;
@@ -141,4 +141,70 @@ test("coincident pairs, duplicate edges and self-loops contribute nothing", () =
         [repel.x, repel.y, spring.x, spring.y].every(Number.isFinite),
         `non-finite force from a coincident pair: ${repel.x},${repel.y},${spring.x},${spring.y}`
     );
+});
+
+test("paired repulsion equals the per-node reference exactly", () => {
+    // The fixtures most likely to expose a divergence: a random graph, the
+    // duplicate-edge / self-loop / coincident fixture, and a lone node. The
+    // accumulation order is argued bitwise-identical to netElectrostaticForceAtNode,
+    // so a difference of exactly 0 is required, not a tolerance.
+    const fixtures: Graph[] = [newGraph(8, 3)];
+
+    const coincident = new Graph();
+    const a = new Tag({ x: 5, y: 5 }, "a");
+    const b = new Tag({ x: 5, y: 5 }, "b");
+    const c = new Tag({ x: 15, y: 5 }, "c");
+    [a, b, c].forEach(t => coincident.addNode(t));
+    coincident.addEdge(a, b);
+    coincident.addEdge(a, b);
+    coincident.addEdge(a, a);
+    coincident.addEdge(a, c);
+    fixtures.push(coincident);
+
+    const lone = new Graph();
+    lone.addNode(new Tag({ x: 1, y: 2 }, "lone"));
+    fixtures.push(lone);
+
+    for (const graph of fixtures) {
+        const fdg = new ForceDirectedGraph(graph);
+        const paired = graph.vertices.map(() => ({ x: 0, y: 0 }));
+
+        fdg.accumulateRepulsion(paired);
+
+        graph.vertices.forEach((tag, i) => {
+            const reference = fdg.netElectrostaticForceAtNode(tag);
+
+            // eps = 0 takes assertClose's absolute branch, so the difference
+            // must be zero while -0 vs 0 is still tolerated.
+            assertClose(paired[i].x, reference.x, 0, `${tag.label} x`);
+            assertClose(paired[i].y, reference.y, 0, `${tag.label} y`);
+        });
+    }
+});
+
+test("one step evaluates repulsion once per unordered pair", () => {
+    const graph = new Graph();
+    for (let i = 0; i < 5; i++)
+        graph.addNode(new Tag({ x: i * 10, y: 0 }, `n${i}`));
+
+    const fdg = new ForceDirectedGraph(graph);
+
+    const realHypot = Math.hypot;
+    let calls = 0;
+
+    Math.hypot = (...args: number[]) => {
+        calls++;
+        return realHypot(...args);
+    };
+
+    try {
+        fdg.step(CANVAS_W, CANVAS_H);
+    } finally {
+        Math.hypot = realHypot;
+    }
+
+    // Five unconnected nodes have no springs, so every hypot call is
+    // repulsion: C(5,2) = 10 for the paired pass, where the old per-node scan
+    // made 20.
+    assert.equal(calls, 10, `expected one evaluation per unordered pair, got ${calls}`);
 });
