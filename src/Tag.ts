@@ -13,8 +13,12 @@ export class Tag {
     label: string;
     position : Point2D;
     translatedPosition : Point2D;
-    netElectrostaticForce : Point2D;
-    netSpringForce : Point2D;
+    /**
+     * Retained: velocity carries across steps and is pinned to zero on drag.
+     * The net forces are deliberately *not* cached here - they are recomputed
+     * from the frozen positions each step, so a force read can never observe a
+     * half-written tick or silently return zero.
+     */
     velocity : Point2D;
     isSelected: boolean = false;
 
@@ -25,8 +29,6 @@ export class Tag {
         // Copies, not aliases: the tag owns its own points from here on.
         this.position = point(xy.x, xy.y);
         this.translatedPosition = point(xy.x, xy.y);
-        this.netElectrostaticForce = zero();
-        this.netSpringForce = zero();
         this.velocity = zero();
     }
 

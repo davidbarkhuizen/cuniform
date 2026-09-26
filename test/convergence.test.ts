@@ -41,6 +41,12 @@ test("at equilibrium the spring and repulsion forces balance", () => {
     const spring = fdg.netSpringForceAtNode(a);
     const net = fdg.netForceAtNode(a);
 
+    // Guards against this assertion going vacuous again: the individual forces
+    // are substantial, and only their sum cancels. Before M4, netForceAtNode
+    // read zeroed Tag caches here, so this passed against 0 rather than 0.00076.
+    assert.ok(Math.abs(repel.x) > 1, "the individual forces must be non-trivial");
+    assert.ok(Math.abs(spring.x) > 1, "the individual forces must be non-trivial");
+
     assertClose(net.x, 0, 0.02, `net radial force at r* was ${net.x}`);
     assert.ok(repel.x * spring.x < 0, "the two forces must oppose each other");
 });
