@@ -89,6 +89,17 @@ export class Graph {
 		return out;
 	};
 
+	/** The first selected vertex, or null when nothing is selected. */
+	selectedVertex(): Tag | null {
+		return this.vertices.find(v => v.isSelected) ?? null;
+	};
+
+	/** Deselect every vertex. */
+	clearSelection() {
+		for (const v of this.vertices)
+			v.isSelected = false;
+	};
+
 	private indexEdge(tag: Tag, edge: Edge) {
 		const list = this.adjacency.get(tag);
 

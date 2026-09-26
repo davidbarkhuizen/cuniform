@@ -69,17 +69,14 @@ export class UIController {
 
 		if (window.state.b0Down) {
 
-			// Left-drag: the selected node follows the cursor exactly.
+			// Left-drag: every selected node follows the cursor exactly.
 			const mxy = this.getMousePos(this.canvas, event);
 			const phasePos = window.fdg.wrapReverse(mxy, this.width, this.height);
 
-			window.fdg.graph.vertices
-				.filter(vertex => vertex.isSelected)
-				.forEach(
-					vertex => {
-						vertex.position = {x:phasePos.x, y:phasePos.y};
-					}
-				)
+			for (const vertex of window.fdg.graph.vertices) {
+				if (vertex.isSelected)
+					vertex.position = {x: phasePos.x, y: phasePos.y};
+			}
 		}
 		else if (window.state.b1Down) {
 
@@ -233,9 +230,7 @@ export class UIController {
 	};
 
 	clearSelection = () => {
-		window.fdg.graph.vertices.forEach(vertex => {
-			vertex.isSelected = false;
-		});
+		window.fdg.graph.clearSelection();
 		this.updateSelectionInfo();
 	};
 
@@ -306,9 +301,7 @@ export class UIController {
 
 	updateSelectionInfo = () => {
 	
-		const selectedNode = window.fdg.graph.vertices.find(
-			vertex => (vertex.isSelected == true)
-		)
+		const selectedNode = window.fdg.graph.selectedVertex();
 		
 		const selectedNodeInfoLabel = this.selectionInfoLabel;
 		const list = this.selectionInfoList;
