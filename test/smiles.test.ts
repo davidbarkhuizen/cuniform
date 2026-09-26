@@ -119,6 +119,17 @@ test("%nn two-digit ring closures round-trip", () => {
     assert.ok(bondBetween(topology, 0, 2), "the closure joins the first and last atoms");
 });
 
+test("a %nn closure is its own label and does not alias the single digit", () => {
+    // Keyed by value, %01 would read as ring 1 and could close a ring opened as
+    // `1`; the two are different labels, so mixing them leaves both open.
+    const topology = parseSmiles("C%01CC%01");
+
+    assert.equal(topology.ringClosures, 1);
+    assert.ok(bondBetween(topology, 0, 2), "the closure joins the first and last atoms");
+
+    assert.throws(() => parseSmiles("C1CC%01"), SmilesError);
+});
+
 test("a ring-closure bond may be written from either side of the closure", () => {
     // The closure is always the last bond recorded, whichever side wrote it.
     assert.equal(parseSmiles("C=1CC1").bonds[2].order, 2, "the opening side carries the order");

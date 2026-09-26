@@ -80,7 +80,8 @@ export function parseSmiles(smiles: string): MoleculeTopology {
     // Pending branch atoms, with the `(` position for error messages.
     const branches: Array<{ atom: number; position: number }> = [];
 
-    // Ring closures opened but not yet closed, keyed by their written number.
+    // Ring closures opened but not yet closed, keyed by the label as written:
+    // `1` and `%01` are distinct labels, not the same number.
     const rings = new Map<string, { atom: number; order: 1 | 2 | 3 | 4 | 0; position: number }>();
 
     let ringClosures = 0;
@@ -119,9 +120,8 @@ export function parseSmiles(smiles: string): MoleculeTopology {
         current = index;
     };
 
-    const useRingClosure = (number: number, position: number) => {
+    const useRingClosure = (key: string, position: number) => {
 
-        const key = String(number);
         const opened = rings.get(key);
 
         if (!opened) {
@@ -226,13 +226,13 @@ export function parseSmiles(smiles: string): MoleculeTopology {
             if (!/^\d\d$/.test(digits))
                 throw new SmilesError("'%' must be followed by two ring-closure digits", i);
 
-            useRingClosure(parseInt(digits, 10), i);
+            useRingClosure(digits, i);
             i += 3;
             continue;
         }
 
         if (ch >= "0" && ch <= "9") {
-            useRingClosure(parseInt(ch, 10), i);
+            useRingClosure(ch, i);
             i++;
             continue;
         }
