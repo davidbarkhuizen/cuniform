@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "start": "npx webpack --config webpack.config.js",
-    "test": "test",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test .test-build/test/*.test.js",
+    "ci": "npm run typecheck && npm test",
     "dev": "nodemon"
   },
   "repository": {

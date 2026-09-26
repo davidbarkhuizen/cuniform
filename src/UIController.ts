@@ -138,7 +138,14 @@ export class UIController {
 	};
 
 	onTimerTick = (event: any) => {
-		window.fdg.iterate(this.context2D, this.canvas.width, this.canvas.height);
+		// Advance the physics, then draw. The solver is told which node is
+		// pinned via a predicate, so it never reads browser state itself.
+		window.fdg.step(
+			this.canvas.width,
+			this.canvas.height,
+			tag => tag.isSelected && window.state.b0Down
+		);
+		window.fdg.render(this.context2D);
 	};
 	
 	deregisterEventListeners = (
