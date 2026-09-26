@@ -213,6 +213,33 @@ export class UIController {
 			this.contextMenu.open(x, y);
 	};
 
+	/**
+	 * Keyboard path to the actions menu. Shift+F10 and the dedicated
+	 * context-menu key are the standard ways to open a context menu without a
+	 * pointer; escaping is handled by the menu itself while it has focus, and
+	 * here for the case where focus is still on the canvas.
+	 */
+	onKeyDown = (event: KeyboardEvent) => {
+
+		const opensMenu =
+			event.key === 'ContextMenu' ||
+			(event.shiftKey && event.key === 'F10');
+
+		if (opensMenu) {
+			event.preventDefault();
+
+			const rect = this.canvas.getBoundingClientRect();
+			this.openContextMenu(
+				rect.left + rect.width / 2,
+				rect.top + rect.height / 2
+			);
+			return;
+		}
+
+		if (event.key === 'Escape')
+			this.hideContextMenu();
+	};
+
 	hideContextMenu = () => {
 		if (this.contextMenu)
 			this.contextMenu.hide();
@@ -330,6 +357,7 @@ export class UIController {
 		bind(this.canvas, "mouseup", this.onMouseUp);
 		bind(this.canvas, "mouseout", this.onMouseOut);
 		bind(this.canvas, "contextmenu", this.onContextMenu);
+		bind(this.canvas, "keydown", this.onKeyDown);
 
 		// export link
 		//
@@ -349,7 +377,7 @@ export class UIController {
 			{ label: 'export', onSelect: this.onExport },
 			{ label: 'reset', onSelect: () => this.onReset() },
 			{ label: 'clear selection', onSelect: this.clearSelection },
-		]);
+		], () => this.canvas.focus());
 
 		this.body.appendChild(menu.element);
 		this.contextMenu = menu;

@@ -47,6 +47,10 @@ export class FakeElement {
     width = 0;
     height = 0;
     innerHTML = '';
+    /** True once focus() has been called; the fake tracks no real focus. */
+    focused = false;
+    /** Attributes set through setAttribute(), keyed by name. */
+    attributes: Record<string, string> = {};
     /** Anchor-only fields, so an export download can be observed. */
     href = '';
     download = '';
@@ -65,6 +69,18 @@ export class FakeElement {
 
     click() {
         this.clickCount++;
+    }
+
+    focus() {
+        this.focused = true;
+    }
+
+    setAttribute(name: string, value: string) {
+        this.attributes[name] = value;
+    }
+
+    getAttribute(name: string): string | null {
+        return this.attributes[name] ?? null;
     }
 
     addEventListener(type: string, fn: Listener) {
@@ -424,5 +440,24 @@ export function pointerEvent(props: Partial<FakePointerEvent> = {}): PointerEven
     };
 
     return event as unknown as PointerEvent;
+}
+
+export interface FakeKeyboardEvent {
+    key: string;
+    shiftKey: boolean;
+    defaultPrevented: boolean;
+    preventDefault: () => void;
+}
+
+/** A keyboard-event stand-in carrying the key and the modifier keys. */
+export function keyEvent(props: Partial<FakeKeyboardEvent> = {}): KeyboardEvent {
+    const event: FakeKeyboardEvent = {
+        key: '', shiftKey: false,
+        defaultPrevented: false,
+        preventDefault: () => { event.defaultPrevented = true; },
+        ...props,
+    };
+
+    return event as unknown as KeyboardEvent;
 }
 

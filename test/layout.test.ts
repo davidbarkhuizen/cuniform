@@ -68,6 +68,25 @@ test("the old second title line is gone", () => {
     );
 });
 
+test("the canvas is focusable and carries fallback content", () => {
+    const html = readWeb("index.html");
+
+    const start = html.indexOf("<canvas");
+    assert.notEqual(start, -1, "index.html has no canvas element");
+
+    const openEnd = html.indexOf(">", start);
+    const close = html.indexOf("</canvas>", start);
+    assert.notEqual(close, -1, "the canvas element is not closed");
+
+    const tag = html.slice(start, openEnd);
+    assert.match(tag, /tabindex="0"/, "the canvas needs to be reachable by keyboard");
+    assert.match(tag, /role="img"/, "the canvas needs a role");
+    assert.match(tag, /aria-label="[^"]+"/, "the canvas needs an accessible label");
+
+    const fallback = html.slice(openEnd + 1, close).trim();
+    assert.ok(fallback.length > 0, "the canvas needs text for browsers without canvas support");
+});
+
 // -------------------------------------------------------------------- css
 
 test("the canvas container fills the viewport and the canvas fills it", () => {

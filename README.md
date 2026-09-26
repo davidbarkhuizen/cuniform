@@ -53,6 +53,9 @@ the whole panel can be dragged out of the way.
 - **Middle-drag** — pans the whole graph by the cursor delta.
 - **Right-click** — opens a context menu with `export`, `reset` and
   `clear selection`. The native browser menu is suppressed.
+- **Shift+F10** (or the context-menu key) — opens the same actions menu from
+  the keyboard. Its entries are buttons: Tab or the arrow keys move between
+  them, Enter or Space activates one, and Escape closes the menu.
 - **Drag the overlay panel** — the panel itself is movable, by mouse or by touch.
 
 ## Physics

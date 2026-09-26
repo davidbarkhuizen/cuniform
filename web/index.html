@@ -16,7 +16,14 @@
 		
 		<div class="canvas-container">
 
-			<canvas id="canvas">
+			<!--
+				The canvas is focusable so Shift+F10 can open the actions menu
+				from the keyboard, and the text inside it is the fallback for a
+				browser that cannot render canvas at all.
+			-->
+			<canvas id="canvas" tabindex="0" role="img"
+				aria-label="Force-directed graph. Press Shift+F10 for actions.">
+				Your browser does not support the canvas element, so the graph cannot be drawn.
 			</canvas>
 
 			<!--
