@@ -28,16 +28,6 @@ export class ForceDirectedGraph {
         this.graph = graph;
     }
 
-	/** Canvas -> model for a canvas of the given size. */
-	wrapReverse(xy: Point2D, canvasWidth: number, canvasHeight: number) {
-		return Viewport.forCanvas(canvasWidth, canvasHeight).toModel(xy);
-	};
-
-	/** Model -> canvas for a canvas of the given size. */
-	wrapTranslate(xy: Point2D, canvasWidth: number, canvasHeight: number) {
-		return Viewport.forCanvas(canvasWidth, canvasHeight).toCanvas(xy);
-	};
-
 	render(context: CanvasRenderingContext2D) {
 
 		const selected_node = this.graph.selectedVertex();
@@ -245,14 +235,6 @@ export class ForceDirectedGraph {
 	};
 
 	/**
-	 * Per-step displacement. velocityAtTag() has already applied FRICTION and
-	 * TIME_STEP, so this is just the node's current velocity (see Tag.displacement).
-	 */
-	displacementAtNode(tag: Tag): Point2D {
-		return tag.velocity;
-	};
-
-	/**
 	 * Advance the simulation by exactly one step. Physics only: this method
 	 * reads no DOM global and does no drawing, so it can be run headlessly.
 	 *
@@ -333,7 +315,7 @@ export class ForceDirectedGraph {
 	 */
 	handleNodeSelectionAttempt(canvasPos: Point2D, canvasWidth: number, canvasHeight: number) {
 
-		var model = this.wrapReverse(canvasPos, canvasWidth, canvasHeight);
+		var model = Viewport.forCanvas(canvasWidth, canvasHeight).toModel(canvasPos);
 
 		// Best distance so far, seeded with the squared hit radius so only a
 		// node inside it can win.

@@ -5,6 +5,7 @@ import { GraphFactory } from "./GraphFactory";
 import { K } from "./K";
 import { point, Point2D } from "./Point2D";
 import { State } from "./State";
+import { Viewport } from "./Viewport";
 
 /**
  * Builds the graph a fresh (or reset) controller simulates. Supplied by the
@@ -115,7 +116,7 @@ export class UIController {
 
 			// Left-drag: every selected node follows the cursor exactly.
 			const mxy = this.getMousePos(this.canvas, event);
-			const phasePos = this.solver.wrapReverse(mxy, this.width, this.height);
+			const phasePos = Viewport.forCanvas(this.width, this.height).toModel(mxy);
 
 			for (const vertex of this.solver.graph.vertices) {
 				if (vertex.isSelected)
@@ -144,8 +145,9 @@ export class UIController {
 			return;
 		}
 
-		const now = this.solver.wrapReverse(mxy, this.width, this.height);
-		const before = this.solver.wrapReverse(last, this.width, this.height);
+		const viewport = Viewport.forCanvas(this.width, this.height);
+		const now = viewport.toModel(mxy);
+		const before = viewport.toModel(last);
 
 		const dx = now.x - before.x;
 		const dy = now.y - before.y;

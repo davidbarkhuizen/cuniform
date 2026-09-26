@@ -52,7 +52,7 @@ test("displacement is the damped velocity, not the raw net force", () => {
     a.netElectrostaticForce = { x: 7, y: 0 };
     a.netSpringForce = { x: 0, y: 0 };
 
-    assert.deepEqual(fdg.displacementAtNode(a), { x: 0, y: 0 }, "velocity starts at zero");
+    assert.deepEqual(a.displacement, { x: 0, y: 0 }, "velocity starts at zero");
 
     a.velocity = fdg.velocityAtTag(a);
 
@@ -62,7 +62,7 @@ test("displacement is the damped velocity, not the raw net force", () => {
         1e-12,
         "one step of F must advance only F*timeStep"
     );
-    assert.deepEqual(fdg.displacementAtNode(a), a.velocity);
+    assert.deepEqual(a.displacement, a.velocity);
 });
 
 test("position advances by the velocity on each unpinned step", () => {

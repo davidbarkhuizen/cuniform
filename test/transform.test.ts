@@ -7,6 +7,7 @@ import { K } from "../src/K";
 import { Tag } from "../src/Tag";
 import { Viewport } from "../src/Viewport";
 import { assertClose } from "./support/assert";
+import { readSource } from "./support/files";
 
 const W0 = K.space.W_0;
 const H0 = K.space.H_0;
@@ -66,14 +67,17 @@ test("step() caches translatedPosition through the same Viewport mapping", () =>
     assert.deepEqual(a.translatedPosition, Viewport.forCanvas(800, 600).toCanvas(a.position));
 });
 
-test("wrapTranslate and wrapReverse are inverses at a canvas the model square is fitted to", () => {
-    const fdg = new ForceDirectedGraph(new Graph());
-    const p = { x: 123.4, y: -56.7 };
+test("the retired mapping wrappers and test-only solver methods stay retired", () => {
+    const solver = readSource("ForceDirectedGraph.ts");
 
-    const back = fdg.wrapReverse(fdg.wrapTranslate(p, 900, 500), 900, 500);
+    // Both once duplicated Viewport.forCanvas(w, h). wrapTranslate had no src/
+    // caller at all; wrapReverse's callers now ask Viewport directly.
+    assert.ok(!/wrapTranslate/.test(solver), "wrapTranslate had no caller; use Viewport directly");
+    assert.ok(!/wrapReverse/.test(solver), "wrapReverse duplicated Viewport.forCanvas().toModel()");
 
-    assertClose(back.x, p.x, 1e-9, `x round-tripped to ${back.x}`);
-    assertClose(back.y, p.y, 1e-9, `y round-tripped to ${back.y}`);
+    // Displacement is Tag.displacement, the getter production reads; the
+    // accessor was a second way to say the same thing with no src/ caller.
+    assert.ok(!/displacementAtNode/.test(solver), "displacement lives on Tag, not the solver");
 });
 
 test("nothing clamps a node to the model square", () => {

@@ -3,66 +3,8 @@ import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
 import { Tag } from "../src/Tag";
+import { readSource } from "./support/files";
 import { tag } from "./support/physics";
-
-test("removing a tag that is not in the graph leaves the vertices untouched", () => {
-    const graph = new Graph();
-    const a = tag("a");
-    const b = tag("b");
-    const c = tag("c");
-    graph.addNode(a);
-    graph.addNode(b);
-    graph.addNode(c);
-
-    // Previously splice(-1, 1) deleted the last vertex.
-    graph.removeNode(tag("foreign"));
-
-    assert.deepEqual(graph.vertices, [a, b, c]);
-});
-
-test("removing a real node removes it and its incident edges", () => {
-    const graph = new Graph();
-    const a = tag("a");
-    const b = tag("b");
-    const c = tag("c");
-    [a, b, c].forEach(t => graph.addNode(t));
-    graph.addEdge(a, b);
-    graph.addEdge(b, c);
-    graph.addEdge(a, c);
-
-    graph.removeNode(b);
-
-    assert.deepEqual(graph.vertices, [a, c]);
-    assert.deepEqual(graph.edges, [{ v1: a, v2: c }]);
-});
-
-test("removing a node keeps edges it was not part of", () => {
-    const graph = new Graph();
-    const a = tag("a");
-    const b = tag("b");
-    const c = tag("c");
-    const d = tag("d");
-    [a, b, c, d].forEach(t => graph.addNode(t));
-    graph.addEdge(a, b);
-    graph.addEdge(c, d);
-
-    graph.removeNode(b);
-
-    assert.deepEqual(graph.edges, [{ v1: c, v2: d }]);
-});
-
-test("removing the same node twice is a no-op the second time", () => {
-    const graph = new Graph();
-    const a = tag("a");
-    const b = tag("b");
-    graph.addNode(a);
-    graph.addNode(b);
-
-    graph.removeNode(a);
-    graph.removeNode(a);
-
-    assert.deepEqual(graph.vertices, [b]);
-});
 
 test("addEdge rejects foreign vertices with a complete Error, not a bare string", () => {
     const graph = new Graph();
@@ -117,7 +59,7 @@ test("neighbours is empty for an isolated or foreign vertex", () => {
     assert.deepEqual(graph.neighbours(tag("foreign")), []);
 });
 
-test("hasEdge and removeNode ignore edge direction", () => {
+test("hasEdge ignores edge direction", () => {
     const graph = new Graph();
     const a = tag("a");
     const b = tag("b");
@@ -127,9 +69,16 @@ test("hasEdge and removeNode ignore edge direction", () => {
 
     assert.ok(graph.hasEdge(a, b));
     assert.ok(graph.hasEdge(b, a));
+});
 
-    graph.removeNode(a);
-    assert.deepEqual(graph.edges, []);
+test("Graph carries no removeNode machinery", () => {
+    // Nothing in src/ removes a node, and rebuildAdjacency existed only to
+    // serve removeNode. Both are recoverable from git history if a caller ever
+    // appears.
+    const source = readSource("Graph.ts");
+
+    assert.ok(!/removeNode/.test(source), "removeNode had no src/ caller");
+    assert.ok(!/rebuildAdjacency/.test(source), "rebuildAdjacency only served removeNode");
 });
 
 test("a tag owns its own points rather than sharing point()/zero() results", () => {
