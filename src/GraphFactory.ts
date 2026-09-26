@@ -1,9 +1,74 @@
 import { Graph } from "./Graph";
+import { GraphSpec } from "./GraphSpec";
 import { K } from "./K";
-import { point3 } from "./Point3D";
+import { moleculeById } from "./Molecules";
+import { point3, Point3D } from "./Point3D";
+import { parseSmiles } from "./Smiles";
 import { Tag } from "./Tag";
 
+/**
+ * A phyllotaxis (sunflower) spiral for `n` atoms, aimed at the spring rest
+ * length, with a small deterministic z offset.
+ *
+ * `sqrt(i / PI)` gives every atom `spacing^2` of area, so neighbours start
+ * about a rest length apart - well outside the repulsion guard and already near
+ * the separation the springs want. Dropping a molecule into the random cube
+ * instead would start it as a tangle that unfolds into a blob; this starts it
+ * near its settled shape, and makes a molecule's first frame reproducible.
+ */
+function moleculeSeedPositions(n: number): Point3D[] {
+
+    const spacing = K.molecule.seedSpacing;
+    const golden = Math.PI * (3 - Math.sqrt(5));
+    const jitter = K.molecule.seedDepthJitter;
+
+    return Array.from({ length: n }, (_, i) => {
+        const r = spacing * Math.sqrt(i / Math.PI);
+        const theta = i * golden;
+        return point3(r * Math.cos(theta), r * Math.sin(theta), jitter * Math.sin(theta));
+    });
+}
+
 export class GraphFactory {
+
+	/** Build the graph a `GraphSpec` describes. */
+	build(spec: GraphSpec): Graph {
+		return spec.kind === "random"
+			? this.generateGraph(spec.order, spec.branching)
+			: this.generateMolecule(spec.id);
+	}
+
+	/**
+	 * Build the molecular graph of a catalog entry: heavy atoms are vertices,
+	 * bonds are edges.
+	 *
+	 * Vertices are labelled with element symbols, not indices. The canvas draws
+	 * a label at every node, so per-atom indices would turn a 27-atom molecule
+	 * into a wall of text; the element symbol is the conventional
+	 * skeletal-formula reading and keeps the cloud legible.
+	 */
+	generateMolecule(id: string): Graph {
+
+		const molecule = moleculeById(id);
+		const topology = parseSmiles(molecule.smiles);
+
+		const graph = new Graph();
+		const positions = moleculeSeedPositions(topology.atoms.length);
+
+		const tags = topology.atoms.map((symbol, i) => {
+			const tag = new Tag(positions[i], symbol);
+			graph.addNode(tag);
+			return tag;
+		});
+
+		// The catalog has no disconnected entries and the parser rejects
+		// duplicate bonds, so addEdge() cannot create a duplicate or a self-loop
+		// here: every atom is already in the graph and every bond is distinct.
+		for (const bond of topology.bonds)
+			graph.addEdge(tags[bond.a], tags[bond.b]);
+
+		return graph;
+	}
 
 	constructXYZFactory() {
 

@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { defaultGraphSpec, parseRandomSpec } from "../src/GraphSpec";
+import { defaultGraphSpec, parseRandomSpec, specLabel } from "../src/GraphSpec";
 import { K } from "../src/K";
+import { moleculeById } from "../src/Molecules";
 
 test("defaultGraphSpec is the shipped reference demo", () => {
     assert.deepEqual(defaultGraphSpec(), {
@@ -76,4 +77,22 @@ test("the range message states the effective bounds", () => {
 
     assert.equal(result.ok, false);
     assert.match(result.ok ? "" : result.message, /between 1 and 2/);
+});
+
+test("specLabel of a random spec names the order and the branching", () => {
+    assert.equal(
+        specLabel({ kind: "random", order: 11, branching: 2 }),
+        "random graph: 11 nodes, up to 2 edges per node"
+    );
+});
+
+test("specLabel of a molecule spec is the systematic name, not the common name", () => {
+    const molecule = moleculeById("ibogaine");
+
+    assert.equal(specLabel({ kind: "molecule", id: "ibogaine" }), molecule.systematicName);
+    assert.notEqual(specLabel({ kind: "molecule", id: "ibogaine" }), molecule.commonName);
+});
+
+test("specLabel of an unknown molecule id throws", () => {
+    assert.throws(() => specLabel({ kind: "molecule", id: "unobtainium" }), /unknown molecule id/);
 });

@@ -1,4 +1,5 @@
 import { K } from "./K";
+import { moleculeById } from "./Molecules";
 
 /**
  * The one vocabulary shared by the graph chooser, the controller and the
@@ -76,4 +77,18 @@ export function parseRandomSpec(orderText: string, branchingText: string): Rando
     }
 
     return { ok: true, spec: { kind: "random", order, branching } };
+}
+
+/**
+ * The one-line description of a spec: the panel's current-graph label.
+ *
+ * Deliberately technical: a molecule is named by its full systematic name, so
+ * the word cloud can stay short without the technical name ever being lost.
+ */
+export function specLabel(spec: GraphSpec): string {
+
+    if (spec.kind === "random")
+        return `random graph: ${spec.order} nodes, up to ${spec.branching} edges per node`;
+
+    return moleculeById(spec.id).systematicName;
 }
