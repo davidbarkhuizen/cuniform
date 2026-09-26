@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "start": "npx webpack --config webpack.config.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "test": "tsc -p tsconfig.test.json && node --test .test-build/test/*.test.js",
     "ci": "npm run typecheck && npm test",
     "dev": "nodemon --watch src --ext ts --exec \"npm run start\""
@@ -18,11 +18,9 @@
   "author": "david barkhuizen",
   "license": "MPL-2.0",
   "devDependencies": {
-    "@types/node": "^25.0.3",
-    "eslint": "^7.13.0",
+    "@types/node": "^18.19.0",
     "nodemon": "^2.0.6",
     "ts-loader": "^8.0.11",
-    "ts-node": "^9.0.0",
     "typescript": "^4.0.5",
     "webpack": "^5.4.0",
     "webpack-cli": "^4.2.0"

@@ -12,7 +12,7 @@ subcommand. With no recognised option it prints usage.
 
 ## Development
 
-    ./cli typecheck      # tsc --noEmit
+    ./cli typecheck      # tsc --noEmit over src/ and test/
     ./cli test           # compile test/ and run it under node:test
     ./cli ci             # typecheck + test
     ./cli build          # webpack bundle only
