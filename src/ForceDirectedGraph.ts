@@ -2,8 +2,8 @@ import { otherEndpoint } from "./Edge";
 import { Graph } from "./Graph";
 import { K } from "./K";
 import { point3, Point3D, zero3 } from "./Point3D";
+import { Projector } from "./Projector";
 import { Tag } from "./Tag";
-import { Viewport } from "./Viewport";
 
 export class ForceDirectedGraph {
 
@@ -260,11 +260,16 @@ export class ForceDirectedGraph {
 	 * `isPinned` reports nodes the user is dragging; a pinned node keeps the
 	 * position written by the pointer handler and its integrated displacement
 	 * is discarded. Drawing is a separate call to `render()`.
+	 *
+	 * `projector` defaults to a fresh identity-camera projector for the canvas,
+	 * so existing step(w, h) call sites keep compiling and a caller with no
+	 * camera gets the old 2D mapping back exactly.
 	 */
 	step(
 		canvasWidth: number,
 		canvasHeight: number,
-		isPinned: (tag: Tag) => boolean = () => false
+		isPinned: (tag: Tag) => boolean = () => false,
+		projector: Projector = Projector.forCanvas(canvasWidth, canvasHeight)
 	) {
 
 		const vertices = this.graph.vertices;
@@ -307,14 +312,15 @@ export class ForceDirectedGraph {
 			}
 		}
 
-		// PASS 4 - refresh the canvas-space cache.
+		// PASS 4 - refresh the canvas-space cache and the view depth.
 		//
-		// One viewport for the whole pass: the scale and the half-extents are
-		// loop invariants, so they are computed once per tick, not per node.
-		const viewport = Viewport.forCanvas(canvasWidth, canvasHeight);
-
+		// One projector for the whole pass: the camera and the viewport are
+		// loop invariants, so they are resolved once per tick, not per node.
 		for (const node of vertices) {
-			node.translatedPosition = viewport.toCanvas(node.position);
+			const projected = projector.project(node.position);
+
+			node.translatedPosition = projector.viewport.toCanvas(projected.screen);
+			node.depth = projected.depth;
 		}
 	};
 };

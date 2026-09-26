@@ -48,6 +48,53 @@ export const K = {
         D_0 : 600,
     },
 
+    camera: {
+        // Perspective camera (D1). The model is projected through this onto the
+        // 2D canvas; the camera never reaches the physics, so panning, orbiting
+        // and dollying cannot perturb the simulation.
+        //
+        // The regression anchor: with yaw = pitch = 0, focalLength === distance
+        // and z = 0, the projection reduces exactly to the old Viewport
+        // mapping. focalLength is a power of two so that reduction is bit-exact
+        // rather than merely close - multiplying and dividing a double by 1024
+        // only shifts its exponent.
+        focalLength : 1024,
+        // Camera -> target along the view axis. Equal to focalLength so the
+        // identity view is 1:1 with the 600-unit model extent. The wheel
+        // dollies this; focalLength is constant.
+        distance : 1024,
+        // Robustness guard, not part of any reference model (there was no
+        // camera). Perspective is singular as depth -> 0, so the divide is
+        // evaluated at max(depth, nearPlane), and a node at depth <= nearPlane
+        // is culled from rendering and hit-testing only. The camera never
+        // reaches the physics, so a culled node still exerts and feels force.
+        nearPlane : 50,
+        // Default orientation. Both zero is the identity camera above.
+        yaw : 0,
+        pitch : 0,
+        // Orbit sensitivity, radians per CSS pixel of middle-drag.
+        orbitRadiansPerPixel : 0.01,
+        // pi/2 - epsilon: the gimbal guard, so the rotation basis never
+        // degenerates at the poles.
+        maxPitch : Math.PI / 2 - 0.01,
+        // Dolly clamp, above nearPlane so the target plane is never culled.
+        minDistance : 128,
+        // Wheel zoom rate: distance is multiplied by this once per notch out.
+        dollyPerWheelNotch : 1.1,
+    },
+
+    depthCue: {
+        // Perspective node size: radiusPx = NODE_RADIUS * focalLength / depth,
+        // clamped to this range so a node at the near plane cannot blow up and
+        // a far node cannot vanish. The selection ring scales identically.
+        minNodeRadiusPx : 2.0,
+        maxNodeRadiusPx : 12.0,
+        // Depth fade range: maxAlpha at the nearest drawn depth, minAlpha at
+        // the farthest. Applied to nodes and edges alike.
+        minAlpha : 0.25,
+        maxAlpha : 1.0,
+    },
+
     label: {
         verticalSpacing : 5,
         horizontalSpacing : 5,

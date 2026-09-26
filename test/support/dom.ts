@@ -141,6 +141,17 @@ export class FakeElement {
     }
 }
 
+/** One draw call in the order it was issued, for painter-order assertions. */
+export interface DrawOp {
+    kind: 'stroke' | 'fill' | 'text';
+    style: string;
+    alpha: number;
+    /** The radius of the arc a `fill` acted on, else undefined. */
+    radius?: number;
+    /** The string a `text` op drew, else undefined. */
+    text?: string;
+}
+
 /** Records every 2d drawing call, so render() can be asserted on. */
 export class FakeContext2D {
 
@@ -150,16 +161,34 @@ export class FakeContext2D {
     fillStyle = '';
     font = '';
 
+    /** The current alpha, set by the renderer for the depth fade. */
+    globalAlpha = 1;
+
     /** strokeStyle captured at each stroke() call, in order. */
     strokes: string[] = [];
     /** fillStyle captured at each fill() call, in order. */
     fills: string[] = [];
     /** fillStyle captured at each fillText() call, in order. */
     texts: string[] = [];
+    /** globalAlpha captured at each stroke()/fill()/fillText() call, in order. */
+    strokeAlphas: number[] = [];
+    fillAlphas: number[] = [];
+    textAlphas: number[] = [];
+    /** The string passed to each fillText() call, in order. */
+    textLabels: string[] = [];
+    /** Arguments captured at each arc() call, in order. */
+    arcs: number[][] = [];
+    /** The radius of the arc the nth fill() acted on, in order. */
+    fillRadii: number[] = [];
+    /** Every draw call in issue order, across kinds. */
+    ops: DrawOp[] = [];
     /** Arguments captured at each setTransform() call, in order. */
     transforms: number[][] = [];
     /** Arguments captured at each clearRect() call, in order. */
     clears: number[][] = [];
+
+    /** The most recent arc() radius, so the next fill() can be annotated. */
+    private lastArcRadius = 0;
 
     clearRect(...args: number[]) {
         this.clears.push(args);
@@ -168,20 +197,40 @@ export class FakeContext2D {
     beginPath() {}
     moveTo() {}
     lineTo() {}
-    arc() {}
+
+    arc(...args: number[]) {
+        this.arcs.push(args);
+        this.lastArcRadius = args[2];
+    }
+
     save() {}
     restore() {}
 
-    fillText(..._args: any[]) {
+    fillText(...args: any[]) {
+        const text = String(args[0]);
+
         this.texts.push(String(this.fillStyle));
+        this.textAlphas.push(this.globalAlpha);
+        this.textLabels.push(text);
+        this.ops.push({ kind: 'text', style: String(this.fillStyle), alpha: this.globalAlpha, text });
     }
 
     stroke() {
         this.strokes.push(String(this.strokeStyle));
+        this.strokeAlphas.push(this.globalAlpha);
+        this.ops.push({ kind: 'stroke', style: String(this.strokeStyle), alpha: this.globalAlpha });
     }
 
     fill() {
         this.fills.push(String(this.fillStyle));
+        this.fillAlphas.push(this.globalAlpha);
+        this.fillRadii.push(this.lastArcRadius);
+        this.ops.push({
+            kind: 'fill',
+            style: String(this.fillStyle),
+            alpha: this.globalAlpha,
+            radius: this.lastArcRadius,
+        });
     }
 
     setTransform(...args: number[]) {

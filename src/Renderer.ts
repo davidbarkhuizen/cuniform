@@ -15,10 +15,21 @@ function colourFor(active: boolean, highlight: string, base: string): string {
 	return active ? highlight : base;
 }
 
+/** One drawable primitive and the view depth that orders it. */
+interface DrawItem {
+	depth: number;
+	draw: () => void;
+}
+
 /**
  * Draw `graph` onto `context`. The caller is responsible for any HiDPI
  * transform; this clears the backing store in device space and draws in CSS
  * pixels.
+ *
+ * The graph is painted with the painter's algorithm over edges *and* nodes:
+ * one list is built, sorted farthest-first, and drawn in that order, so a near
+ * node covers the edge behind it. Node size and opacity follow the view depth
+ * cached by step(), so nearer reads as larger and brighter.
  *
  * A pure function, not a class: the renderer holds no state between frames, so
  * there is nothing for it to own.
@@ -34,29 +45,51 @@ export function render(context: CanvasRenderingContext2D, graph: Graph): void {
 	context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 	context.restore();
 
-	// EDGES
-	//
-	for (const edge of graph.edges) {
+	const nearPlane = K.camera.nearPlane;
+	const focalLength = K.camera.focalLength;
 
-		const v1 = edge.v1;
-		const v2 = edge.v2;
+	// Culling. A node at or inside the near plane is not drawn and not
+	// selectable; the camera never reaches the physics, so it still exerts and
+	// feels force. An edge is skipped if either endpoint is culled - there is
+	// no near-plane clipping in this implementation.
+	const nodes = graph.vertices.filter(node => !(node.depth <= nearPlane));
+	const edges = graph.edges.filter(
+		edge => !(edge.v1.depth <= nearPlane) && !(edge.v2.depth <= nearPlane)
+	);
 
-		context.strokeStyle = colourFor(
-			selected_node === v1 || selected_node === v2,
-			K.colours.edgeIncident,
-			K.colours.edgeDefault
-		);
+	// The depth-fade range is measured over everything actually drawn, so the
+	// ramp uses its full span even when the scene is shallow. A flat scene has
+	// no range and draws at full opacity, which is what keeps the identity
+	// camera's output unchanged.
+	let minDepth = Infinity;
+	let maxDepth = -Infinity;
 
-		// DRAW EDGE
-		//
-		context.beginPath();
-		context.moveTo(v1.translatedPosition.x, v1.translatedPosition.y);
-		context.lineTo(v2.translatedPosition.x, v2.translatedPosition.y);
-		context.stroke();
+	for (const node of nodes) {
+		minDepth = Math.min(minDepth, node.depth);
+		maxDepth = Math.max(maxDepth, node.depth);
+	}
+	for (const edge of edges) {
+		const depth = (edge.v1.depth + edge.v2.depth) / 2;
+		minDepth = Math.min(minDepth, depth);
+		maxDepth = Math.max(maxDepth, depth);
 	}
 
-	// A frame constant: nothing drawn inside the loop changes the font.
-	context.font = K.label.fontFamily;
+	const hasRange = nodes.length > 0 && maxDepth > minDepth;
+
+	/** maxAlpha at the near end, minAlpha at the far end. */
+	const alphaFor = (depth: number): number => {
+		if (!hasRange)
+			return K.depthCue.maxAlpha;
+
+		const t = (depth - minDepth) / (maxDepth - minDepth);
+		return K.depthCue.maxAlpha + (K.depthCue.minAlpha - K.depthCue.maxAlpha) * t;
+	};
+
+	/** Perspective size: nearer is larger, bounded at both ends. */
+	const radiusFor = (depth: number): number => {
+		const raw = (NODE_RADIUS * focalLength) / depth;
+		return Math.min(Math.max(raw, K.depthCue.minNodeRadiusPx), K.depthCue.maxNodeRadiusPx);
+	};
 
 	// Trace a full circle at (x, y), ready to be filled or stroked.
 	const circle = (x: number, y: number, radius: number) => {
@@ -64,27 +97,79 @@ export function render(context: CanvasRenderingContext2D, graph: Graph): void {
 		context.arc(x, y, radius, CIRCLE_START_ANGLE, CIRCLE_END_ANGLE, CIRCLE_CLOCKWISE);
 	};
 
-	for (const node of graph.vertices) {
+	const items: DrawItem[] = [];
+
+	for (const edge of edges) {
+
+		const v1 = edge.v1;
+		const v2 = edge.v2;
+
+		// An edge sorts among the nodes it joins, rather than always behind or
+		// in front of them.
+		const depth = (v1.depth + v2.depth) / 2;
+
+		items.push({
+			depth,
+			draw: () => {
+				context.globalAlpha = alphaFor(depth);
+				context.strokeStyle = colourFor(
+					selected_node === v1 || selected_node === v2,
+					K.colours.edgeIncident,
+					K.colours.edgeDefault
+				);
+
+				// DRAW EDGE
+				//
+				context.beginPath();
+				context.moveTo(v1.translatedPosition.x, v1.translatedPosition.y);
+				context.lineTo(v2.translatedPosition.x, v2.translatedPosition.y);
+				context.stroke();
+			},
+		});
+	}
+
+	for (const node of nodes) {
 
 		const x = node.translatedPosition.x;
 		const y = node.translatedPosition.y;
+		const depth = node.depth;
+		const radius = radiusFor(depth);
+		const ringRadius = (SELECTION_RADIUS * radius) / NODE_RADIUS;
 
-		// NODES
-		//
-		context.fillStyle = colourFor(node.isSelected, K.colours.nodeSelected, K.colours.nodeDefault);
+		items.push({
+			depth,
+			draw: () => {
+				context.globalAlpha = alphaFor(depth);
 
-		circle(x, y, NODE_RADIUS);
-		context.fill();
+				// NODES
+				//
+				context.fillStyle = colourFor(node.isSelected, K.colours.nodeSelected, K.colours.nodeDefault);
 
-		if (node.isSelected) {
-			circle(x, y, SELECTION_RADIUS);
-			context.strokeStyle = K.colours.nodeSelected;
-			context.stroke();
-		}
+				circle(x, y, radius);
+				context.fill();
 
-		// LABEL / TEXT
-		//
-		context.fillStyle = K.colours.label;
-		context.fillText(node.label, x + K.label.horizontalSpacing, y - K.label.verticalSpacing);
-	};
+				if (node.isSelected) {
+					circle(x, y, ringRadius);
+					context.strokeStyle = K.colours.nodeSelected;
+					context.stroke();
+				}
+
+				// LABEL / TEXT
+				//
+				context.fillStyle = K.colours.label;
+				context.fillText(node.label, x + K.label.horizontalSpacing, y - K.label.verticalSpacing);
+			},
+		});
+	}
+
+	// Farthest first. Array.prototype.sort is stable, so equal depths keep
+	// insertion order - edges before nodes, each in graph order - which is
+	// exactly the old "all edges, then all nodes" order when the scene is flat.
+	items.sort((a, b) => b.depth - a.depth);
+
+	// A frame constant: nothing drawn inside the loop changes the font.
+	context.font = K.label.fontFamily;
+
+	for (const item of items)
+		item.draw();
 }
