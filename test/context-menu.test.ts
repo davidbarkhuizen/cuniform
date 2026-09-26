@@ -60,6 +60,17 @@ test("a context menu starts hidden and keeps its entries in order", () => {
     });
 });
 
+test("the menu and its entries carry their own inline styles", () => {
+    withFakeDom({}, () => {
+        const menu = new ContextMenu([{ label: 'one', onSelect: () => {} }]);
+
+        // setStyle writes through the real style properties rather than an any.
+        assert.equal(menu.element.style.position, 'absolute');
+        assert.equal(menu.element.style.display, 'none');
+        assert.equal(menu.entries[0].element.style.cursor, 'pointer');
+    });
+});
+
 test("open anchors the menu at the cursor and hide closes it", () => {
     withFakeDom({}, () => {
         const menu = new ContextMenu([{ label: 'one', onSelect: () => {} }]);

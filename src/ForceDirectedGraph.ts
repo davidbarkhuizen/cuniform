@@ -1,8 +1,23 @@
+import { otherEndpoint } from "./Edge";
 import { Graph } from "./Graph";
 import { K } from "./K";
 import { point, Point2D, zero } from "./Point2D";
 import { Tag } from "./Tag";
 import { Viewport } from "./Viewport";
+
+/** Node markers are a filled dot; the selection ring is a larger stroke. */
+const NODE_RADIUS = 5;
+const SELECTION_RADIUS = 10;
+
+/** A full circle, traced clockwise from angle 0 to a whole turn. */
+const CIRCLE_START_ANGLE = 0;
+const CIRCLE_END_ANGLE = 2 * Math.PI;
+const CIRCLE_CLOCKWISE = true;
+
+/** The highlight colour when `active`, otherwise the base colour. */
+function colourFor(active: boolean, highlight: string, base: string): string {
+	return active ? highlight : base;
+}
 
 export class ForceDirectedGraph {
 
@@ -36,17 +51,17 @@ export class ForceDirectedGraph {
 
 		// EDGES
 		//
-		for (let i = 0; i < this.graph.edges.length; i++) {
+		for (const edge of this.graph.edges) {
 
-			var edge = this.graph.edges[i];
-			var v1 = edge.v1;
-			var v2 = edge.v2;	
-			
-			if((selected_node === v1) || (selected_node === v2))
-				context.strokeStyle = K.colours.edgeIncident;
-			else
-				context.strokeStyle = K.colours.edgeDefault;
-			
+			const v1 = edge.v1;
+			const v2 = edge.v2;
+
+			context.strokeStyle = colourFor(
+				selected_node === v1 || selected_node === v2,
+				K.colours.edgeIncident,
+				K.colours.edgeDefault
+			);
+
 			// DRAW EDGE
 			//
 			context.beginPath();
@@ -55,54 +70,35 @@ export class ForceDirectedGraph {
 			context.stroke();
 		}
 
-		for (let i = 0; i < this.graph.vertices.length; i++) {
+		// A frame constant: nothing drawn inside the loop changes the font.
+		context.font = K.label.fontFamily;
 
-			var node = this.graph.vertices[i];
-			
+		// Trace a full circle at (x, y), ready to be filled or stroked.
+		const circle = (x: number, y: number, radius: number) => {
+			context.beginPath();
+			context.arc(x, y, radius, CIRCLE_START_ANGLE, CIRCLE_END_ANGLE, CIRCLE_CLOCKWISE);
+		};
+
+		for (const node of this.graph.vertices) {
+
 			const x = node.translatedPosition.x;
 			const y = node.translatedPosition.y;
 
 			// NODES
 			//
-	        if (node.isSelected) {
-	        	context.fillStyle = K.colours.nodeSelected;
-	        }
-	        else
-	        {
-	        	context.fillStyle = K.colours.nodeDefault;
-	        }
+			context.fillStyle = colourFor(node.isSelected, K.colours.nodeSelected, K.colours.nodeDefault);
 
-			// Arc radius
-			//
-	        var radius     = 5;                    
-	        
-			// Starting point on circle
-			//
-			var startAngle = 0;
-			
-			// End point on circle
-			//
-	        var endAngle   = 2 * Math.PI;
-	        
-			// clockwise or anticlockwise
-			//
-			var clockwise  = true; 
+			circle(x, y, NODE_RADIUS);
+			context.fill();
 
-			context.beginPath();	    
-	        context.arc(x,y,radius,startAngle,endAngle, clockwise);
-	        context.fill();
-	        
-	        if (node.isSelected) {
-	        	radius = 10;
-				context.beginPath();	    
-				context.arc(x,y,radius,startAngle,endAngle, clockwise);
+			if (node.isSelected) {
+				circle(x, y, SELECTION_RADIUS);
 				context.strokeStyle = K.colours.nodeSelected;
 				context.stroke();
-	        }
-	        
+			}
+
 			// LABEL / TEXT
-			//			
-			context.font = K.label.fontFamily;
+			//
 			context.fillStyle = K.colours.label;
 			context.fillText(node.label, x + K.label.horizontalSpacing, y - K.label.verticalSpacing);
 		};
@@ -183,7 +179,11 @@ export class ForceDirectedGraph {
 		for(let i = 0; i < incident.length; i++) {
 
 			var edge = incident[i];
-			var other_tag = edge.v1 === tag ? edge.v2 : edge.v1;
+			var other_tag = otherEndpoint(edge, tag);
+
+			// A self-loop has no far endpoint, so it exerts no spring force.
+			if (other_tag === null)
+				continue;
 
 			// Toward the neighbour, so a positive magnitude pulls the pair
 			// together.
@@ -280,18 +280,18 @@ export class ForceDirectedGraph {
 
 		// CALCULATE NET FORCE
 		//
-		for (var i = 0; i < this.graph.vertices.length; i++) {
-			this.graph.vertices[i].netElectrostaticForce = this.netElectrostaticForceAtNode(this.graph.vertices[i]);
+		for (const tag of this.graph.vertices) {
+			tag.netElectrostaticForce = this.netElectrostaticForceAtNode(tag);
 		}
 
-		for( i = 0; i < this.graph.vertices.length; i++) {
-			this.graph.vertices[i].netSpringForce = this.netSpringForceAtNode(this.graph.vertices[i]);
+		for (const tag of this.graph.vertices) {
+			tag.netSpringForce = this.netSpringForceAtNode(tag);
 		}
 
 		// CALC VELOCITY
 		//
-		for(i = 0; i < this.graph.vertices.length; i++) {
-			this.graph.vertices[i].velocity = this.velocityAtTag(this.graph.vertices[i]);
+		for (const tag of this.graph.vertices) {
+			tag.velocity = this.velocityAtTag(tag);
 		}
 
 		// ADJUST POSITION
@@ -299,13 +299,12 @@ export class ForceDirectedGraph {
 		// Displacement is the velocity computed above, so no separate pass is
 		// needed. A dragged node keeps the position the pointer handler wrote
 		// and has its velocity zeroed, so releasing the mouse does not fling it.
-		for(i = 0; i < this.graph.vertices.length; i++) {
-			var tag = this.graph.vertices[i];
+		for (const tag of this.graph.vertices) {
 			if (isPinned(tag)) {
 				tag.velocity = zero();
 			} 
 			else {
-				var displacement = tag.displacement;
+				const displacement = tag.displacement;
 				tag.position.x = tag.position.x + displacement.x;
 				tag.position.y = tag.position.y + displacement.y;
 			}
@@ -317,8 +316,7 @@ export class ForceDirectedGraph {
 		// loop invariants, so they are computed once per tick, not per node.
 		const viewport = Viewport.forCanvas(canvasWidth, canvasHeight);
 
-		for( i = 0; i < this.graph.vertices.length; i++) {
-			var node = this.graph.vertices[i];
+		for (const node of this.graph.vertices) {
 			node.translatedPosition = viewport.toCanvas(node.position);
 		}
 	};

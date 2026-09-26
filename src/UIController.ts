@@ -125,7 +125,6 @@ export class UIController {
 		
 		if (event.button == 0) {
 			window.state.b0Down = true;		
-			window.state.b0ClickPos = mxy;    
 				
 			const selectionChanged = window.fdg.handleNodeSelectionAttempt(mxy, this.width, this.height);
 			if (selectionChanged == true)
@@ -379,7 +378,7 @@ export class UIController {
 
 		this.toggleEventListeners(true);
 	
-		this.timer = setInterval(this.onTimerTick, K.physics.timerTickperiodMS);
+		this.timer = setInterval(this.onTimerTick, K.physics.timerTickPeriodMS);
 	
 		this.updateSelectionInfo();
 	}

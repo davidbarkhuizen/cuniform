@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
+import { Edge, otherEndpoint } from "../src/Edge";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
@@ -20,7 +21,7 @@ function bruteForceSpring(graph: Graph, target: Tag) {
     const y_tag = target.position.y;
 
     for (const edge of graph.edges) {
-        const other = edge.v1 === target ? edge.v2 : (edge.v2 === target ? edge.v1 : null);
+        const other = otherEndpoint(edge, target);
         if (other === null)
             continue;
 
@@ -39,6 +40,17 @@ function bruteForceSpring(graph: Graph, target: Tag) {
 
     return { x: Fx, y: Fy };
 }
+
+test("otherEndpoint names the far endpoint, and null for a self-loop or foreign tag", () => {
+    const a = tag("a", 0, 0);
+    const b = tag("b", 10, 0);
+    const edge: Edge = { v1: a, v2: b };
+
+    assert.equal(otherEndpoint(edge, a), b);
+    assert.equal(otherEndpoint(edge, b), a);
+    assert.equal(otherEndpoint(edge, tag("foreign")), null);
+    assert.equal(otherEndpoint({ v1: a, v2: a }, a), null);
+});
 
 test("incidentEdges indexes an edge from both endpoints", () => {
     const graph = new Graph();

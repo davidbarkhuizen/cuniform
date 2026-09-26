@@ -14,17 +14,12 @@ export const entrypoint = (
 
     const e = (id: string) => document.getElementById(id);
 
-    const required = (id: string): HTMLElement | null => {
-        const element = e(id);
-        if (!element)
-            console.error(`could not find element for ID: ${id}`);
-        return element;
-    };
+    const canvas = e(canvasElementID) as HTMLCanvasElement | null;
 
-    const canvas = required(canvasElementID) as HTMLCanvasElement | null;
-
-    if (!canvas)
+    if (!canvas) {
+        console.error(`could not find element for ID: ${canvasElementID}`);
         return false;
+    }
 
     // getContext('2d') returns null when the context is unavailable; it does
     // not throw, so there is no try/catch and the result is checked directly.
@@ -35,14 +30,35 @@ export const entrypoint = (
         return false;
     }
 
-    const body = required('body');
-    const exportElement = required(exportElementID);
-    const resetElement = required(resetElementID);
-    const selectionInfoLabel = required(SELECTED_NODE_LABEL_ID);
-    const selectionInfoList = required(SELECTED_NODE_LIST_ID);
+    /**
+     * Resolve every required element once, reporting each ID that is missing,
+     * and return null if any of them is - the single check that aborts startup.
+     */
+    const required = (ids: string[]): HTMLElement[] | null => {
+        const resolved = ids.map(id => ({ id, element: e(id) }));
+        const missing = resolved.filter(entry => !entry.element);
 
-    if (!body || !exportElement || !resetElement || !selectionInfoLabel || !selectionInfoList)
+        for (const entry of missing)
+            console.error(`could not find element for ID: ${entry.id}`);
+
+        if (missing.length > 0)
+            return null;
+
+        return resolved.map(entry => entry.element as HTMLElement);
+    };
+
+    const elements = required([
+        'body',
+        exportElementID,
+        resetElementID,
+        SELECTED_NODE_LABEL_ID,
+        SELECTED_NODE_LIST_ID,
+    ]);
+
+    if (!elements)
         return false;
+
+    const [body, exportElement, resetElement, selectionInfoLabel, selectionInfoList] = elements;
 
     const selectionInfoPanel = e(selectionInfoPanelID);
 
