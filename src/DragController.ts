@@ -1,4 +1,28 @@
 /**
+ * Dragging the floating overlay panel needs to leave the controls inside it
+ * alone. A press is owned by the innermost interactive element under it, so the
+ * check walks the ancestor chain from the event target.
+ */
+interface PressTarget {
+    tagName?: string;
+    parentElement?: PressTarget | null;
+}
+
+/**
+ * Elements that own their own press. A pointerdown on one of these must not
+ * start a panel drag.
+ *
+ * The reason is pointer capture: `onPointerDown` captures the pointer so the
+ * drag keeps tracking outside the panel, and a captured pointer retargets the
+ * compatibility `click` to the capturing element. Without this guard, every
+ * control inside the panel - the export and reset links, the camera console
+ * buttons - would have its click swallowed by the panel.
+ */
+const INTERACTIVE_TAGS = new Set([
+    'A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL', 'SUMMARY',
+]);
+
+/**
  * Drags the floating overlay panel. Pointer events are used rather than HTML5
  * drag-and-drop so the same code handles mouse, touch and pen, and so the panel
  * can track the cursor continuously instead of jumping on release.
@@ -40,6 +64,11 @@ export class DragController {
 		// Primary button, touch or pen only: a right- or middle-click on the
 		// panel must not move it.
 		if (event.button !== 0)
+			return;
+
+		// A press that starts on a control belongs to that control, not to the
+		// panel. Capturing it here would retarget the control's click away.
+		if (this.ownsInteractivePress(event.target))
 			return;
 
 		this.activePointerId = event.pointerId;
@@ -86,6 +115,31 @@ export class DragController {
 
 		if (this.element.hasPointerCapture(event.pointerId))
 			this.element.releasePointerCapture(event.pointerId);
+	}
+
+	/**
+	 * True when the press started on an interactive element inside the panel.
+	 *
+	 * Walks the ancestor chain rather than calling closest(), so the check works
+	 * on the dependency-free test DOM as well as in the browser.
+	 */
+	private ownsInteractivePress(target: EventTarget | null): boolean {
+
+		const panel = this.element as unknown as PressTarget | null;
+
+		let element = target as unknown as PressTarget | null;
+
+		while (element && element !== panel) {
+
+			const tagName = element.tagName;
+
+			if (typeof tagName === 'string' && INTERACTIVE_TAGS.has(tagName.toUpperCase()))
+				return true;
+
+			element = element.parentElement ?? null;
+		}
+
+		return false;
 	}
 
 	/** Write the accumulated delta onto the panel, in px. */

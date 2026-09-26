@@ -117,6 +117,9 @@ body
 	color			: #04121c;
 	background-color	: #22d3ee;
 	border-radius		: 6px;
+
+	/* the panel is a drag handle; its links are not */
+	cursor			: pointer;
 }
 
 .main_menu_option:hover
