@@ -40,10 +40,11 @@ Every phase heading and table row below carries a per-item status:
 **Completed by the alignment work:** 0.1, 0.2, 0.4, 1.1, 1.2, 1.3, 3.1, 3.2,
 5.1 (solver side), 5.3, 6.6, and effectively 6.9.
 
-**Still open:** Phase 2 (2.1–2.3), Phase 4 (4.1–4.3), 5.2, 5.4, and Phase 6
-items 6.2, 6.3, 6.4, 6.5, 6.7, 6.8, 6.10. 6.1 is half done — `test` was
-replaced with a real runner in PR #22, but `dev` still runs `nodemon` with no
-entry target.
+**Completed since:** Phase 2 (2.1–2.3) in PR #31.
+
+**Still open:** Phase 4 (4.1–4.3), 5.2, 5.4, and Phase 6 items 6.2, 6.3, 6.4,
+6.5, 6.7, 6.8, 6.10. 6.1 is half done — `test` was replaced with a real runner
+in PR #22, but `dev` still runs `nodemon` with no entry target.
 
 **Resolved differently:** 0.3 — no reusable DOM stub was written, because the
 solver was made DOM-free instead, so the tests need no stub at all
@@ -173,9 +174,9 @@ first).
 
 ---
 
-## Phase 2 — Runtime-breaking defects — ⬜ Open
+## Phase 2 — Runtime-breaking defects — ✅ Complete
 
-### 2.1 Panel dragging assigns a literal string — ⬜ Open
+### 2.1 Panel dragging assigns a literal string — ✅ Done (PR #31)
 
 - **Where:** `src/DragController.ts:49-50`
 - **Defect:** `` `$(this.dragY + this.startTop)` `` — the `$` sits outside the
@@ -193,8 +194,10 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
   synthesized dragstart/drag/dragend sequence.
 - **Consider:** `DragController` sets `draggable = true` on the panel, which
   makes text selection inside the panel awkward. Verify this is still wanted.
+  **Resolved (PR #31):** panel dragging is kept — `draggable` is what enables
+  the native `dragstart`/`drag`/`dragend` events the controller listens for.
 
-### 2.2 App refuses to start without an unused feature — ⬜ Open
+### 2.2 App refuses to start without an unused feature — ✅ Done (PR #31)
 
 - **Where:** `src/entrypoint.ts:32-33`
 - **Defect:** hard requirement on `window.Worker`, but no worker is ever
@@ -205,7 +208,7 @@ this.element.style.left = `${this.dragX + this.startLeft}px`;
   branch. Keep the `context2d == null` check (that one is real).
 - **Acceptance:** entrypoint initializes with `window.Worker` undefined.
 
-### 2.3 Missing return value / dead error handling — ⬜ Open
+### 2.3 Missing return value / dead error handling — ✅ Done (PR #31)
 
 - **Where:** `src/entrypoint.ts:9,21-26,60`
 - **Defect:** declared `: boolean` but the success path falls off the end and
@@ -359,7 +362,7 @@ half of PR 2 landed as `#22`–`#26`, and PR 4's solver work landed as `#22`/`#2
 What remains is:
 
 1. **PR — Phase 2.** The three runtime-breaking defects (drag string, `Worker`
-   requirement, missing return). Small and independent.
+   requirement, missing return). Small and independent. **Landed as #31.**
 2. **PR — Phase 4 + 5.4.** Edge highlighting, `removeNode`, `neighbours`, and the
    dead-locals sweep.
 3. **PR — 5.2 + 6.10.** Adjacency list for the spring pass and HiDPI scaling
