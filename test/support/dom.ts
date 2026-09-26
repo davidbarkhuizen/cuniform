@@ -94,6 +94,21 @@ export class FakeElement {
         return this.rect;
     }
 
+    /** Pointer ids captured through setPointerCapture(). */
+    private capturedPointers: Set<number> = new Set();
+
+    setPointerCapture(pointerId: number) {
+        this.capturedPointers.add(pointerId);
+    }
+
+    hasPointerCapture(pointerId: number): boolean {
+        return this.capturedPointers.has(pointerId);
+    }
+
+    releasePointerCapture(pointerId: number) {
+        this.capturedPointers.delete(pointerId);
+    }
+
     get firstChild(): FakeElement | null {
         return this.children.length > 0 ? this.children[0] : null;
     }
@@ -369,7 +384,6 @@ export function newUIController(
 
 export interface FakeMouseEvent {
     button: number; clientX: number; clientY: number;
-    screenX: number; screenY: number;
     defaultPrevented: boolean; preventDefault: () => void;
 }
 
@@ -382,12 +396,33 @@ export interface FakeMouseEvent {
 export function mouseEvent(props: Partial<FakeMouseEvent> = {}): MouseEvent {
     const event: FakeMouseEvent = {
         button: 0, clientX: 0, clientY: 0,
-        screenX: 0, screenY: 0,
         defaultPrevented: false,
         preventDefault: () => { event.defaultPrevented = true; },
         ...props,
     };
 
     return event as unknown as MouseEvent;
+}
+
+export interface FakePointerEvent {
+    button: number; clientX: number; clientY: number;
+    pointerId: number;
+    defaultPrevented: boolean; preventDefault: () => void;
+}
+
+/**
+ * A pointer-event stand-in for the panel drag. It carries the fields the
+ * controller reads: a viewport coordinate, the primary button, and the pointer
+ * id used to tell one finger from another.
+ */
+export function pointerEvent(props: Partial<FakePointerEvent> = {}): PointerEvent {
+    const event: FakePointerEvent = {
+        button: 0, clientX: 0, clientY: 0, pointerId: 1,
+        defaultPrevented: false,
+        preventDefault: () => { event.defaultPrevented = true; },
+        ...props,
+    };
+
+    return event as unknown as PointerEvent;
 }
 
