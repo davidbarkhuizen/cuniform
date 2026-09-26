@@ -193,3 +193,16 @@ test("a left mousedown closes an open context menu", () => {
         assert.equal(controller.contextMenu!.isOpen, false);
     });
 });
+
+test("terminate detaches every listener initialize attached", () => {
+    withController(({ dom, elements, canvas, controller }) => {
+        controller.terminate();
+
+        for (const type of ['mousemove', 'mousedown', 'mouseup', 'mouseout', 'contextmenu'])
+            assert.equal(canvas.listenerCount(type), 0, `canvas still listens for ${type}`);
+
+        assert.equal(elements.export_canvas_link.listenerCount('click'), 0, "export still listens");
+        assert.equal(elements.reset_link.listenerCount('click'), 0, "reset still listens");
+        assert.equal((dom.windowListeners.get('resize') ?? []).length, 0, "window still listens for resize");
+    });
+});
