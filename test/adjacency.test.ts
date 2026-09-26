@@ -5,11 +5,8 @@ import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
-import { CANVAS_H, CANVAS_W, newGraph } from "./support/physics";
-
-function tag(label: string, x = 0, y = 0): Tag {
-    return new Tag({ x, y }, label);
-}
+import { assertClose } from "./support/assert";
+import { CANVAS_H, CANVAS_W, newGraph, tag } from "./support/physics";
 
 /**
  * The pre-adjacency reference: scan every edge and skip those not incident to
@@ -121,11 +118,8 @@ test("the adjacency spring force equals a brute-force edge scan", () => {
         const actual = fdg.netSpringForceAtNode(target);
         const expected = bruteForceSpring(graph, target);
 
-        assert.ok(
-            Math.abs(actual.x - expected.x) < 1e-12 &&
-            Math.abs(actual.y - expected.y) < 1e-12,
-            `${target.label}: got (${actual.x}, ${actual.y}) expected (${expected.x}, ${expected.y})`
-        );
+        assertClose(actual.x, expected.x, 1e-12, `${target.label}: x force`);
+        assertClose(actual.y, expected.y, 1e-12, `${target.label}: y force`);
     }
 });
 

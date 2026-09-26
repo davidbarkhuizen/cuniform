@@ -7,6 +7,11 @@
  * pulling in jsdom.
  */
 
+import { ForceDirectedGraph } from "../../src/ForceDirectedGraph";
+import { Graph } from "../../src/Graph";
+import { State } from "../../src/State";
+import { UIController } from "../../src/UIController";
+
 type Listener = (event: any) => void;
 
 export interface FakeRect {
@@ -281,3 +286,84 @@ export function demoElements(omit: string[] = []): Record<string, FakeElement> {
     }
     return out;
 }
+
+/**
+ * Install the fake DOM, run `fn` against it and always restore afterwards.
+ * Every UI-facing test used to hand-write this `try/finally` wrapper.
+ */
+export function withFakeDom<T>(
+    elements: Record<string, FakeElement>,
+    fn: (dom: FakeDom) => T
+): T {
+    const dom = installFakeDom(elements);
+
+    try {
+        return fn(dom);
+    } finally {
+        dom.restore();
+    }
+}
+
+/**
+ * Build a UIController over the `demoElements()` map, hiding the seven
+ * `as unknown as` casts every UI test used to repeat.
+ *
+ * `width`/`height` pin the logical size for fixtures that bypass
+ * resizeCanvas(); `graph` installs a supplied graph as `window.fdg` (with a
+ * fresh `window.state`), mirroring what initialize() would have built.
+ */
+export function newUIController(
+    elements: Record<string, FakeElement>,
+    opts: { width?: number; height?: number; graph?: Graph } = {}
+): UIController {
+    const canvas = elements.canvas as FakeCanvas;
+
+    const controller = new UIController(
+        elements.body as unknown as HTMLElement,
+        canvas as unknown as HTMLCanvasElement,
+        canvas.context as unknown as CanvasRenderingContext2D,
+        elements.export_canvas_link as unknown as HTMLElement,
+        elements.reset_link as unknown as HTMLElement,
+        elements.selectedNodeInfoLabel as unknown as HTMLElement,
+        elements.selectedNodeInfoList as unknown as HTMLElement
+    );
+
+    if (opts.width !== undefined)
+        controller.width = opts.width;
+
+    if (opts.height !== undefined)
+        controller.height = opts.height;
+
+    if (opts.graph) {
+        const windowStub = (globalThis as any).window;
+        windowStub.state = new State();
+        windowStub.fdg = new ForceDirectedGraph(opts.graph);
+    }
+
+    return controller;
+}
+
+export interface FakeMouseEvent {
+    button: number; clientX: number; clientY: number;
+    screenX: number; screenY: number;
+    defaultPrevented: boolean; preventDefault: () => void;
+}
+
+/**
+ * A mouse event stand-in that records whether `preventDefault()` was called.
+ * The four per-file helpers this replaces had drifted: context-menu recorded
+ * suppression, pan's `preventDefault` was a no-op (so its suppression was
+ * unassertable) and drag-controller carried only screen coordinates.
+ */
+export function mouseEvent(props: Partial<FakeMouseEvent> = {}): MouseEvent {
+    const event: FakeMouseEvent = {
+        button: 0, clientX: 0, clientY: 0,
+        screenX: 0, screenY: 0,
+        defaultPrevented: false,
+        preventDefault: () => { event.defaultPrevented = true; },
+        ...props,
+    };
+
+    return event as unknown as MouseEvent;
+}
+

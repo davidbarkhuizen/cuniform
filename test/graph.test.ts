@@ -2,11 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
-import { Tag } from "../src/Tag";
-
-function tag(label: string, x = 0, y = 0): Tag {
-    return new Tag({ x, y }, label);
-}
+import { tag } from "./support/physics";
 
 test("removing a tag that is not in the graph leaves the vertices untouched", () => {
     const graph = new Graph();

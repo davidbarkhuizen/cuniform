@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
 import { Tag } from "../src/Tag";
+import { assertClose } from "./support/assert";
 import { maxTravelPerStep, mean, newGraph } from "./support/physics";
 
 // Reference doc section 9: for a pair joined by a single edge the repulsion
@@ -23,10 +24,7 @@ test("a single edge settles at the analytic equilibrium distance", () => {
 
     const r = Math.hypot(b.position.x - a.position.x, b.position.y - a.position.y);
 
-    assert.ok(
-        Math.abs(r - ANALYTIC_EQUILIBRIUM) < 1.0,
-        `settled at r=${r}, expected ~${ANALYTIC_EQUILIBRIUM}`
-    );
+    assertClose(r, ANALYTIC_EQUILIBRIUM, 1.0, `settled at r=${r}, expected ~${ANALYTIC_EQUILIBRIUM}`);
 });
 
 test("at equilibrium the spring and repulsion forces balance", () => {
@@ -43,7 +41,7 @@ test("at equilibrium the spring and repulsion forces balance", () => {
     const spring = fdg.netSpringForceAtNode(a);
     const net = fdg.netForceAtNode(a);
 
-    assert.ok(Math.abs(net.x) < 0.02, `net radial force at r* was ${net.x}`);
+    assertClose(net.x, 0, 0.02, `net radial force at r* was ${net.x}`);
     assert.ok(repel.x * spring.x < 0, "the two forces must oppose each other");
 });
 

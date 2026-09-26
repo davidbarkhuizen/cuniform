@@ -9,6 +9,26 @@ export const CANVAS_W = 800;
 export const CANVAS_H = 600;
 
 /**
+ * Two nodes joined by one edge, `r` apart on the x axis:
+ *   a at the origin, b at (+r, 0).
+ */
+export function pairAt(r: number) {
+    const graph = new Graph();
+    const a = new Tag({ x: 0, y: 0 }, "a");
+    const b = new Tag({ x: r, y: 0 }, "b");
+    graph.addNode(a);
+    graph.addNode(b);
+    graph.addEdge(a, b);
+
+    return { graph, a, b, fdg: new ForceDirectedGraph(graph) };
+}
+
+/** A tag at (x, y), defaulting to the origin. */
+export function tag(label: string, x = 0, y = 0): Tag {
+    return new Tag({ x, y }, label);
+}
+
+/**
  * Advance `ticks` steps and return, for each step, the largest distance any
  * single node travelled from its position at the start of that step.
  *
@@ -36,6 +56,29 @@ export function maxTravelPerStep(
     }
 
     return out;
+}
+
+/**
+ * Advance `ticks` steps and return the largest distance from the model origin
+ * any vertex reached over the whole run. `isPinned` is forwarded to `step()`,
+ * so a caller can hold a node in place while the rest of the graph relaxes.
+ */
+export function maxAbsPosition(
+    fdg: ForceDirectedGraph,
+    graph: Graph,
+    ticks: number,
+    isPinned: (tag: Tag) => boolean = () => false
+): number {
+    let max = 0;
+
+    for (let t = 0; t < ticks; t++) {
+        fdg.step(CANVAS_W, CANVAS_H, isPinned);
+
+        for (const v of graph.vertices)
+            max = Math.max(max, Math.hypot(v.position.x, v.position.y));
+    }
+
+    return max;
 }
 
 export function mean(xs: number[]): number {

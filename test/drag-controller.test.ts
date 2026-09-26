@@ -2,11 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { DragController } from "../src/DragController";
-import { FakeElement } from "./support/dom";
-
-function mouse(screenX: number, screenY: number): MouseEvent {
-    return { screenX, screenY } as unknown as MouseEvent;
-}
+import { FakeElement, mouseEvent } from "./support/dom";
 
 /** Panel at (150, 100) inside a parent at (50, 30). */
 function panelInParent() {
@@ -25,10 +21,10 @@ function panelInParent() {
 test("a panel drag writes a valid px offset, not the literal interpolation text", () => {
     const { panel, controller } = panelInParent();
 
-    controller.onDragStart(mouse(1000, 500));
+    controller.onDragStart(mouseEvent({ screenX: 1000, screenY: 500 }));
     // The panel starts at (left 100, top 70) within its parent; add the
     // +40 screen x, +30 screen y drag delta.
-    controller.onDrag(mouse(1040, 530));
+    controller.onDrag(mouseEvent({ screenX: 1040, screenY: 530 }));
     controller.onDragEnd();
 
     assert.equal(panel.style.top, '100px');
@@ -44,9 +40,9 @@ test("a panel drag writes a valid px offset, not the literal interpolation text"
 test("drag deltas are measured from the drag start, across several moves", () => {
     const { panel, controller } = panelInParent();
 
-    controller.onDragStart(mouse(200, 200));
-    controller.onDrag(mouse(220, 210));
-    controller.onDrag(mouse(300, 260));
+    controller.onDragStart(mouseEvent({ screenX: 200, screenY: 200 }));
+    controller.onDrag(mouseEvent({ screenX: 220, screenY: 210 }));
+    controller.onDrag(mouseEvent({ screenX: 300, screenY: 260 }));
     controller.onDragEnd();
 
     assert.equal(panel.style.left, '200px');
@@ -56,8 +52,8 @@ test("drag deltas are measured from the drag start, across several moves", () =>
 test("deltas reset after a drag ends, so the next drag is not cumulative", () => {
     const { panel, controller } = panelInParent();
 
-    controller.onDragStart(mouse(200, 200));
-    controller.onDrag(mouse(260, 240));
+    controller.onDragStart(mouseEvent({ screenX: 200, screenY: 200 }));
+    controller.onDrag(mouseEvent({ screenX: 260, screenY: 240 }));
     controller.onDragEnd();
 
     assert.equal(controller.dragX, 0);
@@ -65,7 +61,7 @@ test("deltas reset after a drag ends, so the next drag is not cumulative", () =>
 
     // A second drag with no movement must leave the panel where it started,
     // not offset by the first drag's delta.
-    controller.onDragStart(mouse(200, 200));
+    controller.onDragStart(mouseEvent({ screenX: 200, screenY: 200 }));
     controller.onDragEnd();
 
     assert.equal(panel.style.left, '100px');
@@ -75,8 +71,8 @@ test("deltas reset after a drag ends, so the next drag is not cumulative", () =>
 test("a move reported outside the screen is ignored", () => {
     const { panel, controller } = panelInParent();
 
-    controller.onDragStart(mouse(200, 200));
-    controller.onDrag(mouse(-5, 0));
+    controller.onDragStart(mouseEvent({ screenX: 200, screenY: 200 }));
+    controller.onDrag(mouseEvent({ screenX: -5, screenY: 0 }));
     controller.onDragEnd();
 
     assert.equal(panel.style.left, '100px');
@@ -88,8 +84,8 @@ test("a parentless panel still produces a px position instead of throwing", () =
     panel.rect = { top: 100, left: 150, right: 450, bottom: 500, width: 300, height: 400, x: 150, y: 100 };
 
     const controller = new DragController(panel as unknown as HTMLElement);
-    controller.onDragStart(mouse(200, 200));
-    controller.onDrag(mouse(230, 220));
+    controller.onDragStart(mouseEvent({ screenX: 200, screenY: 200 }));
+    controller.onDrag(mouseEvent({ screenX: 230, screenY: 220 }));
     controller.onDragEnd();
 
     assert.equal(panel.style.left, '30px');

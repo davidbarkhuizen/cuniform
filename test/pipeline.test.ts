@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
+import { assertClose } from "./support/assert";
+import { readSource } from "./support/files";
 import { CANVAS_H, CANVAS_W } from "./support/physics";
 
 // Deterministic, well-separated positions inside the 600x600 model square.
@@ -56,12 +56,8 @@ function assertSamePositions(
 ) {
     for (const label of Object.keys(expected)) {
         assert.ok(actual[label], `${message}: missing ${label}`);
-        assert.ok(
-            Math.abs(actual[label].x - expected[label].x) < 1e-9 &&
-            Math.abs(actual[label].y - expected[label].y) < 1e-9,
-            `${message}: ${label} at (${actual[label].x}, ${actual[label].y}) ` +
-            `expected (${expected[label].x}, ${expected[label].y})`
-        );
+        assertClose(actual[label].x, expected[label].x, 1e-9, `${message}: ${label} x`);
+        assertClose(actual[label].y, expected[label].y, 1e-9, `${message}: ${label} y`);
     }
 }
 
@@ -110,19 +106,13 @@ test("one step is exactly a synchronous update from the pre-step snapshot", () =
     // A Gauss-Seidel update would let later nodes react to earlier nodes'
     // new positions and would not reproduce this result.
     tags.forEach((t, i) => {
-        assert.ok(
-            Math.abs(t.position.x - expected[i].x) < 1e-12 &&
-            Math.abs(t.position.y - expected[i].y) < 1e-12,
-            `${t.label} at (${t.position.x}, ${t.position.y}) expected (${expected[i].x}, ${expected[i].y})`
-        );
+        assertClose(t.position.x, expected[i].x, 1e-12, `${t.label} x at ${t.position.x}`);
+        assertClose(t.position.y, expected[i].y, 1e-12, `${t.label} y at ${t.position.y}`);
     });
 });
 
 test("the solver source has no browser coupling", () => {
-    const source = readFileSync(
-        join(__dirname, "..", "..", "src", "ForceDirectedGraph.ts"),
-        "utf8"
-    );
+    const source = readSource("ForceDirectedGraph.ts");
 
     assert.ok(!/\bwindow\b/.test(source), "solver must not reference window");
     assert.ok(!/\bdocument\b/.test(source), "solver must not reference document");

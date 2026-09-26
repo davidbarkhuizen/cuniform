@@ -5,7 +5,8 @@ import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
-import { CANVAS_H, CANVAS_W } from "./support/physics";
+import { assertClose } from "./support/assert";
+import { CANVAS_H, CANVAS_W, maxAbsPosition, pairAt } from "./support/physics";
 
 /**
  * Repulsion is 10000/r^1.9, which is singular as r -> 0. The solver guards the
@@ -19,17 +20,6 @@ import { CANVAS_H, CANVAS_W } from "./support/physics";
  * These tests pin down the bound and prove the reference law is untouched
  * wherever it is actually defined.
  */
-
-function pairAt(r: number) {
-    const graph = new Graph();
-    const a = new Tag({ x: 0, y: 0 }, "a");
-    const b = new Tag({ x: r, y: 0 }, "b");
-    graph.addNode(a);
-    graph.addNode(b);
-    graph.addEdge(a, b);
-
-    return { graph, a, b, fdg: new ForceDirectedGraph(graph) };
-}
 
 test("the minimum interaction radius is a positive, finite guard", () => {
     const minR = K.physics.minimumInteractionRadius;
@@ -53,13 +43,15 @@ test("repulsion magnitude is clamped below the minimum interaction radius", () =
         const { a, fdg } = pairAt(r);
         const f = fdg.netElectrostaticForceAtNode(a);
 
-        assert.ok(
-            Math.abs(Math.abs(f.x) - bound) < 1e-9,
+        assertClose(
+            Math.abs(f.x),
+            bound,
+            1e-9,
             `r=${r}: |F| was ${Math.abs(f.x)}, expected the clamped bound ${bound}`
         );
         // Direction must still be the exact radial one (a is pushed to -x).
         assert.ok(f.x < 0, `r=${r}: the clamped force must still push away`);
-        assert.ok(Math.abs(f.y) < 1e-12, `r=${r}: the clamped force must stay radial`);
+        assertClose(f.y, 0, 1e-12, `r=${r}: the clamped force must stay radial`);
     }
 });
 
@@ -72,8 +64,10 @@ test("repulsion is exactly the reference law at and above the guard radius", () 
         const f = fdg.netElectrostaticForceAtNode(a);
         const expected = 10000 / Math.pow(r, exponent);
 
-        assert.ok(
-            Math.abs(Math.abs(f.x) - expected) < 1e-9,
+        assertClose(
+            Math.abs(f.x),
+            expected,
+            1e-9,
             `r=${r}: |F| was ${Math.abs(f.x)}, expected the unclamped ${expected}`
         );
     }
@@ -101,16 +95,10 @@ test("dragging a node onto another cannot fling the free node across the world",
 
     assert.ok(firstStep < 20, `first step moved ${firstStep} units, expected a bounded nudge`);
 
-    // Keep the pointer parked on top of the node and let the system relax.
-    let maxDistanceFromOrigin = 0;
-    for (let t = 0; t < 3000; t++) {
-        pinned.position = { x: 0, y: 0 };
-        fdg.step(CANVAS_W, CANVAS_H, tag => tag === pinned);
-        maxDistanceFromOrigin = Math.max(
-            maxDistanceFromOrigin,
-            Math.hypot(free.position.x, free.position.y)
-        );
-    }
+    // Keep the pointer parked on top of the node and let the system relax. A
+    // pinned node's position is never integrated, so parking it once is enough.
+    pinned.position = { x: 0, y: 0 };
+    const maxDistanceFromOrigin = maxAbsPosition(fdg, graph, 3000, tag => tag === pinned);
 
     assert.ok(
         maxDistanceFromOrigin < 150,
@@ -124,7 +112,7 @@ test("dragging a node onto another cannot fling the free node across the world",
     // The guard must not change where the pair ends up: the same reference
     // equilibrium as an undisturbed single edge.
     const settled = Math.hypot(free.position.x - pinned.position.x, free.position.y - pinned.position.y);
-    assert.ok(Math.abs(settled - 65.46) < 1.0, `settled at r=${settled}, expected ~65.46`);
+    assertClose(settled, 65.46, 1.0, `settled at r=${settled}, expected ~65.46`);
 });
 
 test("a cluster of near-coincident nodes stays finite and bounded", () => {
@@ -141,12 +129,7 @@ test("a cluster of near-coincident nodes stays finite and bounded", () => {
 
     const fdg = new ForceDirectedGraph(graph);
 
-    let maxAbs = 0;
-    for (let t = 0; t < 3000; t++) {
-        fdg.step(CANVAS_W, CANVAS_H);
-        for (const v of tags)
-            maxAbs = Math.max(maxAbs, Math.abs(v.position.x), Math.abs(v.position.y));
-    }
+    const maxAbs = maxAbsPosition(fdg, graph, 3000);
 
     assert.ok(
         tags.every(v => Number.isFinite(v.position.x) && Number.isFinite(v.position.y)),
