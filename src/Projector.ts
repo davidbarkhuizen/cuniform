@@ -45,6 +45,18 @@ export interface Projection {
 }
 
 /**
+ * True when a view depth is at or inside the near plane.
+ *
+ * One home for the cull rule, so the projection's own clamp, the renderer's
+ * draw filter and hit-testing cannot disagree about the boundary. `Projector`
+ * supplies its camera's near plane; a caller with only a depth (the renderer,
+ * which is handed the camera's value) supplies it directly.
+ */
+export function isDepthCulled(depth: number, nearPlane: number): boolean {
+    return depth <= nearPlane;
+}
+
+/**
  * The perspective camera and projection.
  *
  *   model (Point3D) --Projector--> projected plane (Point2D + depth) --Viewport--> canvas
@@ -113,7 +125,7 @@ export class Projector {
 
     /** True when a view depth is at or inside the near plane. */
     isCulled(depth: number): boolean {
-        return depth <= this.camera.nearPlane;
+        return isDepthCulled(depth, this.camera.nearPlane);
     }
 
     /**

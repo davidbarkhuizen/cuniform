@@ -649,6 +649,11 @@ export class UIController {
 		// below and the draw that follows both use the new view.
 		this.onCameraRotateTick();
 
+		// One projector for both the step and the draw, so the renderer's cull
+		// boundary and depth cue see exactly the camera that produced each
+		// node's cached depth.
+		const projector = this.projector();
+
 		// Advance the physics, then draw. The solver is told which node is
 		// pinned via a predicate, so it never reads browser state itself; the
 		// camera reaches it only as a value object, so it stays DOM-free.
@@ -656,9 +661,9 @@ export class UIController {
 			this.width,
 			this.height,
 			tag => tag.isSelected && this.state.b0Down,
-			this.projector()
+			projector
 		);
-		render(this.context2D, this.solver.graph);
+		render(this.context2D, this.solver.graph, projector.camera);
 	};
 	
 	/**

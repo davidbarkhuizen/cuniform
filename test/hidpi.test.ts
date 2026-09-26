@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
 import { K } from "../src/K";
+import { defaultCameraView } from "../src/Projector";
 import { render } from "../src/Renderer";
 import { Tag } from "../src/Tag";
 import {
@@ -138,7 +139,7 @@ test("render clears the whole backing store in device space", () => {
     const context = new FakeContext2D();
     context.canvas = { width: 1200, height: 900 };
 
-    render(context as unknown as CanvasRenderingContext2D, graph);
+    render(context as unknown as CanvasRenderingContext2D, graph, defaultCameraView());
 
     assert.deepEqual(context.transforms[0], [1, 0, 0, 1, 0, 0]);
     assert.deepEqual(context.clears[0], [0, 0, 1200, 900]);
