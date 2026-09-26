@@ -67,8 +67,7 @@ test("one step is independent of vertex iteration order (Jacobi update)", () => 
     base.fdg.step(CANVAS_W, CANVAS_H);
     const expected = snapshot(base.graph);
 
-    // Reverse the vertex array: every force must still be computed from the
-    // same frozen snapshot of positions.
+    // Every force must still come from the same frozen snapshot of positions.
     const shuffled = build([...NATURAL].reverse());
     shuffled.fdg.step(CANVAS_W, CANVAS_H);
 
@@ -105,8 +104,6 @@ test("one step is exactly a synchronous update from the pre-step snapshot", () =
 
     fdg.step(CANVAS_W, CANVAS_H);
 
-    // A Gauss-Seidel update would let later nodes react to earlier nodes'
-    // new positions and would not reproduce this result.
     tags.forEach((t, i) => {
         assertClose(t.position.x, expected[i].x, 1e-12, `${t.label} x at ${t.position.x}`);
         assertClose(t.position.y, expected[i].y, 1e-12, `${t.label} y at ${t.position.y}`);
@@ -120,9 +117,7 @@ test("the solver source has no browser coupling", () => {
     assert.ok(!/\bwindow\b/.test(solver), "solver must not reference window");
     assert.ok(!/\bdocument\b/.test(solver), "solver must not reference document");
 
-    // Drawing lives in its own module now, so the solver's DOM-freedom is
-    // structural rather than a convention: there is no canvas type left in the
-    // file to reference.
+    // Renderer owns the canvas type, so the solver cannot reference one.
     const canvasTypeUses = solver.split("CanvasRenderingContext2D").length - 1;
     assert.equal(canvasTypeUses, 0, "the solver must not name a canvas type");
 

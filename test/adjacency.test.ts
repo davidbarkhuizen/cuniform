@@ -9,10 +9,7 @@ import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
 import { CANVAS_H, CANVAS_W, newGraph, tag } from "./support/physics";
 
-/**
- * The pre-adjacency reference: scan every edge and skip those not incident to
- * the target. Used to prove the adjacency pass computes exactly the same force.
- */
+/** Pre-adjacency reference: scan every edge, skipping those not incident to the target. */
 function bruteForceSpring(graph: Graph, target: Tag) {
     let Fx = 0;
     let Fy = 0;
@@ -108,13 +105,14 @@ test("the adjacency spring force equals a brute-force edge scan", () => {
     // An off-plane node, so the equivalence also covers the z component.
     const d = new Tag({ x: 10, y: 10, z: 35 }, "d");
     [a, b, c, d].forEach(t => graph.addNode(t));
+    // Fixture covers duplicate edges, a self-loop, stretched/compressed springs, and out-of-plane pairs.
     graph.addEdge(a, b);
-    graph.addEdge(a, b);   // duplicate edge
-    graph.addEdge(a, a);   // self-loop
-    graph.addEdge(b, c);   // stretched
-    graph.addEdge(a, c);   // compressed relative to the rest length
-    graph.addEdge(b, d);   // out of plane
-    graph.addEdge(a, d);   // out of plane
+    graph.addEdge(a, b);
+    graph.addEdge(a, a);
+    graph.addEdge(b, c);
+    graph.addEdge(a, c);
+    graph.addEdge(b, d);
+    graph.addEdge(a, d);
 
     const fdg = new ForceDirectedGraph(graph);
 

@@ -28,16 +28,9 @@ interface PanFixture {
     b: Tag;
 }
 
-/**
- * Two nodes in a 600x600 model mapped onto a 600x600 canvas, so one canvas
- * unit is one model unit. Depth is set to the camera distance, which is what a
- * step() would have cached for this flat scene, so the nodes are visible and a
- * drag has a real plane to slide on.
- *
- * The behaviour change from the old pan tests: middle-drag no longer
- * translates the nodes. It orbits the camera, and Shift+middle-drag moves the
- * camera target instead (plan D2/D4).
- */
+// Two nodes on a 600x600 canvas over a 600x600 model (one unit is one unit),
+// at the cached camera distance so a drag has a real plane. Middle-drag orbits
+// rather than translating nodes; Shift+middle moves the camera target.
 function withFixture<T>(fn: (ui: PanFixture) => T): T {
     const elements = demoElements();
     const canvas = elements.canvas as FakeCanvas;
@@ -154,9 +147,8 @@ test("Shift+middle-drag moves the camera target, not the nodes", () => {
         controller.onMouseDown(mouseEvent({ button: 1, clientX: 100, clientY: 100 }));
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 150, clientY: 120, shiftKey: true }));
 
-        // One canvas unit is one model unit and the camera is the identity, so
-        // the +50/-20 canvas delta is a +50/-20 model target move on the target
-        // plane. Node positions are never written.
+        // One unit is one unit and the camera is the identity, so +50/-20 canvas is
+        // +50/-20 target on the target plane; node positions are never written.
         assertClose(controller.state.camera.target.x, 50, 1e-9, "target x");
         assertClose(controller.state.camera.target.y, -20, 1e-9, "target y");
         assertClose(controller.state.camera.target.z, 0, 1e-9, "target z");
@@ -277,8 +269,7 @@ test("a culled selected node drags on the near plane", () => {
 
 test("pointer mapping uses the canvas rect, so an offset canvas stays accurate", () => {
     withFixture(({ dom, canvas, controller, a }) => {
-        // The canvas sits at (50, 30) in the viewport, and the page reports a
-        // scroll offset that the old offsetParent walk added on top.
+        // The canvas sits at (50, 30) with a page scroll the old offsetParent walk added.
         canvas.rect = {
             top: 30, left: 50, right: 650, bottom: 630,
             width: 600, height: 600, x: 50, y: 30,
@@ -289,8 +280,7 @@ test("pointer mapping uses the canvas rect, so an offset canvas stays accurate",
         a.isSelected = true;
         controller.state.b0Down = true;
 
-        // Client (250, 150) is canvas-local (200, 120), so model (-100, 180)
-        // on the 600x600 fixture. The scroll offsets must not be added.
+        // Client (250, 150) is canvas-local (200, 120), so model (-100, 180); scroll must not be added.
         controller.onMouseMove(mouseEvent({ clientX: 250, clientY: 150 }));
 
         assert.deepEqual({ ...a.position }, { x: -100, y: 180, z: 0 });
@@ -316,8 +306,7 @@ test("a middle move while the left button is up does not follow the node-drag pa
 test("a reset rebuilds the graph without losing the viewing angle", () => {
     withFixture(({ controller }) => {
         controller.state.camera.orbit(40, 15);
-        // The console's roll is part of the viewing angle too, so it must
-        // survive a reset like the yaw and pitch do.
+        // Roll is part of the viewing angle too, so it must survive a reset like yaw and pitch.
         controller.state.camera.rotateLocal('z', 0.4);
         controller.state.camera.dolly(2);
 
@@ -358,8 +347,7 @@ test("handlers run on a controller that was never initialized", () => {
 
         const controller = newUIController(elements, { width: 600, height: 600, graph });
 
-        // initialize() used to install these globals; no handler may still need
-        // them, and none may throw on a controller that was never initialized.
+        // initialize() used to install these globals; no handler may still need them.
         delete dom.window.state;
         delete dom.window.fdg;
 

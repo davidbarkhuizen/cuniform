@@ -6,8 +6,7 @@ import { readWeb } from "./support/files";
 
 /**
  * The layout lives in the two static demo assets rather than in TypeScript, so
- * these read them back and pin down the structure the UI depends on: the
- * floating panel owns the title and menu, and the canvas fills the viewport.
+ * these read them back and pin the structure the UI depends on.
  */
 
 /** Everything from the overlay panel's opening tag to the end of the body. */
@@ -96,8 +95,7 @@ test("the panel's third section is the camera console, after the selected node",
 test("the camera console has six labelled axis/direction rotate buttons", () => {
     const panel = panelMarkup(readWeb("index.html"));
 
-    // The attributes may be laid out over several lines, so compare against
-    // whitespace-normalised markup.
+    // Attributes may span several lines, so compare against whitespace-normalised markup.
     const markup = panel.replace(/\s+/g, " ");
 
     for (const axis of ["x", "y", "z"]) {
@@ -166,8 +164,8 @@ test("the canvas is focusable and carries fallback content", () => {
 });
 
 test("the canvas accessible label names the 3D view and the mouse gestures", () => {
-    // The camera gestures are mouse-only, so the label is the only place a
-    // non-visual user can learn that the view is 3D and how to move it.
+    // The gestures are mouse-only, so the label is the only place a non-visual
+    // user learns the view is 3D.
     const html = readWeb("index.html");
 
     const start = html.indexOf("<canvas");

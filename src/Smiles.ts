@@ -1,25 +1,8 @@
-/**
- * A reader for the SMILES subset the molecule catalog needs, not a full
- * chemistry toolkit.
- *
- * The catalog stores a SMILES string per molecule because that string is the
- * artifact that can be checked against a PubChem CID. Parsing it here, rather
- * than hand-copying an adjacency list per molecule, keeps the data auditable by
- * inspection and turns ~25 unverifiable bond pairs per entry into one parser
- * with small-molecule unit tests.
- *
- * The module is pure and DOM-free: it reads a string and returns a topology.
- *
- * Chemistry is deliberately *not* validated - no valence, no aromaticity
- * perception, no ring perception. This is a graph reader, and the data it reads
- * is verified at the source (see the catalog's PubChem CIDs). What *is* checked
- * is that the notation itself is well formed: brackets balance, ring closures
- * pair up, and no bond is written twice.
- */
+// A reader for the SMILES subset the molecule catalog needs, not a chemistry toolkit:
+// the notation is checked (brackets, closures, duplicate bonds), the chemistry deliberately is not.
 
 /** One bond, as the pair of atom indices it joins and its bond order. */
 export interface SmilesBond {
-    /** Indices into `atoms`. */
     a: number;
     b: number;
     /** 1 single, 2 double, 3 triple, 4 aromatic. */
@@ -34,11 +17,7 @@ export interface MoleculeTopology {
     ringClosures: number;
 }
 
-/**
- * A malformed SMILES string. `position` is the 0-based character offset the
- * reader stopped at, which is what makes a catalog transcription error a local
- * fix rather than a hunt.
- */
+/** A malformed SMILES string; `position` is the 0-based offset the reader stopped at. */
 export class SmilesError extends Error {
     constructor(message: string, readonly position: number) {
         super(`${message} (at position ${position})`);
@@ -46,34 +25,22 @@ export class SmilesError extends Error {
     }
 }
 
-/** The single-letter organic subset, plus the two two-letter members. */
 const ORGANIC_SINGLE = new Set(["B", "C", "N", "O", "P", "S", "F", "I"]);
 
-/** The aromatic subset: an atom written as a lowercase element symbol. */
 const AROMATIC = new Set(["b", "c", "n", "o", "p", "s"]);
 
-/** An aromatic atom is written as its own lowercase element symbol. */
 function isAromaticSymbol(symbol: string): boolean {
     return symbol === symbol.toLowerCase();
 }
 
-/**
- * The bond order implied when no symbol is written: aromatic (4) when both
- * ends are aromatic, a single bond (1) otherwise. One home for the default, so
- * extending the chain and closing a ring cannot disagree about it.
- */
+// The order implied when no symbol is written: aromatic (4) when both ends are
+// aromatic, single (1) otherwise. One home for the default, so chain and ring agree.
 function defaultBondOrder(symbolA: string, symbolB: string): 1 | 4 {
     return isAromaticSymbol(symbolA) && isAromaticSymbol(symbolB) ? 4 : 1;
 }
 
-/**
- * Read the element symbol out of a bracket atom such as `[nH]`, `[C@@H]`,
- * `[O-]`, `[NH3+]`, `[13CH4]` or `[Si]`.
- *
- * Only the symbol is kept: the hydrogen count, the chirality and the charge
- * that follow it describe chemistry this reader does not model. A leading
- * isotope number is skipped for the same reason.
- */
+// Element symbol out of a bracket atom such as `[nH]`, `[C@@H]`, `[13CH4]` or
+// `[Si]`; hydrogen count, chirality, charge and isotope number are not modelled.
 function bracketSymbol(body: string, position: number): string {
     let i = 0;
 
@@ -96,36 +63,24 @@ function bracketSymbol(body: string, position: number): string {
     throw new SmilesError("bracket atom has no element symbol", position + i);
 }
 
-/**
- * Parse `smiles` into the heavy-atom graph it describes.
- *
- * Supported: the organic subset (`C N O S P F Cl Br I B`), the aromatic subset
- * (`c n o s p b`), bracket atoms (the element is kept, the rest discarded),
- * branches, ring closures (`1`..`9` and `%10`..`%99`), the bond symbols
- * `- = # : / \`, disconnection with `.`, and the implicit default bond - which
- * is aromatic when both ends are aromatic and single otherwise.
- *
- * Throws a `SmilesError` carrying the character position for an unknown
- * character, an unmatched `)`, an unclosed `(`, a ring closure that is never
- * closed, a bond symbol with no following atom, and a duplicate bond between
- * the same pair of atoms.
- */
+/** Parse `smiles` into the heavy-atom graph it describes: organic/aromatic atoms, bracket
+ * atoms, branches, ring closures, bond symbols and `.` disconnection; throws `SmilesError`. */
 export function parseSmiles(smiles: string): MoleculeTopology {
 
     const atoms: string[] = [];
     const bonds: SmilesBond[] = [];
     const bondKeys = new Set<string>();
 
-    /** The atom the next atom or closure attaches to; null after a `.`. */
+    // The atom the next atom or closure attaches to; null after a `.`.
     let current: number | null = null;
 
-    /** A bond symbol waiting for the atom it applies to; 0 means unset. */
+    // A bond symbol waiting for the atom it applies to; 0 means unset.
     let pending: 1 | 2 | 3 | 4 | 0 = 0;
 
-    /** Pending branch atoms, with the position of the `(` that opened them. */
+    // Pending branch atoms, with the `(` position for error messages.
     const branches: Array<{ atom: number; position: number }> = [];
 
-    /** Ring closures opened but not yet closed, keyed by their written number. */
+    // Ring closures opened but not yet closed, keyed by their written number.
     const rings = new Map<string, { atom: number; order: 1 | 2 | 3 | 4 | 0; position: number }>();
 
     let ringClosures = 0;
@@ -153,8 +108,6 @@ export function parseSmiles(smiles: string): MoleculeTopology {
         atoms.push(symbol);
 
         if (current !== null) {
-            // The default bond is aromatic when both ends are aromatic, else a
-            // single bond. An explicit bond symbol always wins.
             const order: 1 | 2 | 3 | 4 = pending !== 0
                 ? pending
                 : defaultBondOrder(at(current), symbol);
@@ -171,7 +124,6 @@ export function parseSmiles(smiles: string): MoleculeTopology {
         const key = String(number);
         const opened = rings.get(key);
 
-        // First use of the number opens a closure on the current atom.
         if (!opened) {
             if (current === null)
                 throw new SmilesError("a ring closure was opened before any atom", position);
@@ -187,9 +139,8 @@ export function parseSmiles(smiles: string): MoleculeTopology {
         rings.delete(key);
         ringClosures++;
 
-        // The order may be written on either side of the closure; an explicit
-        // symbol on the closing side wins, then the opening side, then the
-        // aromatic/single default.
+        // The order may be written on either side of the closure: a closing-side symbol
+        // wins, then the opening side, then the aromatic/single default.
         const order: 1 | 2 | 3 | 4 = pending !== 0
             ? pending
             : opened.order !== 0
@@ -315,7 +266,7 @@ export function parseSmiles(smiles: string): MoleculeTopology {
         throw new SmilesError(`unknown character '${ch}'`, i);
     }
 
-    // Every opening must have a matching close, or the notation is truncated.
+    // Every opening must have a matching close.
     const openBranch = branches[branches.length - 1];
 
     if (openBranch)

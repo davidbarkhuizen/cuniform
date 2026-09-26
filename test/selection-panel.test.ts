@@ -9,20 +9,13 @@ import {
     withUIController,
 } from "./support/dom";
 
-/**
- * The selected-node section of the overlay panel. updateSelectionInfo() is the
- * only writer, so these drive it directly rather than through a pointer event.
- */
+/** updateSelectionInfo() is the only writer of this panel section, so these drive it directly. */
 
 interface Fixture extends UIControllerFixture {
     graph: Graph;
 }
 
-/**
- * A star: `hub` joined to three leaves in insertion order, with a duplicate
- * edge so the panel has to follow graph.neighbours() rather than the raw edge
- * list.
- */
+/** A star with a duplicate edge, so the panel must follow graph.neighbours() rather than the raw edge list. */
 function withFixture<T>(fn: (ui: Fixture) => T): T {
     const graph = new Graph();
     const hub = new Tag({ x: 0, y: 0, z: 0 }, "hub");
@@ -30,7 +23,7 @@ function withFixture<T>(fn: (ui: Fixture) => T): T {
     graph.addNode(hub);
     leaves.forEach(leaf => graph.addNode(leaf));
     graph.addEdge(hub, leaves[0]);
-    graph.addEdge(hub, leaves[0]); // duplicate: must not repeat
+    graph.addEdge(hub, leaves[0]);
     graph.addEdge(hub, leaves[1]);
     graph.addEdge(hub, leaves[2]);
 

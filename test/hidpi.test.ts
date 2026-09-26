@@ -13,7 +13,7 @@ import {
     withUIController,
 } from "./support/dom";
 
-/** body 750x750 => a 750x750 full-screen logical canvas. */
+// body 750x750 => a 750x750 full-screen logical canvas.
 function withController<T>(dpr: number | undefined, fn: (ui: UIControllerFixture) => T): T {
     return withUIController(fn, {
         devicePixelRatio: dpr,
@@ -56,8 +56,6 @@ test("a missing devicePixelRatio falls back to 1", () => {
 
 test("the canvas fills the viewport rather than a fraction of it", () => {
     withController(1, ({ canvas, controller }) => {
-        // The old layout used body.clientWidth * 0.8 and left 20% of the page
-        // for the title and menu rows.
         assert.equal(controller.width, 750);
         assert.equal(controller.height, 750);
         assert.equal(canvas.style.width, '750px');
@@ -118,13 +116,11 @@ test("pointer mapping is unaffected by devicePixelRatio", () => {
 
         const node: Tag = graph.vertices[0];
         node.isSelected = true;
-        // A visible node, as a step() would have cached; the drag then slides
-        // on the node's own z = 0 plane rather than the culled fallback.
+        // A visible node, as step() would have cached, so the drag slides on its z = 0 plane.
         node.depth = K.camera.distance;
         controller.state.b0Down = true;
 
-        // A 750x750 canvas over the 600x600 model scales by 1.25, so the canvas
-        // CSS point (450, 300) maps to model (60, 60).
+        // 750x750 canvas over the 600x600 model scales by 1.25: (450, 300) -> (60, 60).
         controller.onMouseMove(mouseEvent({ clientX: 450, clientY: 300 }));
 
         assert.deepEqual({ ...node.position }, { x: 60, y: 60, z: 0 });

@@ -7,9 +7,8 @@ export class Graph {
 	edges: Array<Edge> = [];
 
 	/**
-	 * Incident edges per vertex, kept in sync with `edges`. The spring pass
-	 * walks a node's incident edges instead of rescanning every edge for every
-	 * node, which turns the per-step cost from O(V*E) into O(V + E).
+	 * Incident edges per vertex, kept in sync with `edges`; the spring pass walks these
+	 * instead of rescanning every edge, turning O(V*E) per step into O(V + E).
 	 */
 	adjacency: Map<Tag, Array<Edge>> = new Map();
 
@@ -50,13 +49,8 @@ export class Graph {
 	};
 
 	/**
-	 * The distinct neighbours of `v`, one entry per adjacent vertex. Duplicate
-	 * edges and self-loops never produce a repeated entry.
-	 *
-	 * Walks the maintained adjacency list rather than rescanning every edge, so
-	 * the cost is O(deg(v)); a Set makes the dedupe O(1) per edge instead of
-	 * the old O(deg) `indexOf` scan, while the insertion order is preserved so
-	 * the result order is unchanged.
+	 * The distinct neighbours of `v`, in insertion order, one entry per adjacent vertex;
+	 * duplicate edges and self-loops never produce a repeated entry.
 	 */
 	neighbours(v: Tag) {
 		var out: Array<Tag> = [];
@@ -84,7 +78,6 @@ export class Graph {
 		return this.vertices.find(v => v.isSelected) ?? null;
 	};
 
-	/** Deselect every vertex. */
 	clearSelection() {
 		for (const v of this.vertices)
 			v.isSelected = false;

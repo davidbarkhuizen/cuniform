@@ -2,14 +2,9 @@ import { K } from "./K";
 import { point, Point2D } from "./Point2D";
 
 /**
- * Projected-plane <-> canvas mapping.
- *
- * Its input is the projector's output: still in model units, but already
- * divided by view depth. The scale is uniform on both axes so a canvas whose
- * aspect ratio differs from the model square never stretches the layout, and the
- * y axis is flipped so increasing projected y moves up the canvas. Owning the
- * four numbers here (rather than threading them through every mapping call) is
- * what keeps the scale formula in exactly one place.
+ * Projected-plane <-> canvas mapping. Its input is the projector's output: model
+ * units already divided by view depth. The scale is uniform on both axes, so a
+ * canvas of any aspect ratio never stretches the layout, and y is flipped.
  */
 export class Viewport {
 
@@ -18,17 +13,16 @@ export class Viewport {
 		readonly w1: number, readonly h1: number
 	) {}
 
-	/** The demo's model rectangle mapped onto a canvas of `w1` x `h1`. */
+	/** The model rectangle mapped onto a `w1` x `h1` canvas. */
 	static forCanvas(w1: number, h1: number): Viewport {
 		return new Viewport(K.space.W_0, K.space.H_0, w1, h1);
 	}
 
-	/** Uniform model -> canvas scale: min(w1/w0, h1/h0). */
+	/** Uniform model -> canvas scale. */
 	get scale(): number {
 		return Math.min(this.w1 / this.w0, this.h1 / this.h0);
 	}
 
-	/** Model point -> canvas point. */
 	toCanvas(xy: Point2D): Point2D {
 		const s = this.scale;
 
@@ -38,7 +32,7 @@ export class Viewport {
 		);
 	}
 
-	/** Exact inverse of toCanvas(): canvas point -> model point. */
+	/** Exact inverse of `toCanvas()`. */
 	toModel(xy: Point2D): Point2D {
 		const s = this.scale;
 

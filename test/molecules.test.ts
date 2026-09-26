@@ -15,11 +15,7 @@ import {
 import { parseSmiles } from "../src/Smiles";
 import { catalogEntry } from "./support/catalog";
 
-/**
- * The non-hydrogen atom count of a molecular formula, read with the same
- * grammar a chemist writes it in: an element symbol followed by an optional
- * count.
- */
+/** Non-hydrogen atom count of a formula: an element symbol plus an optional count. */
 function heavyAtomCount(formula: string): number {
 
     let total = 0;

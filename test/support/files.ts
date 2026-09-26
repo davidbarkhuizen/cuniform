@@ -1,25 +1,14 @@
-/**
- * Read repository files back as text, so the architecture guards that assert on
- * source (`entrypoint`, `pipeline`, `layout`) do not each re-derive the path
- * from `__dirname`.
- *
- * Compiled tests run from `<root>/.test-build/test/support`, hence the three
- * levels up to the repository root.
- */
+// Read repository files back as text. Compiled tests run from
+// `<root>/.test-build/test/support`, hence the three levels up to the root.
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-/** Read a TypeScript source file from `src/` as text. */
 export function readSource(name: string): string {
     return readFileSync(join(__dirname, "..", "..", "..", "src", name), "utf8");
 }
 
-/**
- * Every TypeScript source file under `src/`, keyed by file name. The
- * whole-tree architecture guards (no `window` state, no solver globals) need to
- * look at more than the one file they are named after.
- */
+/** Every TypeScript source file under `src/`, keyed by file name. */
 export function readAllSources(): Record<string, string> {
     const dir = join(__dirname, "..", "..", "..", "src");
     const out: Record<string, string> = {};
@@ -32,7 +21,6 @@ export function readAllSources(): Record<string, string> {
     return out;
 }
 
-/** Read a hand-maintained static asset from `web/` as text. */
 export function readWeb(name: string): string {
     return readFileSync(join(__dirname, "..", "..", "..", "web", name), "utf8");
 }

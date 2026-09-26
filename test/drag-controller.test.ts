@@ -22,8 +22,7 @@ test("a panel drag writes a valid px offset, not the literal interpolation text"
     const { panel, controller } = panelInParent();
 
     controller.onPointerDown(pointerEvent({ clientX: 1000, clientY: 500 }));
-    // The panel starts at (left 100, top 70) within its parent; add the
-    // +40 x, +30 y drag delta.
+    // Panel starts at (left 100, top 70) within its parent, plus a +40 x, +30 y drag delta.
     controller.onPointerMove(pointerEvent({ clientX: 1040, clientY: 530 }));
     controller.onPointerUp(pointerEvent({}));
 
@@ -43,11 +42,9 @@ test("the panel follows the pointer during the drag, not only on release", () =>
     controller.onPointerDown(pointerEvent({ clientX: 200, clientY: 200 }));
     controller.onPointerMove(pointerEvent({ clientX: 260, clientY: 240 }));
 
-    // Still mid-drag: the panel must already be at the new position.
     assert.equal(panel.style.left, '160px');
     assert.equal(panel.style.top, '110px');
 
-    // Releasing keeps the position the pointer wrote.
     controller.onPointerUp(pointerEvent({}));
     assert.equal(panel.style.left, '160px');
     assert.equal(panel.style.top, '110px');
@@ -75,8 +72,7 @@ test("deltas reset after a drag ends, so the next drag is not cumulative", () =>
     assert.equal(controller.dragX, 0);
     assert.equal(controller.dragY, 0);
 
-    // A second drag moves by its own delta only; the first drag's +60/+40
-    // must not carry over.
+    // The second drag moves by its own delta only; the first +60/+40 must not carry over.
     controller.onPointerDown(pointerEvent({ clientX: 200, clientY: 200 }));
     controller.onPointerMove(pointerEvent({ clientX: 210, clientY: 205 }));
     controller.onPointerUp(pointerEvent({}));
@@ -164,9 +160,7 @@ function controlIn(panel: FakeElement, tagName: string): FakeElement {
 }
 
 test("a press on a link inside the panel does not start a drag", () => {
-    // Regression: capturing the pointer here retargets the compatibility click
-    // to the panel, so the link's own handler never runs. This is what made the
-    // panel's reset and export links silently do nothing.
+    // Regression: capturing the pointer retargets the click to the panel, so the reset/export links silently do nothing.
     const { panel, controller } = panelInParent();
     const link = controlIn(panel, 'A');
 

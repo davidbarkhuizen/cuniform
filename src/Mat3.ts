@@ -1,12 +1,8 @@
 import { Point3D } from "./Point3D";
 
 /**
- * A 3x3 matrix as a row-major 9-tuple: `m[row * 3 + column]`.
- *
- * Written as a value rather than a class so it compares structurally under
- * `deepEqual` and needs no accessor ceremony. The camera stores its
- * orientation as one of these; see `Camera` for why a matrix rather than a
- * pair of angles.
+ * A 3x3 rotation as a row-major 9-tuple: `m[row * 3 + column]`. A value, not a
+ * class, so it compares structurally under `deepEqual`.
  */
 export type Mat3 = readonly [
     number, number, number,
@@ -14,7 +10,6 @@ export type Mat3 = readonly [
     number, number, number,
 ];
 
-/** The identity: no rotation. */
 export function identity(): Mat3 {
     return [
         1, 0, 0,
@@ -36,11 +31,8 @@ export function multiply(a: Mat3, b: Mat3): Mat3 {
 }
 
 /**
- * Apply `m` to `p`: the rotation of a column vector.
- *
- * Deliberately written as three sums of three products so that the identity
- * matrix reproduces `p` bit-for-bit - the projection's exact 2D regression
- * anchor depends on it.
+ * Apply `m` to `p`: the rotation of a column vector. Three sums of three
+ * products, so the identity reproduces `p` bit-for-bit.
  */
 export function apply(m: Mat3, p: Point3D): Point3D {
     const [m0, m1, m2, m3, m4, m5, m6, m7, m8] = m;
@@ -96,12 +88,7 @@ export function rotZ(angle: number): Mat3 {
     ];
 }
 
-/**
- * Rotation by `angle` about the unit axis `(x, y, z)` - Rodrigues' formula.
- *
- * Only needed for the middle-drag tilt, whose axis is the camera's current
- * horizontal, and so cannot be written as one of the three fixed rotations.
- */
+/** Rotation by `angle` about the unit axis `(x, y, z)` - Rodrigues' formula. */
 export function axisAngle(x: number, y: number, z: number, angle: number): Mat3 {
     const c = Math.cos(angle), s = Math.sin(angle), k = 1 - c;
 
@@ -112,13 +99,7 @@ export function axisAngle(x: number, y: number, z: number, angle: number): Mat3 
     ];
 }
 
-/**
- * The orientation the old yaw/pitch camera produced: `Rx(pitch) . Ry(yaw)`.
- *
- * Kept as a named factory because the orientation matrix is now the only way
- * to express that camera, and the projector tests still describe cameras in
- * angles.
- */
+/** The `Rx(pitch) . Ry(yaw)` orientation. The projector tests describe cameras in angles. */
 export function fromYawPitch(yaw: number, pitch: number): Mat3 {
     return multiply(rotX(pitch), rotY(yaw));
 }

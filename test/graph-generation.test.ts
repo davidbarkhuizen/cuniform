@@ -86,8 +86,7 @@ test("hasEdge is undirected", () => {
 test("initial positions are unique in all three dimensions", () => {
     const graph = newGraph(200, 2);
 
-    // The factory's uniqueness key is the 3-tuple, so the test states the same
-    // key: two nodes may agree in (x, y) and still be distinct if z differs.
+    // The factory's uniqueness key is the 3-tuple: nodes may share (x, y) and differ in z.
     const keys = new Set(graph.vertices.map(v => `${v.position.x},${v.position.y},${v.position.z}`));
     assert.equal(keys.size, 200);
 });
@@ -200,7 +199,6 @@ test("a molecule graph is connected and has no self-loops", () => {
     for (const edge of graph.edges)
         assert.notEqual(edge.v1, edge.v2, "a bond must join two distinct atoms");
 
-    // Every heavy atom of a molecule is reachable from the first one.
     const seen = new Set<Tag>([graph.vertices[0]]);
     const queue = [graph.vertices[0]];
 

@@ -1,18 +1,13 @@
 import { K } from "./K";
 import { moleculeById } from "./Molecules";
 
-/**
- * The one vocabulary shared by the graph chooser, the controller and the
- * factory: a discriminated description of the graph to build.
- *
- * It is a value object, not a builder: the wizard produces one, the controller
- * remembers the last one, and the factory turns one into a `Graph`.
- */
+// A discriminated description of the graph to build: the vocabulary shared by
+// the chooser, the controller and the factory.
 export type GraphSpec =
     | { kind: "random"; order: number; branching: number }
     | { kind: "molecule"; id: string };
 
-/** The shipped default: the reference demo's 11 nodes, branching 2. */
+/** The shipped default, from `K.initialConditions`. */
 export function defaultGraphSpec(): GraphSpec {
     return {
         kind: "random",
@@ -21,12 +16,11 @@ export function defaultGraphSpec(): GraphSpec {
     };
 }
 
-/** The result of reading the two random-graph text fields. */
 export type RandomParams =
     | { ok: true; spec: Extract<GraphSpec, { kind: "random" }> }
     | { ok: false; message: string };
 
-/** A whole number as typed into one of the two fields: digits only, no sign. */
+// Digits only, no sign; null when the text is not a whole number.
 function wholeNumber(text: string): number | null {
     const trimmed = text.trim();
 
@@ -36,18 +30,8 @@ function wholeNumber(text: string): number | null {
     return parseInt(trimmed, 10);
 }
 
-/**
- * Validate the raw text of the two random-graph fields.
- *
- * The inputs are text boxes, so the parse and the range check are one pure
- * function the wizard calls on every keystroke and the tests can drive without
- * a DOM. The returned message always names the offending field.
- *
- * `branching` is additionally bounded by `order - 1`: a graph on n nodes has at
- * most n - 1 distinct neighbours per node, so a larger value would silently
- * produce fewer edges than asked for. `K.chooser.maxBranching` is the practical
- * cap on top of that.
- */
+/** Validate the raw text of the two random-graph fields, naming the offending field.
+ * `branching` is capped at `order - 1`: a larger value would silently produce fewer edges. */
 export function parseRandomSpec(orderText: string, branchingText: string): RandomParams {
 
     const order = wholeNumber(orderText);
@@ -79,12 +63,8 @@ export function parseRandomSpec(orderText: string, branchingText: string): Rando
     return { ok: true, spec: { kind: "random", order, branching } };
 }
 
-/**
- * The one-line description of a spec: the panel's current-graph label.
- *
- * Deliberately technical: a molecule is named by its full systematic name, so
- * the word cloud can stay short without the technical name ever being lost.
- */
+/** The panel's one-line description of a spec; molecules use the full
+ * systematic name, so the word cloud can stay short. */
 export function specLabel(spec: GraphSpec): string {
 
     if (spec.kind === "random")

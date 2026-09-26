@@ -7,16 +7,13 @@ export class Tag {
     position : Point3D;
     translatedPosition : Point2D;
     /**
-     * View depth from the last projection, for painter ordering and hit-test
-     * tie-breaks. Smaller is nearer the camera. Defaults to 0, which is culled
-     * until the first step() writes a real depth.
+     * View depth from the last projection, for painter ordering and hit-test tie-breaks:
+     * smaller is nearer. Defaults to 0, which is culled until the first step().
      */
     depth: number = 0;
     /**
-     * Retained: velocity carries across steps and is pinned to zero on drag.
-     * The net forces are deliberately *not* cached here - they are recomputed
-     * from the frozen positions each step, so a force read can never observe a
-     * half-written tick or silently return zero.
+     * Velocity, carried across steps and pinned to zero on drag. Forces are deliberately
+     * not cached here, so a read never observes a half-written tick.
      */
     velocity : Point3D;
     isSelected: boolean = false;
@@ -31,10 +28,8 @@ export class Tag {
     }
 
     /**
-     * This step's displacement. In the reference model the displacement is
-     * always the damped velocity - TIME_STEP is already folded into it by
-     * velocityAtTag() - so it is exposed as a read-only alias instead of a
-     * second field that can drift out of sync.
+     * This step's displacement: a read-only alias of the damped velocity, which already
+     * folds in TIME_STEP, so the two cannot drift out of sync.
      */
     get displacement(): Point3D {
         return this.velocity;

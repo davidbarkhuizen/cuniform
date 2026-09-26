@@ -11,16 +11,10 @@ import { singleNode } from "./support/physics";
 const W = 600;
 const H = 600;
 
-/**
- * One projector for the whole suite: 600x600 model on a 600x600 canvas, under
- * the default identity camera, so one canvas unit is one model unit.
- */
+/** 600x600 model on a 600x600 canvas under the identity camera: one canvas unit is one model unit. */
 const PROJECTOR = Projector.forCanvas(W, H);
 
-/**
- * Two nodes 10 model units apart, with a 600x600 model on a 600x600 canvas so
- * one canvas unit is one model unit and the mapping is exact.
- */
+/** Two nodes 10 model units apart on the exact 1:1 canvas fixture. */
 function build() {
     const graph = new Graph();
     const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
@@ -155,11 +149,7 @@ test("selecting a second node replaces the first rather than adding to it", () =
 });
 
 test("the hit radius is 15 screen pixels at any canvas scale", () => {
-    // The click is built from the node's own mapped canvas position plus a
-    // pixel offset, so the test states a screen distance directly and cannot
-    // accidentally re-derive it in model units. Under the old model-space
-    // radius the 300px case would need 28 model units and the 1200px case only
-    // 7, so both would disagree with the 600px case.
+    // Offsets are screen distances: under the old model-space radius the 300px and 1200px cases disagreed with the 600px case.
     for (const size of [300, 600, 1200]) {
         const projector = Projector.forCanvas(size, size);
         const scale = size / W;
@@ -197,8 +187,7 @@ test("a zero-size viewport selects nothing and does not throw", () => {
 
 test("an equidistant screen hit resolves to the nearer node", () => {
     const graph = new Graph();
-    // Both project onto the canvas centre, so the screen distance ties exactly.
-    // The -z node is nearer the camera (smaller depth) and must win.
+    // Both project to the canvas centre, so the tie-break must favour the -z (nearer) node.
     const near = new Tag({ x: 0, y: 0, z: -100 }, "near");
     const far = new Tag({ x: 0, y: 0, z: 100 }, "far");
     graph.addNode(near);
@@ -212,8 +201,7 @@ test("an equidistant screen hit resolves to the nearer node", () => {
 
 test("the depth tie-break does not override a genuinely nearer screen hit", () => {
     const graph = new Graph();
-    // The far node is dead centre; the near one is 5 px off it but still well
-    // inside the 15 px radius, so screen distance still decides.
+    // The far node is dead centre and the near one 5 px off, so screen distance still decides.
     const near = new Tag({ x: 5, y: 0, z: -100 }, "near");
     const far = new Tag({ x: 0, y: 0, z: 100 }, "far");
     graph.addNode(near);
@@ -227,8 +215,7 @@ test("the depth tie-break does not override a genuinely nearer screen hit", () =
 
 test("a culled node is not selectable", () => {
     const graph = new Graph();
-    // Both project onto the canvas centre. The -z = -distance node has depth 0,
-    // inside the near plane, so it is not drawn and must not be selectable.
+    // The z = -distance node has depth 0, inside the near plane: not drawn, not selectable.
     const visible = new Tag({ x: 0, y: 0, z: 0 }, "visible");
     const culled = new Tag({ x: 0, y: 0, z: -K.camera.distance }, "culled");
     graph.addNode(visible);

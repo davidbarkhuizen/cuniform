@@ -13,11 +13,10 @@ export type WizardStep = "choose" | "random" | "molecules";
 export interface GraphWizardOptions {
     /** Called once with the chosen spec; the wizard has already closed. */
     onComplete: (spec: GraphSpec) => void;
-    /** Called when the user dismisses without choosing. */
     onCancel?: () => void;
     /** False on first run: there is no previous graph to keep. */
     dismissible: boolean;
-    /** Returns focus to the canvas, as the context menu does. */
+    /** Returns focus to the canvas. */
     onDismiss?: () => void;
     catalog?: CatalogEntry[];
     /** Pre-fills the random step with the last random choice. */
@@ -25,18 +24,8 @@ export interface GraphWizardOptions {
 }
 
 /**
- * The graph chooser: one modal dialog with a chooser step and one step per
- * branch.
- *
- * Built from plain DOM calls and appended to the body element it is handed -
- * the `ContextMenu` precedent - so there is no `document.body` lookup and the
- * test DOM needs nothing new. A plain `div[role=dialog][aria-modal]` rather
- * than a native `<dialog>` keeps the focus trap and the Escape handling in
- * `src/`, where they are testable.
- *
- * The tag buttons are created once for the whole catalog; filtering only
- * toggles `style.display`. Twenty static buttons mean twenty stable listeners
- * and a filter that cannot leak one or lose focus mid-typing.
+ * The graph chooser: one modal dialog with a chooser step and one step per branch. Tag buttons are
+ * built once and filtering only toggles `style.display`, so listeners stay stable and cannot leak.
  */
 export class GraphWizard {
 
@@ -63,11 +52,8 @@ export class GraphWizard {
     private currentStep: WizardStep = "choose";
     private openFlag = false;
 
-    /**
-     * The position of the last focused control in the visible control list, so
-     * the Tab trap never needs `document.activeElement` (the `ContextMenu`
-     * roving-index precedent).
-     */
+    // The roving index of the last focused control, so the Tab trap never has to
+    // read the live activeElement.
     private focusIndex = 0;
 
     constructor(body: HTMLElement, options: GraphWizardOptions) {
@@ -97,7 +83,6 @@ export class GraphWizard {
 
         this.steps = { choose, random, molecules };
 
-        // ------------------------------------------------------ choose step
         const choices: Array<"random" | "molecules"> = ["random", "molecules"];
 
         for (const kind of choices) {
@@ -113,7 +98,6 @@ export class GraphWizard {
             this.choiceButtons.push({ kind, element: button });
         }
 
-        // ------------------------------------------------------ random step
         this.orderInput = this.numberField(random, "nodes");
         this.branchingInput = this.numberField(random, "edges per node");
 
@@ -131,7 +115,6 @@ export class GraphWizard {
         this.orderInput.addEventListener("input", this.onRandomInput);
         this.branchingInput.addEventListener("input", this.onRandomInput);
 
-        // --------------------------------------------------- molecules step
         this.searchInput = document.createElement("input");
         this.searchInput.className = "wizardInput";
         this.searchInput.setAttribute("type", "text");
@@ -158,7 +141,6 @@ export class GraphWizard {
             this.tags.push({ entry, element: chip });
         }
 
-        // ---------------------------------------------------------- footer
         const footer = document.createElement("div");
         footer.className = "wizardFooter";
 
@@ -174,8 +156,7 @@ export class GraphWizard {
         this.cancelButton.innerHTML = "cancel";
         this.cancelButton.addEventListener("click", this.onCancelClick);
 
-        // The first run has no previous graph to keep, so there is nothing to
-        // cancel back to.
+        // Nothing to cancel back to on the first run.
         if (!options.dismissible)
             this.cancelButton.style.display = "none";
 
@@ -186,8 +167,7 @@ export class GraphWizard {
         footer.appendChild(this.cancelButton);
         this.panel.appendChild(footer);
 
-        // A keydown listener on the dialog catches the bubbled events from
-        // every control, which is where Escape and Tab are handled.
+        // One listener on the dialog catches bubbled keydowns from every control.
         this.element.addEventListener("keydown", this.onKeyDown);
     }
 
@@ -199,7 +179,6 @@ export class GraphWizard {
         return this.openFlag;
     }
 
-    /** Append the dialog to the body and show `step`. */
     open(step: WizardStep = "choose"): void {
 
         if (!this.openFlag) {
@@ -210,7 +189,7 @@ export class GraphWizard {
         this.showStep(step);
     }
 
-    /** Remove the dialog from the body. Idempotent. */
+    /** Removes the dialog. Idempotent. */
     close(): void {
 
         if (!this.openFlag)
@@ -266,14 +245,12 @@ export class GraphWizard {
         caption.innerHTML = entry.family;
         button.appendChild(caption);
 
-        // The tooltip and the accessible name carry the full systematic name,
-        // so the short chip never loses the technical identity (D5).
+        // The tooltip and aria-label carry the full systematic name behind the short chip.
         const tooltip = moleculeTooltip(entry);
         button.setAttribute("title", tooltip);
         button.setAttribute("aria-label", tooltip);
 
-        // The word cloud is decoration with a rule: the chip's size is its
-        // heavy-atom count, normalised over the whole catalog.
+        // Chip size encodes heavy-atom count, normalised over the whole catalog.
         button.style.fontSize = `${entry.tagScale}em`;
 
         button.addEventListener("click", () => this.finish({ kind: "molecule", id: entry.id }));
@@ -283,7 +260,7 @@ export class GraphWizard {
         return button;
     }
 
-    /** Keep the roving index in step when focus moves without the Tab handler. */
+    // Keep the roving index in step when focus moves outside the Tab handler.
     private registerFocus(element: HTMLElement): void {
 
         element.addEventListener("focus", () => {
@@ -294,7 +271,6 @@ export class GraphWizard {
         });
     }
 
-    /** The controls reachable right now, in visual order. */
     private focusableControls(): HTMLElement[] {
 
         const controls: HTMLElement[] = [];
@@ -318,9 +294,7 @@ export class GraphWizard {
         if (this.options.dismissible)
             controls.push(this.cancelButton);
 
-        // A hidden control - the cancel button on a mandatory wizard, or a tag
-        // the filter has hidden - is not reachable by Tab, and neither is a
-        // disabled one (a generate button over an invalid form).
+        // Hidden and disabled controls are not reachable by Tab.
         return controls.filter(control => this.isFocusable(control));
     }
 
@@ -360,7 +334,6 @@ export class GraphWizard {
             controls[0].focus();
     }
 
-    /** Seed the parameter form from the last random choice, else the default. */
     private seedRandomStep(): void {
 
         const spec = this.options.initialSpec;
@@ -404,8 +377,7 @@ export class GraphWizard {
         this.countLabel.innerHTML = `${visible} of ${this.tags.length}`;
 
         if (visible === 0) {
-            // Deliberately a static message: the query is not echoed into the
-            // markup, so text read from an input can never reach innerHTML.
+            // Deliberately static: the search text is never echoed into markup.
             this.emptyLabel.innerHTML = "no molecule matches that search";
             this.emptyLabel.style.display = "block";
         }
@@ -413,7 +385,7 @@ export class GraphWizard {
             this.emptyLabel.style.display = "none";
         }
 
-        // A hidden tag must not leave the roving index pointing past the end.
+        // A hidden tag must not leave the roving index past the end.
         if (this.focusIndex >= this.focusableControls().length)
             this.focusIndex = 0;
     }
@@ -471,9 +443,8 @@ export class GraphWizard {
 
     onKeyDown = (event: KeyboardEvent) => {
 
-        // Escape has exactly one meaning: cancel a dismissible wizard. It never
-        // steps backwards, so the mandatory first run cannot be dismissed by
-        // reflex onto a graph that was never chosen.
+        // Escape only cancels a dismissible wizard; it never steps back, so the
+        // mandatory first run cannot be dismissed by reflex.
         if (event.key === "Escape") {
             this.cancel();
             return;
