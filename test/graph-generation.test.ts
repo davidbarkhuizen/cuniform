@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
 import { GraphFactory } from "../src/GraphFactory";
+import { specLabel } from "../src/GraphSpec";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
 import { catalogEntry } from "./support/catalog";
@@ -32,6 +33,49 @@ test("generated graphs are sparse, not complete", () => {
             `trial ${trial}: ${graph.edges.length} edges looks complete (${complete})`
         );
     }
+});
+
+test("each node starts at most `branching` new edges, whatever the order", () => {
+    // The count is bounded at the small end too, where the graph can still be
+    // complete: order 3 with branching 1 is often a triangle.
+    for (const [order, branching] of [[3, 1], [5, 2], [11, 2], [20, 4]]) {
+        for (let trial = 0; trial < 25; trial++) {
+            const graph = newGraph(order, branching);
+
+            assert.ok(
+                graph.edges.length <= order * branching,
+                `${order}/${branching} trial ${trial}: ${graph.edges.length} edges exceeds ${order * branching}`
+            );
+        }
+    }
+});
+
+test("branching bounds a node's new edges, not its final degree", () => {
+    // Each node starts 1..branching edges, but the graph is undirected, so a node
+    // also collects the edges its neighbours start. At branching = 1 the 3-node
+    // graph is a triangle for most seeds, giving every node a degree of 2.
+    let sawDegreeAboveBranching = false;
+
+    for (let seed = 1; seed <= 20 && !sawDegreeAboveBranching; seed++) {
+        const graph = withSeededRandom(() => newGraph(3, 1), seed);
+
+        assert.ok(
+            graph.edges.length <= 3 * 1,
+            `seed ${seed}: a node may still start at most one new edge`
+        );
+
+        sawDegreeAboveBranching = graph.vertices.some(
+            vertex => graph.neighbours(vertex).length > 1
+        );
+    }
+
+    assert.ok(sawDegreeAboveBranching, "a node's degree can exceed `branching`");
+
+    // The user-facing wording says "new edges" for exactly this reason.
+    assert.match(
+        specLabel({ kind: "random", order: 3, branching: 1 }),
+        /up to 1 new edges per node/
+    );
 });
 
 test("generated graphs have no self-loops and no duplicate edges", () => {
@@ -133,9 +177,9 @@ test("the shipped initial conditions match the reference demo", () => {
 // -------------------------------------------------------------- build(spec)
 
 /** Run `fn` with a deterministic Math.random, restoring the real one after. */
-function withSeededRandom<T>(fn: () => T): T {
+function withSeededRandom<T>(fn: () => T, seed: number = 42): T {
     const original = Math.random;
-    let state = 42;
+    let state = seed;
 
     Math.random = () => {
         state = (state * 1103515245 + 12345) % 2147483648;

@@ -93,8 +93,8 @@ drag: a press that starts on a button never reaches the panel's drag handle.
 - **Graph chooser** — opens on first run and on every `reset`, and it is the only
   way a new graph is created. Step one picks a **random** graph or a
   **molecule**:
-  - *random* — the node count and the maximum edges per node, validated as you
-    type; `generate` is disabled while either field is out of range;
+  - *random* — the node count and the maximum new edges per node, validated as
+    you type; `generate` is disabled while either field is out of range;
   - *molecules* — a searchable word cloud of twenty indole alkaloids. The chip
     is the common name; its tooltip and accessible name carry the full
     systematic name, the family, the formula and the flagship note. Typing
@@ -118,11 +118,15 @@ a discriminated value the chooser produces and the controller remembers:
 
 - `{ kind: "random", order, branching }` —
   `GraphFactory.generateGraph()`: a sparse semi-random graph on `order` nodes,
-  each joined to between 1 and `branching` others, with no self-loops and no
-  duplicate edges. `order` is bounded by `K.chooser` (`2..64`: repulsion is
-  `O(N^2)` per tick) and `branching` by `min(K.chooser.maxBranching, order - 1)`
-  — a graph on `n` nodes has at most `n - 1` distinct neighbours per node, so a
-  larger value would silently produce fewer edges than asked for.
+  where each node starts between 1 and `branching` new edges, with no self-loops
+  and no duplicate edges. `branching` bounds the edges a node *starts*, not its
+  final degree: the graph is undirected, so a node also collects the edges its
+  neighbours start, and its degree can exceed `branching` — a 3-node graph with
+  `branching = 1` is often a triangle. `order` is bounded by `K.chooser`
+  (`2..64`: repulsion is `O(N^2)` per tick) and `branching` by
+  `min(K.chooser.maxBranching, order - 1)` — a node cannot start more than
+  `order - 1` distinct edges, so a larger value would silently start fewer edges
+  than asked for.
 - `{ kind: "molecule", id }` — a molecular graph from the catalog.
 
 ### The molecule catalog

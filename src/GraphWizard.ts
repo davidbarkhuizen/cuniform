@@ -102,7 +102,7 @@ export class GraphWizard {
         }
 
         this.orderInput = this.numberField(random, "nodes");
-        this.branchingInput = this.numberField(random, "edges per node");
+        this.branchingInput = this.numberField(random, "new edges per node");
 
         this.validationLabel = document.createElement("p");
         this.validationLabel.className = "wizardValidation";
