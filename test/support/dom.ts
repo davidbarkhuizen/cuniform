@@ -40,9 +40,6 @@ export class FakeElement {
     style: Record<string, string> = {};
     draggable = false;
     parentElement: FakeElement | null = null;
-    offsetTop = 0;
-    offsetLeft = 0;
-    offsetParent: FakeElement | null = null;
     offsetWidth = 800;
     offsetHeight = 600;
     clientWidth = 800;
@@ -104,12 +101,6 @@ export class FakeElement {
     appendChild(child: FakeElement): FakeElement {
         child.parentElement = this;
         this.children.push(child);
-        return child;
-    }
-
-    insertBefore(child: FakeElement): FakeElement {
-        child.parentElement = this;
-        this.children.unshift(child);
         return child;
     }
 
@@ -250,8 +241,6 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
     const windowListeners: Map<string, Listener[]> = new Map();
 
     const windowStub = {
-        pageXOffset: 0,
-        pageYOffset: 0,
         devicePixelRatio: 1,
         open: (): null => null,
         addEventListener: (type: string, fn: Listener) => {

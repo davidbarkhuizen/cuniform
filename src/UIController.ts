@@ -220,22 +220,18 @@ export class UIController {
 	
 	getMousePos = (cnvs: HTMLCanvasElement, evt: MouseEvent) => {
 
-		// get canvas position
-		//
-		let obj: HTMLElement | null = cnvs as HTMLElement;
-		let top = 0;
-		let left = 0;
-		while (obj && obj.tagName != 'BODY') {
-			top += obj.offsetTop;
-			left += obj.offsetLeft;
-			obj = obj.offsetParent as HTMLElement | null;
-		}
-	 
+		// clientX/clientY are viewport coordinates, and the canvas's bounding
+		// rect is measured in the same frame, so subtracting it is correct
+		// under scrolling, CSS transforms and devicePixelRatio. The old
+		// offsetParent walk only worked because the body cannot scroll, and it
+		// double-counted scroll by adding pageXOffset/pageYOffset on top.
+		const rect = cnvs.getBoundingClientRect();
+
 		// return relative mouse position
 		//
 		return point(
-			evt.clientX - left + window.pageXOffset,
-			evt.clientY - top + window.pageYOffset
+			evt.clientX - rect.left,
+			evt.clientY - rect.top
 		)
 	};
 
@@ -283,7 +279,6 @@ export class UIController {
 		event?.preventDefault();
 
 		if (reset == true) {
-			this.terminate()
 			this.initialize()
 		}
 
@@ -391,7 +386,7 @@ export class UIController {
 					const item = document.createElement('li');
 					item.innerHTML = neighbourString;
 					
-					list.insertBefore(item, list.firstChild);
+					list.appendChild(item);
 				}
 			)
 		}
@@ -427,6 +422,11 @@ export class UIController {
 	};
 
 	initialize = () => {
+
+		// Idempotent: tear down any previous run before starting a new one, so
+		// a second initialize() without terminate() cannot double the timer,
+		// the listeners or the context menu. reset() relies on this.
+		this.terminate();
 
 		this.resizeCanvas();
 

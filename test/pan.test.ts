@@ -131,6 +131,28 @@ test("left-drag still moves only the selected node to the cursor", () => {
     });
 });
 
+test("pointer mapping uses the canvas rect, so an offset canvas stays accurate", () => {
+    withFixture(({ dom, canvas, controller, a }) => {
+        // The canvas sits at (50, 30) in the viewport, and the page reports a
+        // scroll offset that the old offsetParent walk added on top.
+        canvas.rect = {
+            top: 30, left: 50, right: 650, bottom: 630,
+            width: 600, height: 600, x: 50, y: 30,
+        };
+        dom.window.pageXOffset = 999;
+        dom.window.pageYOffset = 999;
+
+        a.isSelected = true;
+        controller.state.b0Down = true;
+
+        // Client (250, 150) is canvas-local (200, 120), so model (-100, 180)
+        // on the 600x600 fixture. The scroll offsets must not be added.
+        controller.onMouseMove(mouseEvent({ clientX: 250, clientY: 150 }));
+
+        assert.deepEqual({ ...a.position }, { x: -100, y: 180 });
+    });
+});
+
 test("a middle move while the left button is up does not follow the node-drag path", () => {
     withFixture(({ controller, a }) => {
         a.isSelected = true;

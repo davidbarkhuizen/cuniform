@@ -264,6 +264,22 @@ test("a confirmed reset rebuilds the menu exactly once and does not double-regis
     });
 });
 
+test("initialize is idempotent: a second call doubles nothing", () => {
+    withController(({ dom, elements, canvas, controller }) => {
+        // withController already initialized once; initialize again without
+        // terminating, as a careless caller would.
+        controller.initialize();
+
+        assert.equal(dom.intervals.length, 1, "one simulation timer after two initializes");
+        assert.equal(elements.body.children.length, 1, "one context menu after two initializes");
+
+        for (const type of ['mousemove', 'mousedown', 'mouseup', 'mouseout', 'contextmenu'])
+            assert.equal(canvas.listenerCount(type), 1, `canvas must listen for ${type} exactly once`);
+
+        assert.equal((dom.windowListeners.get('resize') ?? []).length, 1, "one resize listener");
+    });
+});
+
 test("a left mousedown closes an open context menu", () => {
     withController(({ canvas, controller }) => {
         rightClick(canvas);
