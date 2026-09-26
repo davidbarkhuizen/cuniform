@@ -8,7 +8,7 @@
     ./cli run            # build, then open dist/index.html in Chrome
 
 `cli` is the single entry point for common tasks; `./cli help` lists every
-subcommand. With no recognised option it builds and runs the app.
+subcommand. With no recognised option it prints usage.
 
 ## Development
 
