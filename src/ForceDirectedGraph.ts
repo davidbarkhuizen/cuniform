@@ -69,7 +69,12 @@ export class ForceDirectedGraph {
 			break;
         };
         
+		// Clear the whole backing store in device space, independent of any
+		// devicePixelRatio transform the caller applied for HiDPI.
+		context.save();
+		context.setTransform(1, 0, 0, 1, 0, 0);
 		context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+		context.restore();
 
 		// EDGES
 		//
@@ -199,23 +204,14 @@ export class ForceDirectedGraph {
 		var x_tag = tag.position.x;
 		var y_tag = tag.position.y;
 
-		for(let i = 0; i < this.graph.edges.length; i++) {
+		// Walking the node's adjacency list visits each edge once per endpoint,
+		// so the whole per-step spring pass is O(V + E) rather than O(V*E).
+		var incident = this.graph.incidentEdges(tag);
 
-			var edge = this.graph.edges[i];
+		for(let i = 0; i < incident.length; i++) {
 
-			var edge_tag_1 = edge.v1;
-			var edge_tag_2 = edge.v2;
-
-			var other_tags = [edge_tag_1, edge_tag_2];
-
-			if(other_tags.indexOf(tag) == -1)
-				continue;
-
-			var other_tag;
-			if(other_tags[0] == tag)
-				other_tag = other_tags[1];
-			else
-				other_tag = other_tags[0];
+			var edge = incident[i];
+			var other_tag = edge.v1 === tag ? edge.v2 : edge.v1;
 
 			var x_other = other_tag.position.x;
 			var y_other = other_tag.position.y;

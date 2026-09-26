@@ -24,6 +24,14 @@ export class UIController {
 
     contextMenu: ContextMenu | null = null;
 
+    /**
+     * Logical (CSS-pixel) canvas size. All model <-> canvas mapping uses these
+     * so pointer coordinates stay correct when the backing store is scaled for
+     * a HiDPI display.
+     */
+    width: number = 0;
+    height: number = 0;
+
 	constructor(
         body: HTMLElement,
         canvas: HTMLCanvasElement, 
@@ -51,7 +59,7 @@ export class UIController {
 
 			// Left-drag: the selected node follows the cursor exactly.
 			const mxy = this.getMousePos(this.canvas, event);
-			const phasePos = window.fdg.wrapReverse(mxy, this.canvas.width, this.canvas.height);
+			const phasePos = window.fdg.wrapReverse(mxy, this.width, this.height);
 
 			window.fdg.graph.vertices
 				.filter(vertex => vertex.isSelected)
@@ -83,8 +91,8 @@ export class UIController {
 			return;
 		}
 
-		const now = window.fdg.wrapReverse(mxy, this.canvas.width, this.canvas.height);
-		const before = window.fdg.wrapReverse(last, this.canvas.width, this.canvas.height);
+		const now = window.fdg.wrapReverse(mxy, this.width, this.height);
+		const before = window.fdg.wrapReverse(last, this.width, this.height);
 
 		const dx = now.x - before.x;
 		const dy = now.y - before.y;
@@ -110,7 +118,7 @@ export class UIController {
 			window.state.b0Down = true;		
 			window.state.b0ClickPos = mxy;    
 				
-			const selectionChanged = window.fdg.handleNodeSelectionAttempt(mxy, this.canvas.width, this.canvas.height);
+			const selectionChanged = window.fdg.handleNodeSelectionAttempt(mxy, this.width, this.height);
 			if (selectionChanged == true)
 				this.updateSelectionInfo();
 		}
@@ -218,8 +226,8 @@ export class UIController {
 		// Advance the physics, then draw. The solver is told which node is
 		// pinned via a predicate, so it never reads browser state itself.
 		window.fdg.step(
-			this.canvas.width,
-			this.canvas.height,
+			this.width,
+			this.height,
 			tag => tag.isSelected && window.state.b0Down
 		);
 		window.fdg.render(this.context2D);
@@ -324,9 +332,21 @@ export class UIController {
 
 		const width = this.body.clientWidth * 0.8;
 		const height = this.body.clientHeight * 0.8;
-	
-		this.canvas.width = width;
-		this.canvas.height = height;
+
+		// Back the canvas with device pixels so lines are sharp on HiDPI
+		// displays, while drawing coordinates stay in CSS pixels thanks to the
+		// context transform below.
+		const dpr = window.devicePixelRatio || 1;
+
+		this.width = width;
+		this.height = height;
+
+		this.canvas.width = width * dpr;
+		this.canvas.height = height * dpr;
+		this.canvas.style.width = `${width}px`;
+		this.canvas.style.height = `${height}px`;
+
+		this.context2D.setTransform(dpr, 0, 0, dpr, 0, 0);
 	
 		window.state = new State();
 			

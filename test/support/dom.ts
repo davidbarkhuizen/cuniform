@@ -119,13 +119,22 @@ export class FakeContext2D {
     strokes: string[] = [];
     /** fillStyle captured at each fill() call, in order. */
     fills: string[] = [];
+    /** Arguments captured at each setTransform() call, in order. */
+    transforms: number[][] = [];
+    /** Arguments captured at each clearRect() call, in order. */
+    clears: number[][] = [];
 
-    clearRect() {}
+    clearRect(...args: number[]) {
+        this.clears.push(args);
+    }
+
     beginPath() {}
     moveTo() {}
     lineTo() {}
     arc() {}
     fillText() {}
+    save() {}
+    restore() {}
 
     stroke() {
         this.strokes.push(String(this.strokeStyle));
@@ -135,7 +144,9 @@ export class FakeContext2D {
         this.fills.push(String(this.fillStyle));
     }
 
-    setTransform() {}
+    setTransform(...args: number[]) {
+        this.transforms.push(args);
+    }
 }
 
 export class FakeCanvas extends FakeElement {

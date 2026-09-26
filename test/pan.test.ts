@@ -47,6 +47,10 @@ function setup() {
         elements.reset_link as unknown as HTMLElement
     );
 
+    // The logical size initialize() would have computed; mapping uses it.
+    controller.width = 600;
+    controller.height = 600;
+
     return { dom, canvas, controller, graph, fdg, a, b };
 }
 
