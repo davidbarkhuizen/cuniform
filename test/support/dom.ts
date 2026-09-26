@@ -27,6 +27,13 @@ function rect(top = 0, left = 0, width = 0, height = 0): FakeRect {
     };
 }
 
+/**
+ * The one focused element, modelling the browser's exclusive focus. Focusing an
+ * element blurs the previously focused one, so "which focus() came last" is
+ * observable and an overlay that steals focus from another cannot hide.
+ */
+let activeElement: FakeElement | null = null;
+
 export class FakeElement {
 
     tagName: string;
@@ -66,6 +73,10 @@ export class FakeElement {
     }
 
     focus() {
+        if (activeElement && activeElement !== this)
+            activeElement.focused = false;
+
+        activeElement = this;
         this.focused = true;
     }
 
@@ -256,6 +267,9 @@ export interface FakeDom {
 export function installFakeDom(elements: Record<string, FakeElement> = {}): FakeDom {
 
     const global = globalThis as any;
+
+    // Each installed DOM starts with nothing focused, whatever the last test left.
+    activeElement = null;
 
     const previous = {
         document: global.document,
