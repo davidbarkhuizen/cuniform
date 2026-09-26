@@ -7,9 +7,7 @@
  * pulling in jsdom.
  */
 
-import { ForceDirectedGraph } from "../../src/ForceDirectedGraph";
 import { Graph } from "../../src/Graph";
-import { State } from "../../src/State";
 import { UIController } from "../../src/UIController";
 
 type Listener = (event: any) => void;
@@ -349,14 +347,16 @@ export function withFakeDom<T>(
  * `as unknown as` casts every UI test used to repeat.
  *
  * `width`/`height` pin the logical size for fixtures that bypass
- * resizeCanvas(); `graph` installs a supplied graph as `window.fdg` (with a
- * fresh `window.state`), mirroring what initialize() would have built.
+ * resizeCanvas(); `graph` makes the controller's solver wrap that graph (the
+ * same thing initialize() would have built), so fixtures read
+ * `controller.solver` and `controller.state` rather than window globals.
  */
 export function newUIController(
     elements: Record<string, FakeElement>,
     opts: { width?: number; height?: number; graph?: Graph } = {}
 ): UIController {
     const canvas = elements.canvas as FakeCanvas;
+    const suppliedGraph = opts.graph;
 
     const controller = new UIController(
         elements.body as unknown as HTMLElement,
@@ -365,7 +365,8 @@ export function newUIController(
         elements.export_canvas_link as unknown as HTMLElement,
         elements.reset_link as unknown as HTMLElement,
         elements.selectedNodeInfoLabel as unknown as HTMLElement,
-        elements.selectedNodeInfoList as unknown as HTMLElement
+        elements.selectedNodeInfoList as unknown as HTMLElement,
+        suppliedGraph ? () => suppliedGraph : undefined
     );
 
     if (opts.width !== undefined)
@@ -373,12 +374,6 @@ export function newUIController(
 
     if (opts.height !== undefined)
         controller.height = opts.height;
-
-    if (opts.graph) {
-        const windowStub = (globalThis as any).window;
-        windowStub.state = new State();
-        windowStub.fdg = new ForceDirectedGraph(opts.graph);
-    }
 
     return controller;
 }

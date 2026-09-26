@@ -113,9 +113,9 @@ test("terminate removes the resize listener", () => {
 });
 
 test("physics is stepped with the logical size, not the scaled backing store", () => {
-    withController(2, ({ dom, controller }) => {
+    withController(2, ({ controller }) => {
         const calls: number[][] = [];
-        const fdg = dom.window.fdg;
+        const fdg = controller.solver;
 
         const realStep = fdg.step.bind(fdg);
         fdg.step = (w: number, h: number, pinned: any) => {
@@ -130,13 +130,13 @@ test("physics is stepped with the logical size, not the scaled backing store", (
 });
 
 test("pointer mapping is unaffected by devicePixelRatio", () => {
-    withController(2, ({ dom, controller }) => {
-        const graph = dom.window.fdg.graph;
+    withController(2, ({ controller }) => {
+        const graph = controller.solver.graph;
         graph.vertices.forEach((v: Tag) => { v.isSelected = false; });
 
         const node: Tag = graph.vertices[0];
         node.isSelected = true;
-        dom.window.state.b0Down = true;
+        controller.state.b0Down = true;
 
         // A 750x750 canvas over the 600x600 model scales by 1.25, so the canvas
         // CSS point (450, 300) maps to model (60, 60).

@@ -10,7 +10,7 @@ export const entrypoint = (
     canvasElementID: string,
     exportElementID: string,
     resetElementID: string
-): boolean => {
+): UIController | null => {
 
     const e = (id: string) => document.getElementById(id);
 
@@ -18,7 +18,7 @@ export const entrypoint = (
 
     if (!canvas) {
         console.error(`could not find element for ID: ${canvasElementID}`);
-        return false;
+        return null;
     }
 
     // getContext('2d') returns null when the context is unavailable; it does
@@ -27,7 +27,7 @@ export const entrypoint = (
 
     if (context2d == null) {
         console.error(`could not get a 2d context for canvas ID: ${canvasElementID}`);
-        return false;
+        return null;
     }
 
     /**
@@ -56,7 +56,7 @@ export const entrypoint = (
     ]);
 
     if (!elements)
-        return false;
+        return null;
 
     const [body, exportElement, resetElement, selectionInfoLabel, selectionInfoList] = elements;
 
@@ -79,5 +79,5 @@ export const entrypoint = (
 
     uiController.initialize();
 
-    return true;
+    return uiController;
 };
