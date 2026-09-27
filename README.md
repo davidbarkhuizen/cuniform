@@ -28,14 +28,24 @@ launched.
 
 `web/` holds the hand-maintained shell (`index.html`, `stylez.css`); it loads
 the generated `dist/main.js`. `dist/` is build output only and is ignored by
-git. Webpack emits a second entry, `dist/simulation.worker.js`, which the app
-constructs as the physics worker (see [Cadence](#cadence)).
+git. Webpack emits separate entries for the physics worker
+(`dist/simulation.worker.js`) and the render worker (`dist/render.worker.js`),
+which the app constructs by URL (see [Cadence](#cadence)), and for the
+real-canvas frame harness (`dist/render-frame.js`, see
+[Performance](#performance)).
 
 The simulation is deliberately decoupled from the browser: `ForceDirectedGraph.stepPhysics()`
 is pure physics and touches neither `window` nor the canvas, so the whole model can
 be exercised headlessly in `test/`. The projection is split out the same way:
 `Projector` is pure math too, so the solver can use it without importing a canvas
 type. `step()` is `stepPhysics()` plus that projection.
+
+cuniform is built to be embedded, and a host page's main thread is not ours: it
+owns the host's own animation, layout, input and rendering. Per-frame work that
+scales with the node count — physics, projection and drawing — is therefore
+designed to run off that thread, leaving the main thread input, camera state and
+DOM chrome. The demo is one host; the frame budget that matters belongs to
+whoever embeds the component.
 
 ## Layout
 
@@ -247,23 +257,48 @@ original fixed-interval tick; `onTimerTick()` still means exactly one tick plus
 one draw, deliberately bypassing the idle-frame skip, which is what the tests and
 the fallback use.
 
-Where the browser has a `Worker`, the force integration runs in
-`dist/simulation.worker.js`, owned by `PhysicsRunner`; hit-testing, camera state
-and drawing stay on the main thread, which is cheap and needs the live camera.
-Drawing goes through a render backend (`RenderRunner`), which resolves the
-projector, projects the graph and draws the frame — in-process on the canvas's
-own 2D context today, with a dedicated render worker planned behind the same
-interface. A backend that cannot draw yet returns `false` from `draw()`, and the
-frame stays pending rather than being recorded as drawn.
-Positions cross the boundary as a transferable `Float64Array`, and the runner
-posts at most one step at a time, so a slow worker cannot queue a backlog. If
-`Worker` is missing, construction throws, or the worker script fails to load,
-the runner falls back to the in-process solver and the main thread steps it. A
-graph swap re-initialises the worker and bumps a generation counter, so a
-response computed for the replaced graph is dropped. (`./cli run` opens
-`web/index.html` over `file://`, where browsers refuse to start a worker, so the
+Where the browser has a `Worker`, the physics runs in
+`dist/simulation.worker.js`, owned by `PhysicsRunner`, and the drawing runs in
+`dist/render.worker.js`, owned by `RenderRunner`. Hit-testing, camera state and
+input stay on the main thread, which needs the live camera and is cheap:
+
+- **The render worker owns the canvas.** `UIController` hands the canvas to
+  `RenderRunner`, which resolves one projector, projects the graph and draws the
+  frame in whichever backend is active. The worker path transfers the canvas
+  with `transferControlToOffscreen()`; the in-process backend draws on the
+  element's own 2D context. `?render=main` forces the in-process backend (the
+  A/B control and the escape hatch); the default is the worker when the browser
+  can transfer a canvas.
+- **The transfer is one-way, so the worker is probed first.** The runner
+  constructs the worker and waits for its `ready` message (or an error, or
+  `renderer.workerReadyTimeoutMS`) *before* transferring anything. A worker that
+  404s therefore costs at most the timeout, and the canvas — which never had a
+  context — is claimed in process instead of being left dead.
+- **One frame in flight.** A frame posts only when none is outstanding; while
+  one is, the latest camera and selection are remembered and the ack posts them,
+  so a slow worker cannot build a backlog. A frame carries the model positions
+  one way and returns that buffer plus the frame's depths the other way, all by
+  pointer move; the buffers are pooled, so a steady-state frame allocates no
+  typed array on the main thread.
+- **Depth write-back.** The drawer writes the frame's depths back onto the main
+  thread's tags, so the drag's unprojection and the cull tie-break read the frame
+  that was actually drawn. Nothing else on the main thread reads
+  `Tag.translatedPosition`.
+- **Export goes through the backend**: `convertToBlob` in the worker, the
+  element's own `toDataURL` in process. A placeholder canvas's `toDataURL` is not
+  reliable after a transfer, which is why export is not left on the element.
+
+Positions cross the physics boundary as a transferable `Float64Array` too, and
+the runner posts at most one step at a time. If `Worker` is missing, construction
+throws, or a worker script fails to load, the physics falls back to the
+in-process solver and the drawing to the canvas's 2D context. A graph swap
+re-initialises both workers and bumps a generation counter, so a response
+computed for the replaced graph is dropped. (`./cli run` opens `web/index.html`
+over `file://`, where browsers refuse to start a worker, so the in-process
 fallback is what runs there; serve the directory over HTTP to exercise the
-worker.)
+workers. A transferred canvas cannot be transferred again, so switching a live
+page from the worker path to the in-process one needs a fresh canvas element;
+`?render=main` at load is the supported way.)
 
 ### Model, camera and canvas space
 
@@ -342,7 +377,10 @@ and view depth under one projector, and `render()`
 ([`src/Renderer.ts`](src/Renderer.ts)) consumes that cache. Both run in
 whichever realm draws — the main thread's in-process backend, or the render
 worker — so the depth cue, the painter sort and the cull rule have one
-implementation.
+implementation. `Tag.depth` is therefore written by the frame's drawer and is
+what the drag's unprojection and the cull tie-break read; on the worker path
+`Tag.translatedPosition` is stale on the main thread, because only the drawer
+reads it.
 
 Above the `K.renderer` size thresholds the frame switches to a cheaper, gated
 path:
@@ -409,6 +447,7 @@ All tuning lives in [`src/K.ts`](src/K.ts):
 | `depthCue.minAlpha` / `maxAlpha` | `0.35` / `1.0` | depth fade range |
 | `renderer.performance.minNodes` | `4096` | coarse frame at or above this node count |
 | `renderer.performance.edgeAlphaBuckets` / `batchNodeFills` / `selectionRing` | `1` / `true` / `false` | coarse depth-fade buckets, colour-batched fills, and the dropped selection ring |
+| `renderer.workerReadyTimeoutMS` | `250` | how long the main thread waits for a render worker's `ready` before drawing in process |
 | `chooser.minOrder` / `maxOrder` | `2` / `4096` | random-graph node-count bounds; `maxOrder` is the measured usability cap |
 | `chooser.interactiveOrder` | `1024` | above this the chooser warns that the layout may advance below 20 Hz |
 | `chooser.minBranching` / `maxBranching` | `1` / `8` | random-graph edges-per-node bounds; `order - 1` is the hard cap |
@@ -499,6 +538,28 @@ scales). `performance.memory` stayed flat across every case, so there is no GC
 sawtooth to report at these sizes. The numbers are reproducible within roughly
 ±15% run to run on the same machine; the p50 moves least.
 
+The same page with `?render=worker`, where the main thread only fills a pooled
+buffer and posts it:
+
+| N | E | dpr | draw p50 ms | draw p95 ms | >16.7 ms | long tasks | worst long task ms |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1024 | 1536 | 1 | 0.00 | 0.10 | 0/300 | 0 | 0.0 |
+| 1024 | 1536 | 2 | 0.00 | 0.10 | 0/300 | 0 | 0.0 |
+| 2048 | 3072 | 1 | 0.00 | 0.10 | 0/300 | 0 | 0.0 |
+| 2048 | 3072 | 2 | 0.00 | 0.10 | 0/300 | 0 | 0.0 |
+| 4096 | 6144 | 1 | 0.00 | 0.10 | 0/300 | 0 | 0.0 |
+| 4096 | 6144 | 2 | 0.00 | 0.00 | 0/300 | 0 | 0.0 |
+| 8192 | 12288 | 1 | 0.00 | 0.00 | 0/300 | 1 | 60.0 |
+| 8192 | 12288 | 2 | 0.00 | 0.10 | 0/300 | 1 | 50.0 |
+
+That is the component's published budget: with the worker the main thread's
+per-frame cost is the pack-and-post, independent of the node count and the
+device pixel ratio (which is why 8192/dpr 2 completes here and not in process).
+The drawing cost does not vanish, it moves into the worker, which is the point —
+the host's frame budget is not what pays it. `?render=main` reproduces the first
+table, and `test/render-worker.test.ts` pins that the two modes emit the same
+draw calls for the same graph, camera and selection.
+
 ### Scaling and complexity
 
 - **Repulsion** is Barnes-Hut above `K.physics.barnesHutMinNodes` (64) nodes:
@@ -541,8 +602,8 @@ each with its own design, and should be separate PRs.
 | # | change | why, and what it touches |
 | ---: | --- | --- |
 | 1 | Make the octree incrementally cheaper, not asymptotically better | The remaining cost is the per-body traversal and the per-step tree rebuild. Candidate work, each measurable by itself: reuse the traversal stack explicitly instead of recursion, tune leaf capacity and `barnesHutMaxDepth` for the measured graph sizes (a shallower tree with a larger bucket is often faster than a deep one), inline the theta test and the distance computation into the traversal, and keep the body-to-cell mapping so an incremental rebuild can skip unchanged cells. `src/Octree.ts`. |
-| 2 | Revisit the worker boundary | Positions cross as a transferable `Float64Array` once per step and are copied onto the `Tag` objects, then projected. Copying is no longer the bottleneck at the measured sizes, but if the step count rises the boundary is next: a runner-owned position buffer that the graph does not own, or shared memory behind `SharedArrayBuffer` when the page is cross-origin isolated. `SharedArrayBuffer` remains out of reach for the `file://` demo, so it stays a feature-detected upgrade. `src/PhysicsRunner.ts`, `src/PhysicsProtocol.ts`. |
-| 3 | Rendering or physics beyond canvas 2D | If the real canvas becomes the wall, the next step is `OffscreenCanvas`/WebGL (instanced points and lines) rather than further batch tuning. If force computation becomes the wall, the options are a tuned native/WASM kernel, a pool of workers splitting the octree, or GPU forces. Both are separate designs with different failure modes (context loss, shader precision, determinism across devices) and neither is committed. |
+| 2 | Remove the remaining main-thread `O(N)` work | After the render worker, exactly two per-frame `O(N)` tasks are left on the main thread: the position copy and forward to the render worker (~98 KB `set()` at 4096) and the depth write-back loop the drag needs. A `MessageChannel` from the physics worker straight to the render worker removes the first (the render worker must exist before the physics worker, and both generations must agree). One simulation worker that owns physics, projection, drawing and hit-testing — so the main thread sends canvas coordinates and reads back a selection index — removes both, at the cost of serialising physics and drawing. Which one is settled when the embedding API is designed. `src/PhysicsRunner.ts`, `src/RenderRunner.ts`, `src/PhysicsProtocol.ts`, `src/RenderProtocol.ts`. |
+| 3 | Physics or rendering beyond canvas 2D | The OffscreenCanvas half of this row landed as the render worker (see [Cadence](#cadence)); what remains for rendering is WebGL (instanced points and lines) rather than further batch tuning. If force computation becomes the wall, the options are a tuned native/WASM kernel, a pool of workers splitting the octree, or GPU forces. Both are separate designs with different failure modes (context loss, shader precision, determinism across devices) and neither is committed. |
 
 ### Invariants any change must keep
 
@@ -550,8 +611,9 @@ The suite enforces these, so they are the contract rather than suggestions:
 
 1. **The pure modules stay DOM-free.** `test/architecture.test.ts` pins
    `PURE_MODULES`, and every DOM-facing module is listed with the marker that
-   justifies it (`simulation.worker.ts` for `self`, `PhysicsRunner.ts` for
-   `Worker`, `UIController.ts` for `window`). The renderer is compiled against
+   justifies it (`simulation.worker.ts` and `render.worker.ts` for `self`,
+   `PhysicsRunner.ts` for `Worker`, `RenderRunner.ts` for `getContext`,
+   `UIController.ts` for `window`). The renderer is compiled against
    `RenderSurface` ([`src/RenderSurface.ts`](src/RenderSurface.ts)), a structural
    subset of both 2D contexts and of the fake context the tests draw with, so
    `Renderer.ts` names no canvas type and stays DOM-free. A new solver or
@@ -559,8 +621,9 @@ The suite enforces these, so they are the contract rather than suggestions:
 2. **One projector per frame.** Whichever backend draws resolves one projector,
    projects the graph with it and draws with the same camera, so the renderer's
    cull boundary sees the depth values cached with that camera. In-process that
-   happens on the canvas's own context; once the render worker lands it happens
-   in the worker. Physics steps never resolve a projector of their own.
+   happens on the canvas's own context; with the render worker it happens in the
+   worker realm, from the camera that crossed in the frame message. Physics steps
+   never resolve a projector of their own.
 3. **Frozen pre-step snapshot.** Every force in a step is computed from
    positions as they were at the start of the step, so no node sees a
    half-updated neighbour.
@@ -576,6 +639,12 @@ The suite enforces these, so they are the contract rather than suggestions:
    mapping.
 7. **`Tag` owns its points.** The solver never aliases a `Tag.position` into
    scratch state in a way that lets a read observe a half-written step.
+8. **Allocation-free steady state.** A physics step runs over pooled flat
+   buffers and the draw path over reusable frame scratch. Across the render
+   boundary the main thread fills a pooled position buffer and posts it by
+   transfer, and the worker returns that same buffer with the `drawn` ack, so a
+   steady-state frame allocates no typed array on the main thread; the depth
+   write-back is an in-place loop over the returned array.
 
 When timing a change, time it with the committed benchmark and report force
 error alongside any time that moves an approximation; "it feels faster" is not

@@ -63,6 +63,13 @@ export const K = {
     },
 
     renderer: {
+        // How long the main thread waits for a render worker's `ready` before
+        // giving up on it and drawing in process. An order of magnitude above a
+        // same-origin script load, below perceptible first-paint latency, and the
+        // bound on how long a failed worker delays the first frame. The canvas is
+        // only transferred once `ready` arrives, so a worker that misses this is
+        // never given control of it.
+        workerReadyTimeoutMS: 250,
         // Label culling: at or above this node count only the selection and its
         // incident neighbours are labelled. fillText per node dominates the real
         // canvas cost and is unreadable at scale. Below the threshold every label

@@ -5,7 +5,7 @@ import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
 import { UIController } from "../src/UIController";
-import { mouseEvent, UIControllerFixture, wheelEvent, withUIController } from "./support/dom";
+import { FakeRenderWorker, mouseEvent, UIControllerFixture, wheelEvent, withUIController } from "./support/dom";
 
 const PERIOD = K.physics.timerTickPeriodMS;
 
@@ -252,4 +252,35 @@ test("terminate() stops the loop on either scheduler", () => {
         assert.equal(ui.controller.running, false);
         assert.equal(ui.dom.animationFrames.length, 0, "the pending frame must be cancelled");
     }, { graph: settledGraph() });
+});
+
+// ------------------------------------------------------- the render worker path
+
+test("the worker path posts one frame per drawn frame and none while settled", () => {
+    const fake = new FakeRenderWorker();
+
+    withUIController(ui => {
+        // The controller's runner probes this worker; the handshake is what
+        // makes the canvas transferable and the backend ready.
+        fake.becomeReady();
+
+        const posts = () => fake.posts.filter(post => post.message.type === "frame").length;
+
+        // initialize() set needsRedraw, so the first frame draws and posts once.
+        ui.dom.runAnimationFrames(0);
+        assert.equal(posts(), 1, "the first frame posts once");
+
+        let timestamp = 0;
+
+        for (let frame = 1; frame <= K.physics.settleFrames; frame++) {
+            timestamp = PERIOD * frame;
+            ui.dom.runAnimationFrames(timestamp);
+        }
+
+        assert.equal(posts(), 1 + K.physics.settleFrames, "one post per drawn frame");
+
+        // Settled, the frame is skipped and nothing more crosses.
+        ui.dom.runAnimationFrames(timestamp + PERIOD);
+        assert.equal(posts(), 1 + K.physics.settleFrames, "a settled scene must not post");
+    }, { graph: settledGraph(), workerFactory: () => fake });
 });

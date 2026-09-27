@@ -3,7 +3,8 @@
 
 import { Graph } from "../../src/Graph";
 import { CameraView } from "../../src/Projector";
-import { RenderBackend } from "../../src/RenderRunner";
+import { RenderRequest, RenderResponse, RenderWorkerEngine } from "../../src/RenderProtocol";
+import { RenderBackend, RenderWorkerFactory, RenderWorkerPort } from "../../src/RenderRunner";
 import { Tag } from "../../src/Tag";
 import { UIController } from "../../src/UIController";
 
@@ -251,16 +252,38 @@ export class FakeContext2D {
     }
 }
 
+/** The receiving end of `transferControlToOffscreen()`; a worker fake ignores it. */
+export class FakeOffscreenCanvas {
+    width = 0;
+    height = 0;
+}
+
 export class FakeCanvas extends FakeElement {
 
     context: FakeContext2D;
+
+    /** True once control has been transferred to an OffscreenCanvas. */
+    transferred = false;
+
+    /** How many times transferControlToOffscreen() was called. */
+    transferCount = 0;
 
     constructor() {
         super('CANVAS');
         this.context = new FakeContext2D();
     }
 
+    transferControlToOffscreen(): FakeOffscreenCanvas {
+        this.transferred = true;
+        this.transferCount++;
+        return new FakeOffscreenCanvas();
+    }
+
     getContext(kind: string): FakeContext2D | null {
+        // A real element refuses a context once control is transferred.
+        if (this.transferred)
+            return null;
+
         return kind === '2d' ? this.context : null;
     }
 
@@ -291,6 +314,7 @@ export class FakeRenderBackend implements RenderBackend {
 
     readonly draws: RecordedDraw[] = [];
     readonly resizes: number[][] = [];
+    readonly graphs: Graph[] = [];
     exports = 0;
     terminated = false;
 
@@ -306,6 +330,10 @@ export class FakeRenderBackend implements RenderBackend {
         this.resizes.push([width, height, dpr]);
     }
 
+    setGraph(graph: Graph): void {
+        this.graphs.push(graph);
+    }
+
     exportPng(): Promise<Blob> {
         this.exports++;
         return Promise.resolve(new Blob());
@@ -319,6 +347,71 @@ export class FakeRenderBackend implements RenderBackend {
     becomeReady(): void {
         this.ready = true;
         this.onReady?.();
+    }
+}
+
+/**
+ * An in-memory stand-in for the render worker: it runs the real worker engine
+ * synchronously, so the runner and the engine can be compared without a worker
+ * host. It can be told to hold responses or to fail, which is how the
+ * backpressure, stale-generation and fallback paths are exercised.
+ */
+export class FakeRenderWorker implements RenderWorkerPort {
+
+    onmessage: ((event: { data: RenderResponse }) => void) | null = null;
+    onerror: ((event: unknown) => void) | null = null;
+
+    readonly engine = new RenderWorkerEngine();
+    readonly context = new FakeContext2D();
+
+    /** Every message posted to the worker, in order, with its transfer list. */
+    readonly posts: Array<{ message: RenderRequest; transfer: Transferable[] }> = [];
+    terminated = false;
+
+    private answering = true;
+
+    constructor() {
+        this.engine.attach(this.context, this.context.canvas);
+    }
+
+    postMessage(message: RenderRequest, transfer: Transferable[]): void {
+
+        if (this.terminated)
+            return;
+
+        this.posts.push({ message, transfer });
+
+        if (message.type === "export") {
+            this.onmessage?.({ data: { type: "png", requestId: message.requestId, blob: new Blob() } });
+            return;
+        }
+
+        const response = this.engine.handle(message);
+
+        if (response !== null && this.answering)
+            this.onmessage?.({ data: response });
+    }
+
+    terminate(): void {
+        this.terminated = true;
+    }
+
+    /** Announce readiness, as the real worker does at script load. */
+    becomeReady(): void {
+        this.onmessage?.({ data: { type: "ready" } });
+    }
+
+    /** Stop answering, so an ack can be delivered by hand. */
+    hold(): void {
+        this.answering = false;
+    }
+
+    deliver(response: RenderResponse): void {
+        this.onmessage?.({ data: response });
+    }
+
+    fail(): void {
+        this.onerror?.(new Error("the worker script failed to load"));
     }
 }
 
@@ -532,7 +625,13 @@ export function withFakeDom<T>(
 // the runner's in-process backend with a recording fake.
 export function newUIController(
     elements: Record<string, FakeElement>,
-    opts: { width?: number; height?: number; graph?: Graph; backend?: RenderBackend } = {}
+    opts: {
+        width?: number;
+        height?: number;
+        graph?: Graph;
+        backend?: RenderBackend;
+        workerFactory?: RenderWorkerFactory;
+    } = {}
 ): UIController {
     const canvas = elements.canvas as FakeCanvas;
     const suppliedGraph = opts.graph;
@@ -547,7 +646,8 @@ export function newUIController(
         elements.currentGraphLabel as unknown as HTMLElement,
         elements.cameraConsole as unknown as HTMLElement,
         suppliedGraph ? () => suppliedGraph : undefined,
-        opts.backend ?? null
+        opts.backend ?? null,
+        opts.workerFactory
     );
 
     if (opts.width !== undefined)
@@ -598,6 +698,8 @@ export interface UIControllerOptions {
     animationFrame?: boolean;
     /** The render backend to inject, so the draw path is observable. */
     backend?: RenderBackend;
+    /** The render worker to inject, so the worker path is observable. */
+    workerFactory?: RenderWorkerFactory;
 }
 
 function uiFixture(
@@ -614,6 +716,7 @@ function uiFixture(
         height: options.height,
         graph: options.graph,
         backend: options.backend,
+        workerFactory: options.workerFactory,
     });
 
     if (options.initialize ?? true)

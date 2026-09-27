@@ -1,4 +1,5 @@
 import { DragController } from "./DragController";
+import { RenderRunner } from "./RenderRunner";
 import { UIController } from "./UIController";
 
 const SELECTED_NODE_LABEL_ID = 'selectedNodeInfoLabel';
@@ -27,13 +28,12 @@ export const entrypoint = (
         return null;
     }
 
-    // getContext('2d') returns null rather than throwing, so the result is
-    // checked directly. It is the in-process render backend's requirement; the
-    // controller builds the backend over the canvas itself.
-    const context2d = canvas.getContext('2d');
-
-    if (context2d == null) {
-        console.error(`could not get a 2d context for canvas ID: ${canvasElementID}`);
+    // Either a transferable canvas with a Worker, or a 2D context. A context is
+    // deliberately not resolved here: creating one makes
+    // transferControlToOffscreen() throw, and the render runner is what decides
+    // between the worker and the in-process backend.
+    if (!RenderRunner.supported(canvas)) {
+        console.error(`canvas ID ${canvasElementID} can neither transfer to an OffscreenCanvas nor give a 2d context`);
         return null;
     }
 
