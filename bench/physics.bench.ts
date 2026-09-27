@@ -16,9 +16,10 @@ import { PerformanceObserver } from "perf_hooks";
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
 import { GraphFactory } from "../src/GraphFactory";
-import { K } from "../src/K";
+import { K, QualitySetting } from "../src/K";
 import { radius } from "../src/Kernel";
 import { CameraView, Projector } from "../src/Projector";
+import { openingAngleFor } from "../src/Quality";
 import { render } from "../src/Renderer";
 import { FakeContext2D } from "../test/support/dom";
 import { seededRandom, sparseGraph } from "../test/support/physics";
@@ -153,29 +154,62 @@ function reportRepulsion(label: string, measurement: RepulsionMeasurement): void
 function benchRepulsion(): void {
     console.log(
         `\n== repulsion pass alone (exact below N=${K.physics.barnesHutMinNodes}, ` +
-        `Barnes-Hut above at theta=${K.physics.barnesHutTheta}) ==`
+        `Barnes-Hut above; quality=${K.physics.quality} picks the angle by size) ==`
     );
     row("N", "ms   mean err / max err");
 
     for (const order of REPULSION_ORDERS) {
         const reps = order <= 1024 ? 4 : 2;
-        reportRepulsion(String(order), measureRepulsion(order, 99 + order, reps));
+        const theta = openingAngleFor(order, K.physics.quality);
+        reportRepulsion(`${order} (theta=${theta})`, measureRepulsion(order, 99 + order, reps));
     }
 }
 
 function benchOpeningAngle(): void {
-    console.log("\n== opening angle, N=4096 ==");
+    console.log("\n== opening angle, N=4096 (quality pinned to accurate) ==");
     row("theta", "ms   mean err / max err");
 
-    const original = K.physics.barnesHutTheta;
+    const originalTheta = K.physics.barnesHutTheta;
+    const originalQuality = K.physics.quality;
 
     try {
+        // The sweep must control the value, so "auto" cannot switch it underneath.
+        K.physics.quality = "accurate";
+
         for (const theta of [0.5, 0.9]) {
             K.physics.barnesHutTheta = theta;
             reportRepulsion(String(theta), measureRepulsion(4096, 99 + 4096, 2));
         }
     } finally {
-        K.physics.barnesHutTheta = original;
+        K.physics.barnesHutTheta = originalTheta;
+        K.physics.quality = originalQuality;
+    }
+}
+
+/** The size/quality trade the "auto" default makes, with its force error. */
+function benchQuality(): void {
+    console.log(
+        `\n== quality policy (auto = accurate below N=${K.physics.barnesHutFastMinNodes}, ` +
+        `fast at or above) ==`
+    );
+    row("N / quality", "ms   mean err / max err");
+
+    const originalQuality = K.physics.quality;
+
+    try {
+        for (const order of [2048, 4096]) {
+            for (const quality of ["accurate", "auto"] as QualitySetting[]) {
+                K.physics.quality = quality;
+                const theta = openingAngleFor(order, quality);
+
+                reportRepulsion(
+                    `${order} / ${quality} (theta=${theta})`,
+                    measureRepulsion(order, 99 + order, 2)
+                );
+            }
+        }
+    } finally {
+        K.physics.quality = originalQuality;
     }
 }
 
@@ -380,6 +414,7 @@ async function main(): Promise<void> {
     benchSolver();
     benchRepulsion();
     benchOpeningAngle();
+    benchQuality();
     benchKernel();
     benchProjection();
     benchRender();

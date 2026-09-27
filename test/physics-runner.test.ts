@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
+import { K } from "../src/K";
 import { PhysicsRunner, PhysicsWorkerPort } from "../src/PhysicsRunner";
 import { PhysicsWorkerEngine, PositionsResponse, WorkerRequest } from "../src/PhysicsProtocol";
 import { Projector } from "../src/Projector";
+import { openingAngleFor } from "../src/Quality";
 import { sparseGraph } from "./support/physics";
 import { withUIController } from "./support/dom";
 
@@ -83,6 +85,46 @@ test("the worker and in-process backends produce identical physics", () => {
         assert.equal(workerGraph.vertices[i].position.z, inProcessGraph.vertices[i].position.z, `node ${i} z`);
 
         // Velocity only exists inside the worker; compare it through the engine.
+        assert.equal(engineGraph!.vertices[i].velocity.x, inProcessGraph.vertices[i].velocity.x, `node ${i} vx`);
+        assert.equal(engineGraph!.vertices[i].velocity.y, inProcessGraph.vertices[i].velocity.y, `node ${i} vy`);
+        assert.equal(engineGraph!.vertices[i].velocity.z, inProcessGraph.vertices[i].velocity.z, `node ${i} vz`);
+    }
+});
+
+test("the backends stay identical above the fast threshold, where auto picks the fast angle", () => {
+    // Same harness, at the size where the size default moves the forces: both
+    // realms must read the same compile-time K and stay bit-identical.
+    const order = K.physics.barnesHutFastMinNodes;
+    const inProcessGraph = sparseGraph(order, 909);
+    const workerGraph = sparseGraph(order, 909);
+
+    assert.equal(
+        openingAngleFor(order, K.physics.quality),
+        K.physics.barnesHutFastTheta,
+        "this fixture must actually exercise the fast angle"
+    );
+
+    const inProcess = new PhysicsRunner(new ForceDirectedGraph(inProcessGraph), () => null);
+
+    const fake = new FakePhysicsWorker();
+    const worker = new PhysicsRunner(new ForceDirectedGraph(workerGraph), () => fake);
+
+    for (let step = 0; step < 2; step++) {
+        inProcess.step(-1, 0, 0, 0);
+        worker.step(-1, 0, 0, 0);
+    }
+
+    worker.sync(workerGraph);
+
+    const engineGraph = fake.engine.graph;
+
+    assert.ok(engineGraph, "the fake worker must have built its own graph");
+
+    for (let i = 0; i < order; i++) {
+        assert.equal(workerGraph.vertices[i].position.x, inProcessGraph.vertices[i].position.x, `node ${i} x`);
+        assert.equal(workerGraph.vertices[i].position.y, inProcessGraph.vertices[i].position.y, `node ${i} y`);
+        assert.equal(workerGraph.vertices[i].position.z, inProcessGraph.vertices[i].position.z, `node ${i} z`);
+
         assert.equal(engineGraph!.vertices[i].velocity.x, inProcessGraph.vertices[i].velocity.x, `node ${i} vx`);
         assert.equal(engineGraph!.vertices[i].velocity.y, inProcessGraph.vertices[i].velocity.y, `node ${i} vy`);
         assert.equal(engineGraph!.vertices[i].velocity.z, inProcessGraph.vertices[i].velocity.z, `node ${i} vz`);

@@ -22,6 +22,7 @@ const PURE_MODULES = [
     "GraphSpec.ts",
     "Kernel.ts",
     "Octree.ts",
+    "Quality.ts",
     "PhysicsProtocol.ts",
     "Camera.ts",
     "Projector.ts",

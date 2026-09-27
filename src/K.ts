@@ -1,3 +1,5 @@
+export type QualitySetting = "auto" | "accurate" | "fast";
+
 export const K = {
 
     physics: {
@@ -23,7 +25,23 @@ export const K = {
         // ceiling below is a sanity clamp, not the self-exclusion mechanism.
         // (A theta-only guarantee would need theta < 1/sqrt(3) ~= 0.577, because
         // the centre of mass can sit at the opposite corner of the cell.)
+        //
+        // Which opening angle the solver uses. "auto" picks by graph size
+        // (Quality.openingAngleFor), so the default is accurate exactly where the
+        // eye can tell and fast where it cannot. This is a compile-time default
+        // and must not be mutated at runtime: the main-thread solver and the
+        // worker realm each build their own solver from the same literal, which
+        // is what keeps the two backends identical. A user-facing control would
+        // need a quality field on the worker protocol; that is a separate item.
+        quality: "auto" as QualitySetting,
+        // Accurate angle (README profile: 0.3-0.5% mean error).
         barnesHutTheta: 0.5,
+        // Fast angle (README profile: 1.8% mean error at 4096, ~3.7x faster).
+        barnesHutFastTheta: 0.9,
+        // At or above this order, "auto" uses the fast angle. 2048 is the first
+        // measured row where the step no longer fits one 50 ms tick, i.e. where
+        // the speed/quality trade tips.
+        barnesHutFastMinNodes: 2048,
         barnesHutMinNodes: 64,
         // Bucket near-coincident points instead of recursing forever.
         barnesHutMaxDepth: 28,
