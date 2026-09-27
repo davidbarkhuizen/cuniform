@@ -3,8 +3,27 @@ import { axisAngle, Mat3, multiply, rotX, rotY, rotZ } from "./Mat3";
 import { point3, Point3D } from "./Point3D";
 import { CameraView, defaultCameraView } from "./Projector";
 
-/** The camera axis a console button rotates about. */
-export type CameraAxis = 'x' | 'y' | 'z';
+/**
+ * The axes a console button rotates about, and the directions it turns. Each
+ * vocabulary is a runtime tuple with its type derived from it, so the type and
+ * the guard that validates a `data-axis`/`data-direction` attribute cannot drift
+ * apart.
+ */
+export const CAMERA_AXES = ['x', 'y', 'z'] as const;
+export type CameraAxis = typeof CAMERA_AXES[number];
+
+export const CAMERA_DIRECTIONS = ['cw', 'acw'] as const;
+export type CameraDirection = typeof CAMERA_DIRECTIONS[number];
+
+/** True when `value` names a camera axis. */
+export function isCameraAxis(value: string | null): value is CameraAxis {
+    return value !== null && (CAMERA_AXES as readonly string[]).includes(value);
+}
+
+/** True when `value` names a rotation direction. */
+export function isCameraDirection(value: string | null): value is CameraDirection {
+    return value !== null && (CAMERA_DIRECTIONS as readonly string[]).includes(value);
+}
 
 /**
  * The mutable part of a camera: everything `sameCameraView` compares. A caller

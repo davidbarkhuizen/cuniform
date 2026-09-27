@@ -30,6 +30,7 @@ function code(source: string): string {
 /** The DOM-free half: the solver, the projection and the catalog data. */
 const PURE_MODULES = [
     "ForceDirectedGraph.ts",
+    "FocusRing.ts",
     "Graph.ts",
     "GraphFactory.ts",
     "GraphSpec.ts",

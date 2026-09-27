@@ -1,5 +1,6 @@
+import { advanceIndex } from "./FocusRing";
 import { K } from "./K";
-import { GraphSpec, parseRandomSpec } from "./GraphSpec";
+import { BRANCHING_FIELD, GraphSpec, ORDER_FIELD, parseRandomSpec } from "./GraphSpec";
 import {
     CATALOG,
     CatalogEntry,
@@ -103,10 +104,10 @@ export class GraphWizard {
             this.choiceButtons.push({ kind, element: button });
         }
 
-        this.orderInput = this.numberField(random, "nodes", K.chooser.minOrder, K.chooser.maxOrder);
+        this.orderInput = this.numberField(random, ORDER_FIELD, K.chooser.minOrder, K.chooser.maxOrder);
         this.branchingInput = this.numberField(
             random,
-            "new edges per node",
+            BRANCHING_FIELD,
             K.chooser.minBranching,
             K.chooser.maxBranching
         );
@@ -498,12 +499,7 @@ export class GraphWizard {
         event.preventDefault();
 
         const delta = event.shiftKey ? -1 : 1;
-        let index = this.focusIndex;
-
-        if (index < 0 || index >= controls.length)
-            index = event.shiftKey ? 0 : -1;
-
-        index = (index + delta + controls.length) % controls.length;
+        const index = advanceIndex(this.focusIndex, delta, controls.length);
 
         this.focusIndex = index;
         controls[index].focus();
