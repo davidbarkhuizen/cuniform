@@ -1,13 +1,7 @@
 /**
- * The 2D drawing surface the renderer writes. A structural subset of both
- * `CanvasRenderingContext2D` and `OffscreenCanvasRenderingContext2D`, so the same
- * renderer runs on the main thread, in a worker and against the fake context in
- * tests with no cast and no branch.
- *
- * The styles are `string | object` because the renderer only ever writes a
- * colour string, while `object` covers `CanvasGradient`/`CanvasPattern` without
- * naming a canvas type in a DOM-free module. A narrower `string` does not
- * typecheck either way: the real contexts declare the wider union.
+ * A structural subset of both canvas 2D contexts, so the renderer runs on the
+ * main thread, in a worker and against the test fake. Styles are `string |
+ * object` because the real contexts declare that wider union.
  */
 export interface RenderSurface {
     readonly canvas: { readonly width: number; readonly height: number };
@@ -30,16 +24,8 @@ export interface RenderSurface {
 }
 
 /**
- * Size a surface's backing store in device pixels and re-apply the transform
- * that keeps drawing in CSS pixels.
- *
- * Assigning `width`/`height` resets the context transform, so the transform must
- * be set afterwards. One home for that ordering rule, so the main thread's
- * in-process backend and the render worker produce identical pixels for the same
- * frame at any device-pixel ratio.
- *
- * `target` is the writable canvas (or `OffscreenCanvas`); `surface` is the
- * context drawn through, whose own `canvas` reference is read-only.
+ * Assigning `width`/`height` resets the context transform, so it must be set
+ * afterwards. One home, so the main thread and the worker agree on the ordering.
  */
 export function resizeBackingStore(
     target: { width: number; height: number },

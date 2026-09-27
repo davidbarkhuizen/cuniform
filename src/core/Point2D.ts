@@ -1,4 +1,4 @@
-/** A point in canvas space and on the projected plane; model space is `Point3D`. */
+/** A canvas/projected point; model space is `Point3D`. */
 export interface Point2D {
     x: number;
     y: number;

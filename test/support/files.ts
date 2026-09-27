@@ -1,14 +1,8 @@
-// Read repository files back as text. Compiled tests run from
-// `<root>/.test-build/test/support`, hence the three levels up to the root.
+// Compiled tests run from `<root>/.test-build/test/support`, hence the three levels up to the root.
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
-/**
- * Every TypeScript source file under `src/`, keyed by its path relative to
- * `src/` (for example `physics/Octree.ts`), so the architecture test can name
- * the package a module lives in as well as the module.
- */
 export function readAllSources(): Record<string, string> {
     const dir = join(__dirname, "..", "..", "..", "src");
     const out: Record<string, string> = {};
@@ -19,11 +13,7 @@ export function readAllSources(): Record<string, string> {
     return out;
 }
 
-/**
- * Every `.ts` file under `dir`, depth-first over sorted entries, so the keys of
- * `readAllSources()` come back in a stable order - the drawing test compares
- * the list it derives from them.
- */
+// Sorted depth-first so `readAllSources()` keys are stable; the drawing test compares that list.
 function sourceFilesIn(dir: string): string[] {
     const out: string[] = [];
 

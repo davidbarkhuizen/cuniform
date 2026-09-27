@@ -3,14 +3,12 @@ import assert from "node:assert/strict";
 
 import { parseSmiles, SmilesError } from "../src/graph/Smiles";
 
-/** The bond joining `a` and `b`, in either direction, or undefined. */
 function bondBetween(topology: ReturnType<typeof parseSmiles>, a: number, b: number) {
     return topology.bonds.find(
         bond => (bond.a === a && bond.b === b) || (bond.a === b && bond.b === a)
     );
 }
 
-/** Asserts `input` fails to parse at exactly `position`. */
 function assertSmilesErrorAt(input: string, position: number): void {
     assert.throws(
         () => parseSmiles(input),
@@ -45,13 +43,12 @@ test("c1ccccc1 gives six aromatic atoms, six aromatic bonds and one ring closure
 });
 
 test("a fused bicycle closes two rings and shares the fusion atoms", () => {
-    // Decalin: two cyclohexane rings sharing one bond.
+    // Decalin: two rings sharing one bond; atom 3 is a fusion atom (two ring bonds, one chain bond).
     const topology = parseSmiles("C1CCC2CCCCC2C1");
 
     assert.equal(topology.atoms.length, 10);
     assert.equal(topology.ringClosures, 2);
 
-    // Atom 3 is the first fusion atom: two ring bonds plus one chain bond.
     const incident = topology.bonds.filter(bond => bond.a === 3 || bond.b === 3);
     assert.equal(incident.length, 3);
 
@@ -112,26 +109,23 @@ test("bracket atoms keep the element and discard the rest", () => {
         assert.deepEqual(parseSmiles(smiles).atoms, atoms, `failed for ${smiles}`);
     }
 
-    // The aromatic bracket atom keeps the aromatic default bond.
     const pyrrole = parseSmiles("[nH]1cccc1");
     assert.ok(pyrrole.bonds.every(bond => bond.order === 4), "the pyrrole ring is aromatic");
     assert.equal(pyrrole.ringClosures, 1);
 });
 
 test("a bracket atom keeps a two-letter lowercase (aromatic) element", () => {
-    // Selenium and arsenic are written lowercase in aromatic notation; truncating
-    // them to one letter would silently yield sulfur/carbon instead of failing.
+    // Lowercase [se]/[as] are two-letter aromatic elements; truncating to one letter would yield S/C instead
+    // of failing.
     assert.deepEqual(parseSmiles("c1cc[se]c1").atoms, ["c", "c", "c", "se", "c"]);
     assert.deepEqual(parseSmiles("c1cc[as]c1").atoms, ["c", "c", "c", "as", "c"]);
     assert.deepEqual(parseSmiles("[si]").atoms, ["si"]);
 
-    // The two-letter aromatic atom keeps the aromatic default bond order.
     assert.ok(
         parseSmiles("c1cc[se]c1").bonds.every(bond => bond.order === 4),
         "the selenophene ring is aromatic"
     );
 
-    // The uppercase forms are distinct elements, not the aromatic pair.
     assert.deepEqual(parseSmiles("C[Se]").atoms, ["C", "Se"]);
     assert.equal(parseSmiles("C[Se]").bonds[0].order, 1, "uppercase Se is not aromatic");
 });
@@ -157,8 +151,7 @@ test("%nn two-digit ring closures round-trip", () => {
 });
 
 test("a %nn closure is its own label and does not alias the single digit", () => {
-    // Keyed by value, %01 would read as ring 1 and could close a ring opened as
-    // `1`; the two are different labels, so mixing them leaves both open.
+    // %01 is its own label, not ring 1; mixing %01 with 1 leaves both closures open.
     const topology = parseSmiles("C%01CC%01");
 
     assert.equal(topology.ringClosures, 1);
@@ -168,7 +161,6 @@ test("a %nn closure is its own label and does not alias the single digit", () =>
 });
 
 test("a ring-closure bond may be written from either side of the closure", () => {
-    // The closure is always the last bond recorded, whichever side wrote it.
     assert.equal(parseSmiles("C=1CC1").bonds[2].order, 2, "the opening side carries the order");
     assert.equal(parseSmiles("C1CC=1").bonds[2].order, 2, "the closing side carries the order");
 });

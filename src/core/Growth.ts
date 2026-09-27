@@ -1,27 +1,13 @@
 /**
- * The growable-buffer policy for the pooled typed arrays the octree and the
- * renderer reuse across steps and frames.
- *
- * The solver is deliberately not a consumer: it sizes its buffers once per graph
- * and reallocates them at an exact capacity, because it discards their contents
- * rather than preserving them (`ForceDirectedGraph.ensureCapacity()`).
- *
- * A buffer only ever grows, and every growth doubles from MIN_BUFFER_CAPACITY, so
- * repeated passes amortise reallocation and a steady-state pass allocates
- * nothing. One home for the policy, so those two consumers cannot tune their
- * growth separately.
+ * Grow-only doubling policy for the arrays the octree and renderer pool; one home
+ * so the two consumers cannot tune separately. The solver deliberately opts out
+ * and reallocates at an exact capacity (ForceDirectedGraph.ensureCapacity()).
  */
 
-/** The seed capacity a zero-length buffer grows to first. */
 export const MIN_BUFFER_CAPACITY = 64;
 
-/** Any of the typed arrays this project pools. */
 export type PooledArray = Int8Array | Uint8Array | Int32Array | Float64Array;
 
-/**
- * The capacity to grow `current` to so that it holds `needed` elements: start at
- * MIN_BUFFER_CAPACITY (or keep a larger `current`) and double until it fits.
- */
 export function doublingCapacity(current: number, needed: number): number {
 
     let capacity = current > 0 ? current : MIN_BUFFER_CAPACITY;
@@ -32,10 +18,6 @@ export function doublingCapacity(current: number, needed: number): number {
     return capacity;
 }
 
-/**
- * `old` reallocated at `capacity`, with its contents preserved. The array kind
- * follows `old`, so one function serves every pooled type.
- */
 export function growPooledArray<T extends PooledArray>(old: T, capacity: number): T {
 
     const next = new (old.constructor as new (length: number) => T)(capacity);

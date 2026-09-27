@@ -18,22 +18,9 @@ import {
     stepsUntilQuiet,
 } from "./support/physics";
 
-/**
- * The per-component anchor is a uniform force on a component's centroid, so it
- * can only translate that component. These tests pin the law, the translation,
- * the uniformity, and the reference agreement, and they pin the two properties
- * the design exists for: a detached component is bounded, and a connected
- * layout is untouched.
- */
-
 const R0 = K.physics.componentAnchorRadius;
 const STRENGTH = K.physics.componentAnchorStrength;
 
-/**
- * The anchor vector the law prescribes for a component centroid `c`, with the
- * solver's explicit zero-radius branch: at the origin the magnitude is zero and
- * there is no direction to divide by.
- */
 function expectedAnchor(cx: number, cy: number, cz: number): { x: number; y: number; z: number } {
     const r = Math.hypot(cx, cy, cz);
 
@@ -45,11 +32,7 @@ function expectedAnchor(cx: number, cy: number, cz: number): { x: number; y: num
     return { x: (magnitude * -cx) / r, y: (magnitude * -cy) / r, z: (magnitude * -cz) / r };
 }
 
-/**
- * `labelComponents`-independent reading of a fixture's component centroids.
- * `componentOf` is a label per vertex, so the number of components is one past
- * its largest label, not its length.
- */
+// `componentOf` is a label per vertex, so the component count is one past its largest label.
 function componentCentroids(graph: Graph, componentOf: number[]): Array<{ x: number; y: number; z: number; count: number }> {
     const components = componentOf.reduce((most, c) => Math.max(most, c), -1) + 1;
     const centres = Array.from({ length: components }, () => ({ x: 0, y: 0, z: 0, count: 0 }));
@@ -79,12 +62,10 @@ test("the anchor magnitude is the dead-zoned linear law", () => {
     assert.equal(componentAnchorMagnitude(0), 0, "the origin is a root");
     assert.equal(componentAnchorMagnitude(R0), 0, "the dead zone edge is a root");
 
-    // Strictly inside the dead zone nothing is felt.
     for (const r of [0, 1, 75, R0 - 1]) {
         assert.equal(componentAnchorMagnitude(r), 0, `r=${r} is inside the dead zone`);
     }
 
-    // Beyond it the line is proportional, with no clamp and no constant term.
     for (const r of [R0 + 1, 300, 1000]) {
         assertClose(componentAnchorMagnitude(r), STRENGTH * (r - R0), 1e-12, `r=${r}`);
     }
@@ -107,8 +88,7 @@ test("a lone node past the dead zone is pulled toward the origin and settles", (
 
     const fdg = new ForceDirectedGraph(graph);
 
-    // Larger than any velocity a single step can build, so an outward move is
-    // unambiguous evidence of a wrong sign.
+    // An outward move would be unambiguous evidence of a wrong sign.
     const start = lone.position.x;
     let previous = lone.position.x;
 
@@ -160,8 +140,7 @@ test("every member of a component receives the same anchor vector", () => {
             return;
         }
 
-        // Identical components, not merely equal magnitudes: the force is a
-        // function of the component centroid, so uniformity is exact.
+        // Identical vectors, not merely equal magnitudes: the anchor is a function of the component centroid.
         assert.deepEqual(
             { x: out[0], y: out[1], z: out[2] },
             first[c],
@@ -173,8 +152,6 @@ test("every member of a component receives the same anchor vector", () => {
 test("anchorForceInto matches the anchor law at the component centroid", () => {
     const out = new Float64Array(3);
 
-    // Active and inactive alike: a lone path at +400 has an active anchor, one
-    // at the origin has none, and each must match the law at its own centroid.
     for (const offset of [0, 400]) {
         const { graph, tags, componentOf, fdg } = disconnectedPaths(0, 6, 1, { x: offset, y: 0, z: 0 });
 
@@ -194,12 +171,8 @@ test("anchorForceInto matches the anchor law at the component centroid", () => {
 });
 
 test("a component outside the dead zone is translated, not distorted", () => {
-    // Two congruent lone 6-node paths. The control is centred on the origin, so
-    // its anchor is zero; the subject is centred at (400, 600), outside the dead
-    // zone. Congruent interiors mean an identical unanchored displacement
-    // pattern, so after subtracting the anchor's uniform translation the two
-    // displacement fields must agree: the anchor moved the subject, and nothing
-    // else about it.
+    // Congruent paths: the centred control has a zero anchor while the off-centre
+    // subject is outside the dead zone, so only a uniform translation may differ.
     const home = disconnectedPaths(0, 6, 1);
     const away = disconnectedPaths(0, 6, 1, { x: 400, y: 600, z: 0 });
 
@@ -224,22 +197,15 @@ test("a component outside the dead zone is translated, not distorted", () => {
     const homeMoved = componentCentroids(home.graph, home.componentOf)[0];
     const awayMoved = componentCentroids(away.graph, away.componentOf)[0];
 
-    // The anchored path's centroid translates by exactly the law's vector times
-    // the step, over and above whatever its own internal forces do.
     assertClose(awayMoved.x, awayCentre.x + translation.x, 1e-9, "translation x");
     assertClose(awayMoved.y, awayCentre.y + translation.y, 1e-9, "translation y");
     assertClose(awayMoved.z, awayCentre.z + translation.z, 1e-9, "translation z");
 
-    // The control's centroid does not move at all: a lone path's internal forces
-    // cancel exactly in the centroid.
+    // A lone path's internal forces cancel exactly in the centroid.
     assert.equal(homeMoved.x, homeCentre.x, "the control centroid must not move");
     assert.equal(homeMoved.y, homeCentre.y, "the control centroid must not move");
     assert.equal(homeMoved.z, homeCentre.z, "the control centroid must not move");
 
-    // Subtract the anchor's uniform translation from each subject displacement.
-    // What is left is the displacement the component would have had unanchored,
-    // and it must equal the control's, node for node: the anchor is a
-    // translation, so it can change only the centroid.
     home.tags.forEach((tag, i) => {
         const control = {
             x: tag.position.x - homeBefore[i].x,
@@ -259,8 +225,6 @@ test("a component outside the dead zone is translated, not distorted", () => {
         assertClose(residual.z, control.z, 1e-9, `${tag.label} residual z`);
     });
 
-    // Stated as geometry: the shape the anchored component took is the control's
-    // shape, to the last decimal the internal forces can distinguish.
     const shape = (fixture: ReturnType<typeof disconnectedPaths>, centre: { x: number; y: number; z: number }) =>
         fixture.tags.map(tag => ({
             x: tag.position.x - centre.x,
@@ -279,9 +243,8 @@ test("a component outside the dead zone is translated, not distorted", () => {
 });
 
 test("an off-centre seated edge is pulled toward the origin with r* unchanged", () => {
-    // A symmetric single edge at the origin is untouched; the same edge seeded
-    // off-centre starts outside the dead zone and is translated home. Both
-    // settle at the analytic equilibrium, because the anchor is uniform.
+    // A centred edge is untouched; an off-centre one is translated home, so both settle at the analytic
+    // equilibrium.
     const centred = edgeBetween({ x: -100, y: 0, z: 0 }, { x: 100, y: 0, z: 0 });
     const offset = edgeBetween({ x: 400, y: 600, z: 0 }, { x: 400, y: 600, z: 0 });
 
@@ -296,14 +259,12 @@ test("an off-centre seated edge is pulled toward the origin with r* unchanged", 
     assertClose(separation(centred.a, centred.b), ANALYTIC_EQUILIBRIUM, 1.0, "the centred edge moved");
     assertClose(separation(offset.a, offset.b), ANALYTIC_EQUILIBRIUM, 1.0, "the off-centre edge moved");
 
-    // The anchor translates the off-centre edge until its centroid is home.
     const cx = (offset.a.position.x + offset.b.position.x) / 2;
     const cy = (offset.a.position.y + offset.b.position.y) / 2;
     const cz = (offset.a.position.z + offset.b.position.z) / 2;
 
     assert.ok(Math.hypot(cx, cy, cz) <= R0 * 1.1, `the offset centroid must come home, at (${cx}, ${cy}, ${cz})`);
 
-    // And the centred one never moved its centroid at all.
     const centredCx = (centred.a.position.x + centred.b.position.x) / 2;
     const centredCy = (centred.a.position.y + centred.b.position.y) / 2;
 
@@ -312,17 +273,12 @@ test("an off-centre seated edge is pulled toward the origin with r* unchanged", 
 });
 
 test("two detached components stay bounded and stop drifting", () => {
-    // The fixture the workplan measured: two 6-node components seeded at
-    // x = +/-250 separate to ~2005 units in 10 000 steps with nothing
-    // centripetal. The anchor has to hold them.
     const { graph, fdg } = disconnectedPaths(500, 6, 2);
 
     const reach = maxAbsPosition(fdg, graph, 4000);
 
     assert.ok(reach < 1000, `the components reached ${reach} units from the origin`);
 
-    // ...and the layout is quiet, not merely slow: after the run, a step moves
-    // less than the settle epsilon.
     let previous = graph.vertices.map(tag => ({ ...tag.position }));
 
     fdg.step(CANVAS_W, CANVAS_H);
@@ -337,8 +293,7 @@ test("two detached components stay bounded and stop drifting", () => {
 
     assert.ok(travel < K.physics.settleEpsilon, `4000 steps must leave the layout quiet, travel ${travel}`);
 
-    // Bounded, not collapsed: the two components are still apart and each is
-    // still a path, since only translation is available to the anchor.
+    // The anchor can only translate, so bounded must not mean collapsed.
     previous = graph.vertices.map(tag => ({ ...tag.position }));
 
     const first = graph.vertices[0].position;
@@ -350,9 +305,6 @@ test("two detached components stay bounded and stop drifting", () => {
 test("the anchor is zero for every component whose centroid is inside the dead zone", () => {
     const { graph, tags, componentOf, fdg } = disconnectedPaths(200, 6, 2);
 
-    // Just inside: 200-unit spacing puts a centroid at 100, inside the 150 dead
-    // zone. The anchored step must equal the unanchored sum of the two
-    // reference kernels, exactly.
     const out = new Float64Array(3);
 
     for (const tag of tags) {
@@ -377,11 +329,9 @@ test("the anchor is zero for every component whose centroid is inside the dead z
         "this fixture must have every centroid inside the dead zone"
     );
 
-    // The fixtures the exact-valued assertions elsewhere depend on must all be
-    // inside the zone too, so the anchor pass is skipped for every one of them.
-    // `pairAt(300)` is the closest of the current suite: its centroid sits
-    // exactly on the dead zone, and the activation test is strict (`r > R0`), so
-    // it stays inactive. Retuning R0 below 150 would engage it.
+    // Other tests' exact-valued assertions assume their fixtures stay inside the
+    // dead zone. pairAt(300) is the closest: its centroid sits exactly on R0 and
+    // activation is strict (r > R0), so retuning R0 below 150 would engage it.
     const close = pairAt(300);
     const centroid = {
         x: (close.a.position.x + close.b.position.x) / 2,
@@ -392,7 +342,6 @@ test("the anchor is zero for every component whose centroid is inside the dead z
     assert.equal(Math.hypot(centroid.x, centroid.y, centroid.z), R0, "pairAt(300) sits on the dead zone edge");
     assert.equal(componentAnchorMagnitude(R0), 0, "on the edge it must be inactive");
 
-    // And a fixture well inside the zone reports an anchor of exactly zero.
     const inside = pairAt(100);
     const inner = new Float64Array(3);
 
@@ -402,9 +351,7 @@ test("the anchor is zero for every component whose centroid is inside the dead z
 });
 
 test("an active anchor still evaluates repulsion exactly once per unordered pair", () => {
-    // The anchor uses no Math.pow and does not disturb the pairwise kernel, so
-    // the pair counter stays exactly C(N, 2) even with the anchor active and the
-    // component far outside the dead zone.
+    // The anchor uses no Math.pow, so the pair counter must stay exactly C(N, 2) even when active.
     const { graph, fdg } = disconnectedPaths(1000, 6, 2);
     const n = graph.vertices.length;
 
@@ -442,7 +389,6 @@ test("netForceAtNode is repulsion + spring + anchor, and the step agrees", () =>
         );
     }
 
-    // The step path applies exactly what velocityAtTag()'s default force says.
     const first = tags[0];
     const expected = fdg.velocityAtTag(first);
 
@@ -454,16 +400,11 @@ test("netForceAtNode is repulsion + spring + anchor, and the step agrees", () =>
 });
 
 test("the step path's velocity agrees with velocityAtTag on an active anchor", () => {
-    // The three-term sum's order can move the last bit when the pairwise forces
-    // are large, so this fixture makes them large: two components whose members
-    // nearly coincide, with the clamped repulsion dominating. The step must
-    // apply exactly what velocityAtTag()'s default force prescribes (the D4
-    // contract), and the assertion is `assert.equal`, so any reordering of the
-    // sum fails here rather than hiding inside a tolerance.
+    // Large pairwise forces make the three-term sum's order observable. The D4
+    // contract requires the step to apply exactly velocityAtTag()'s default
+    // force, and assert.equal catches any reordering.
     const { tags, fdg } = disconnectedPaths(1000, 6, 2);
 
-    // Pull each component's members almost onto one another, so repulsion is at
-    // the clamp and the springs are compressed hard.
     tags.forEach((tag, i) => {
         tag.position.x += (i % 2 === 0 ? 1 : -1) * 1e-4;
         tag.position.z += (i % 3 === 0 ? 1 : -1) * 1e-4;
@@ -481,9 +422,8 @@ test("the step path's velocity agrees with velocityAtTag on an active anchor", (
 });
 
 test("a pinned drag pulls the rest of its own component toward the origin", () => {
-    // Pinning skips integration for the dragged node only, so the rest of its
-    // component still feels the anchor, computed from a centroid the dragged
-    // node moved. The pull is toward the origin, never toward the pointer.
+    // Pinning skips only the dragged node; the rest still feels the anchor toward the origin, never the
+    // pointer.
     const { graph, tags, componentOf, fdg } = disconnectedPaths(600, 6, 2);
 
     const pinned = tags[0];
@@ -495,12 +435,8 @@ test("a pinned drag pulls the rest of its own component toward the origin", () =
     const centre = componentCentroids(graph, componentOf)[0];
     const dragged = expectedAnchor(centre.x, centre.y, centre.z);
 
-    // The component's centroid is far outside the dead zone, so the anchor is
-    // active and points back at the origin.
     assert.ok(dragged.x < 0 && dragged.y < 0, `the anchor must oppose the drag, got (${dragged.x}, ${dragged.y})`);
 
-    // Every member of the dragged component, the pinned one included, gets the
-    // same vector from the law.
     const out = new Float64Array(3);
 
     tags.forEach((tag, i) => {
@@ -514,7 +450,6 @@ test("a pinned drag pulls the rest of its own component toward the origin", () =
         assertClose(out[2], dragged.z, 1e-12, `${tag.label} anchor z`);
     });
 
-    // A step with the drag pinned must not move the pinned node...
     const before = { ...pinned.position };
     const neighbour = { ...tags[1].position };
 
@@ -529,9 +464,8 @@ test("a pinned drag pulls the rest of its own component toward the origin", () =
 });
 
 test("a foreign tag feels no anchor rather than becoming NaN", () => {
-    // The pairwise references already return zero for a tag that is not in this
-    // graph; the anchor must not be the one reference that turns the whole net
-    // force into NaN.
+    // The pairwise references already return zero for a foreign tag; the anchor must not turn the net force
+    // into NaN.
     const { fdg } = disconnectedPaths(1000, 6, 2);
 
     const out = new Float64Array(3);

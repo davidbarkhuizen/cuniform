@@ -19,7 +19,6 @@ test("a fresh camera is the identity orientation at the K defaults", () => {
 });
 
 test("a fresh camera and defaultCameraView() describe the same view", () => {
-    // The constructor, reset() and defaultCameraView() must not drift apart.
     const camera = new Camera();
     const view = defaultCameraView();
 
@@ -54,7 +53,6 @@ test("orbit clamps the elevation to the turntable guard, at both signs", () => {
     camera.orbit(0, 1e6);
     assertClose(camera.elevation, K.camera.maxPitch, 1e-12, "elevation");
 
-    // A second huge drag must stay on the guard, not tumble through the pole.
     camera.orbit(0, 1e6);
     assertClose(camera.elevation, K.camera.maxPitch, 1e-12, "elevation after a second drag");
 
@@ -122,10 +120,7 @@ test("panBy moves only the target", () => {
     assert.deepEqual(camera.target, { x: 5, y: -7, z: 9 });
 });
 
-// ---------------------------------------------------------- local rotation
-
 test("rotateLocal is a left multiplication about the named camera axis", () => {
-    // A rolled, yawed, pitched start: each button composes on the camera's frame.
     const start = multiply(fromYawPitch(0.4, -0.3), rotZ(0.2));
 
     const cases: Array<{ axis: 'x' | 'y' | 'z'; step: (angle: number) => Mat3 }> = [
@@ -160,7 +155,7 @@ test("opposite rotateLocal steps cancel", () => {
 });
 
 test("anticlockwise is the right-hand positive sense about each camera axis", () => {
-    // The sign convention in camera space: +x right, +y up, +z along the view axis.
+    // Camera space: +x right, +y up, +z along the view axis.
     const step = 0.05;
 
     const aboutX = new Camera();
@@ -185,8 +180,7 @@ test("rotateLocal is free 3-DOF and does not trap the camera at a pole", () => {
     camera.rotateLocal('x', Math.PI / 2);
     assertClose(camera.elevation, Math.PI / 2, 1e-12, "the console may reach the pole");
 
-    // At the pole a yaw falls back rather than dividing by ~zero; a vertical drag
-    // re-engages the guard.
+    // A pole yaw falls back rather than dividing by ~zero; a vertical drag re-engages the guard.
     camera.orbit(10, 0);
     assert.ok(camera.orientation.every(Number.isFinite), "no NaN at the pole");
     assertClose(camera.elevation, Math.PI / 2, 1e-12, "a pure yaw must not tilt");
@@ -209,8 +203,6 @@ test("reset restores the identity orientation and framing", () => {
     assert.equal(camera.distance, K.camera.distance);
     assert.deepEqual(camera.target, { x: 0, y: 0, z: 0 });
 });
-
-// ------------------------------------------------------------ sameCameraView
 
 test("sameCameraView is true for equal views and false for each mutation", () => {
     const camera = new Camera();
@@ -238,8 +230,7 @@ test("sameCameraView is true for equal views and false for each mutation", () =>
 });
 
 test("sameCameraView reads a mutable scratch copy, so the redraw check allocates nothing", () => {
-    // The controller overwrites one scratch fingerprint each drawn frame; the
-    // comparison must read it structurally, not compare object identity.
+    // The controller overwrites one scratch fingerprint each frame, so compare structurally, not by identity.
     const reference = defaultCameraView();
 
     const scratch = cameraScratch(reference);
@@ -254,9 +245,8 @@ test("sameCameraView reads a mutable scratch copy, so the redraw check allocates
 });
 
 test("copyCameraView overwrites every field cameraScratch seeds", () => {
-    // The scratch starts at the default camera, so a copy of a different view
-    // must move all five fields; a field the copy forgets would silently keep
-    // the default and skip a frame that should have drawn.
+    // The scratch starts at the default view, so a forgotten field would silently skip a frame that should
+    // have drawn.
     const scratch = cameraScratch();
 
     const moved = {

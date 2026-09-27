@@ -4,11 +4,8 @@ import assert from "node:assert/strict";
 import { DragController } from "../src/ui/DragController";
 import { FakeElement, FakeRect, pointerEvent } from "./support/dom";
 
-// The demo panel's geometry: a 300x400 panel at (150, 100) inside a 1000x800
-// parent at (50, 30). The drag reads both rects.
 const PARENT_RECT: FakeRect = { top: 30, left: 50, right: 1050, bottom: 830, width: 1000, height: 800, x: 50, y: 30 };
 
-/** The shared parent/panel pair, before any controller is built over it. */
 function panelIn(parentRect: FakeRect) {
     const parent = new FakeElement('DIV');
     parent.rect = parentRect;
@@ -20,7 +17,6 @@ function panelIn(parentRect: FakeRect) {
     return { parent, panel };
 }
 
-/** Panel at (150, 100) inside a parent at (50, 30). */
 function panelInParent() {
     const { parent, panel } = panelIn(PARENT_RECT);
 
@@ -33,14 +29,12 @@ test("a panel drag writes a valid px offset, not the literal interpolation text"
     const { panel, controller } = panelInParent();
 
     controller.onPointerDown(pointerEvent({ clientX: 1000, clientY: 500 }));
-    // Panel starts at (left 100, top 70) within its parent, plus a +40 x, +30 y drag delta.
     controller.onPointerMove(pointerEvent({ clientX: 1040, clientY: 530 }));
     controller.onPointerUp(pointerEvent({}));
 
     assert.equal(panel.style.top, '100px');
     assert.equal(panel.style.left, '140px');
 
-    // Regression: the old code produced "$(this.dragY + this.startTop)".
     for (const value of [panel.style.top, panel.style.left]) {
         assert.ok(!value.includes('$('), `still interpolating: ${value}`);
         assert.ok(/^\d+px$/.test(value), `not a px length: ${value}`);
@@ -83,7 +77,6 @@ test("deltas reset after a drag ends, so the next drag is not cumulative", () =>
     assert.equal(controller.dragX, 0);
     assert.equal(controller.dragY, 0);
 
-    // The second drag moves by its own delta only; the first +60/+40 must not carry over.
     controller.onPointerDown(pointerEvent({ clientX: 200, clientY: 200 }));
     controller.onPointerMove(pointerEvent({ clientX: 210, clientY: 205 }));
     controller.onPointerUp(pointerEvent({}));
@@ -157,9 +150,6 @@ test("the pointer is captured on pointerdown and released on pointerup", () => {
     assert.equal(panel.hasPointerCapture(7), false, "the capture should be released");
 });
 
-// ------------------------------------------------------- controls in the panel
-
-/** A control of `tagName` nested in the panel, as the real menu is. */
 function controlIn(panel: FakeElement, tagName: string): FakeElement {
     const group = new FakeElement('DIV');
     group.parentElement = panel;
@@ -227,9 +217,6 @@ test("a press on the panel itself still drags", () => {
     assert.equal(panel.hasPointerCapture(13), true);
 });
 
-// ------------------------------------------------------------- touch handle
-
-/** The panel plus a grip at its top, built as the demo entrypoint builds it. */
 function panelWithHandle() {
     const { panel } = panelIn(PARENT_RECT);
 

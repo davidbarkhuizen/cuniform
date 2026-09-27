@@ -16,7 +16,6 @@ function distance3(a: Point3D, b: Point3D): number {
     return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
-// Deterministic xorshift32 in [-1, 1), so a failing random fixture is reproducible.
 function makeRandom(seed: number): () => number {
     let state = seed >>> 0;
 
@@ -27,8 +26,6 @@ function makeRandom(seed: number): () => number {
         return (state / 0xffffffff) * 2 - 1;
     };
 }
-
-// ------------------------------------------------------- the regression anchor
 
 test("forCanvas defaults to the identity camera that reduces to the 2D view", () => {
     const projector = Projector.forCanvas(800, 600);
@@ -62,8 +59,6 @@ test("the identity camera with z = 0 equals Viewport.toCanvas exactly", () => {
         }
     }
 });
-
-// -------------------------------------------------------------------- rotation
 
 test("the camera rotation is rigid: pairwise model distances are preserved", () => {
     const rnd = makeRandom(12345);
@@ -120,8 +115,6 @@ test("a camera at the elevation guard keeps the basis rigid and invertible (no p
     assertClose(back.z, a.z, 1e-9);
 });
 
-// -------------------------------------------------------------------- inverse
-
 test("unproject at a point's depth is the exact inverse of project", () => {
     const rnd = makeRandom(9876);
 
@@ -175,8 +168,6 @@ test("unproject from a canvas point matches the projected-plane inverse", () => 
     assertClose(back.z, p.z, 1e-9);
 });
 
-// ------------------------------------------------- projectInto / toCanvasInto
-
 test("the allocation-free projection forms are bit-identical to the allocating ones", () => {
     const rnd = makeRandom(2468);
 
@@ -202,7 +193,7 @@ test("the allocation-free projection forms are bit-identical to the allocating o
             const allocated = projector.project(p);
             const reused = projector.projectInto(p, scratch);
 
-            // Exact equality, not a tolerance: project() delegates to projectInto().
+            // Exact equality: project() delegates to projectInto().
             assert.equal(reused.screenX, allocated.screen.x, `screen x for ${p.x},${p.y},${p.z}`);
             assert.equal(reused.screenY, allocated.screen.y, `screen y for ${p.x},${p.y},${p.z}`);
             assert.equal(reused.depth, allocated.depth, `depth for ${p.x},${p.y},${p.z}`);
@@ -215,12 +206,9 @@ test("the allocation-free projection forms are bit-identical to the allocating o
     }
 });
 
-// ---------------------------------------------------------------- perspective
-
 test("a nearer point projects farther from the centre than a farther one", () => {
     const projector = Projector.forCanvas(600, 600);
 
-    // The camera sits at z = -distance looking toward +z, so smaller z is nearer.
     const near = projector.project(point3(100, 0, -100));
     const far = projector.project(point3(100, 0, 100));
 
@@ -237,14 +225,12 @@ test("the near plane culls and bounds the perspective divide", () => {
     assert.equal(projector.isCulled(nearPlane - 1), true);
     assert.equal(projector.isCulled(nearPlane + 1e-9), false, "just inside is not culled");
 
-    // Behind the near plane the divide is evaluated at the guard, so it stays finite.
     const behind = projector.project(point3(100, 0, -K.camera.distance - 100));
 
     assert.ok(behind.depth < nearPlane, `depth was ${behind.depth}`);
     assert.equal(projector.isCulled(behind.depth), true);
     assert.ok(Number.isFinite(behind.screen.x) && Number.isFinite(behind.screen.y), "must stay finite");
 
-    // Even at exactly zero depth the guard bounds the divide.
     const atZero = projector.project(point3(100, 0, -K.camera.distance));
 
     assert.equal(atZero.depth, 0);

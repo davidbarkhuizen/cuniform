@@ -11,10 +11,9 @@ import { singleNode } from "./support/physics";
 const W = 600;
 const H = 600;
 
-/** 600x600 model on a 600x600 canvas under the identity camera: one canvas unit is one model unit. */
+/** Identity camera on the 600x600 fixture: one canvas unit is one model unit. */
 const PROJECTOR = Projector.forCanvas(W, H);
 
-/** Two nodes 10 model units apart on the exact 1:1 canvas fixture. */
 function build() {
     const graph = new Graph();
     const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
@@ -25,12 +24,9 @@ function build() {
     return { graph, a, b };
 }
 
-/** The canvas point that maps to model (x, y) on the 600x600 fixture. */
 function canvasAt(x: number, y: number) {
     return { x: W / 2 + x, y: H / 2 - y };
 }
-
-// ------------------------------------------------------------ Graph selection
 
 test("selectedVertex is null until something is selected", () => {
     const { graph, b } = build();
@@ -61,8 +57,6 @@ test("clearSelection deselects every vertex", () => {
     assert.equal(graph.selectedVertex(), null);
 });
 
-// ------------------------------------------------- handleNodeSelectionAttempt
-
 test("a click on a node selects it and reports a change", () => {
     const { graph, a } = build();
 
@@ -73,7 +67,6 @@ test("a click on a node selects it and reports a change", () => {
 test("the nearer of two nodes inside the hit radius wins", () => {
     const { graph, a, b } = build();
 
-    // Model (8, 0) is 8 from a and 2 from b; both are inside the 15-unit radius.
     assert.ok(K.ui.minimumNodeSelectionRadiusPx > 8, "both nodes must be in range");
 
     handleNodeSelectionAttempt(graph, canvasAt(8, 0), PROJECTOR);
@@ -120,7 +113,6 @@ test("a click outside the hit radius of every node clears rather than selects", 
     handleNodeSelectionAttempt(graph, canvasAt(0, 0), PROJECTOR);
     assert.equal(a.isSelected, true);
 
-    // 20 units away from a and 10 from b, so b is still inside the 15 radius.
     handleNodeSelectionAttempt(graph, canvasAt(20, 0), PROJECTOR);
     assert.equal(b.isSelected, true);
     assert.equal(a.isSelected, false);
@@ -149,7 +141,6 @@ test("selecting a second node replaces the first rather than adding to it", () =
 });
 
 test("the hit radius is 15 screen pixels at any canvas scale", () => {
-    // Offsets are screen distances: under the old model-space radius the 300px and 1200px cases disagreed with the 600px case.
     for (const size of [300, 600, 1200]) {
         const projector = Projector.forCanvas(size, size);
         const scale = size / W;
@@ -183,11 +174,9 @@ test("a zero-size viewport selects nothing and does not throw", () => {
     assert.equal(a.isSelected, false);
 });
 
-// -------------------------------------------------------------- depth awareness
-
 test("an equidistant screen hit resolves to the nearer node", () => {
     const graph = new Graph();
-    // Both project to the canvas centre, so the tie-break must favour the -z (nearer) node.
+    // Both project to the canvas centre; -z is nearer, so the tie-break must favour it.
     const near = new Tag({ x: 0, y: 0, z: -100 }, "near");
     const far = new Tag({ x: 0, y: 0, z: 100 }, "far");
     graph.addNode(near);
@@ -201,7 +190,6 @@ test("an equidistant screen hit resolves to the nearer node", () => {
 
 test("the depth tie-break does not override a genuinely nearer screen hit", () => {
     const graph = new Graph();
-    // The far node is dead centre and the near one 5 px off, so screen distance still decides.
     const near = new Tag({ x: 5, y: 0, z: -100 }, "near");
     const far = new Tag({ x: 0, y: 0, z: 100 }, "far");
     graph.addNode(near);
@@ -215,7 +203,7 @@ test("the depth tie-break does not override a genuinely nearer screen hit", () =
 
 test("a culled node is not selectable", () => {
     const graph = new Graph();
-    // The z = -distance node has depth 0, inside the near plane: not drawn, not selectable.
+    // z = -camera.distance has depth 0, inside the near plane: culled, so not selectable.
     const visible = new Tag({ x: 0, y: 0, z: 0 }, "visible");
     const culled = new Tag({ x: 0, y: 0, z: -K.camera.distance }, "culled");
     graph.addNode(visible);

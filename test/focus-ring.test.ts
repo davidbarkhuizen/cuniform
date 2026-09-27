@@ -4,9 +4,8 @@ import assert from "node:assert/strict";
 import { advanceIndex } from "../src/ui/FocusRing";
 
 /**
- * The roving-focus ring shared by the context menu and the graph wizard. Its
- * entry behaviour matters: an index outside the ring means nothing is focused
- * yet, and the ring is entered from the end the movement comes from.
+ * Roving-focus ring shared by the context menu (src/ui/ContextMenu.ts) and the graph wizard
+ * (src/ui/GraphWizard.ts).
  */
 
 test("advanceIndex steps within the ring and wraps at both ends", () => {
@@ -21,8 +20,7 @@ test("advanceIndex enters an out-of-range index from the end it travels from", (
     assert.equal(advanceIndex(-1, 1, 4), 0);
     assert.equal(advanceIndex(9, 1, 4), 0, "an index past the end is also out of range");
 
-    // ...and a backward move lands on the last, which is what makes the first
-    // Shift+Tab focus the final control.
+    // ...and a backward move lands on the last, so the first Shift+Tab focuses the final control.
     assert.equal(advanceIndex(-1, -1, 4), 3);
     assert.equal(advanceIndex(9, -1, 4), 3);
 });

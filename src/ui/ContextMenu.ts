@@ -11,10 +11,7 @@ export interface ContextMenuEntry {
     element: HTMLElement;
 }
 
-/**
- * A small absolutely-positioned menu shown at the cursor on right-click or Shift+F10. Entries are
- * real `button`s so Enter and Space work natively; the menu handles Escape and the arrow keys.
- */
+/** Shown at the cursor on right-click or Shift+F10; entries are real `button`s. */
 export class ContextMenu {
 
     element: HTMLElement;
@@ -36,8 +33,7 @@ export class ContextMenu {
             backgroundColor: 'black',
             border: '1px solid lightgray',
             borderRadius: '5px',
-            // The font is inherited from the document body rather than named
-            // again here, so the stylesheet stays its one source.
+            // Body supplies the font family; the stylesheet stays its one source.
             fontSize: 'large',
         });
 
@@ -48,7 +44,6 @@ export class ContextMenu {
             entry.setAttribute('role', 'menuitem');
             entry.innerHTML = item.label;
 
-            // Reset the button chrome so a row renders as plain menu text.
             this.setStyle(entry, {
                 display: 'block',
                 width: '100%',
@@ -64,16 +59,12 @@ export class ContextMenu {
 
             entry.addEventListener('click', () => {
                 this.hide();
-                // Return focus before the action runs: an action that opens
-                // another overlay (the graph chooser) focuses its own control
-                // and must not be overridden by this dismissal. Doing it first
-                // also covers the plain actions, whose focus still lands on the
-                // canvas so keyboard shortcuts keep working.
+                // Before the action: an overlay it opens focuses its own control, which this must not
+                // override.
                 this.onDismiss?.();
                 item.onSelect();
             });
 
-            // Keeps the arrow-key roving index in step when Tab moves focus.
             entry.addEventListener('focus', () => {
                 this.focusedIndex = index;
             });
@@ -92,17 +83,15 @@ export class ContextMenu {
     open(x: number, y: number) {
         this.element.style.display = 'block';
 
-        // Shown before measuring, so the clamp uses the menu's real size.
+        // Shown first so the clamp measures the real size.
         const rect = this.element.getBoundingClientRect();
         const maxLeft = Math.max(0, window.innerWidth - rect.width);
         const maxTop = Math.max(0, window.innerHeight - rect.height);
 
-        // Clamped to the viewport so a right- or bottom-edge click still shows
-        // the whole menu rather than half of it off-screen.
+        // Keep the whole menu on-screen for edge clicks.
         this.element.style.left = `${clamp(x, 0, maxLeft)}px`;
         this.element.style.top = `${clamp(y, 0, maxTop)}px`;
 
-        // Land focus in the menu so the keyboard works without a pointer event.
         this.focusedIndex = 0;
         this.entries[0]?.element.focus();
     }
@@ -133,7 +122,7 @@ export class ContextMenu {
         this.entries[this.focusedIndex].element.focus();
     }
 
-    // Typed as Partial<CSSStyleDeclaration> so the camelCase keys are checked.
+    // Partial<CSSStyleDeclaration> keeps the camelCase keys checked.
     private setStyle(element: HTMLElement, styles: Partial<CSSStyleDeclaration>) {
         Object.assign(element.style, styles);
     }

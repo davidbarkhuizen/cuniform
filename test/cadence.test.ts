@@ -21,7 +21,6 @@ test("the animation loop runs one fixed step per elapsed tick and draws once per
 
         assert.equal(steps(), 0, "initialize must not step on its own");
 
-        // The first frame only establishes the clock.
         ui.dom.runAnimationFrames(0);
         assert.equal(steps(), 0, "the first frame has no elapsed time");
 
@@ -33,7 +32,6 @@ test("the animation loop runs one fixed step per elapsed tick and draws once per
         ui.dom.runAnimationFrames(PERIOD * 2);
         assert.equal(steps(), 2, "each elapsed period is one more step");
 
-        // Two more frames, two more clears: drawing happens once per frame.
         assert.equal(clears() - clearsAfterFirst, 2);
     }, { graph: settledGraph() });
 });
@@ -44,12 +42,10 @@ test("a time jump runs at most maxStepsPerFrame steps and drops the backlog", ()
 
         ui.dom.runAnimationFrames(0);
 
-        // Ten periods of elapsed time arrive in a single frame.
         ui.dom.runAnimationFrames(PERIOD * 10);
 
         assert.equal(steps(), K.physics.maxStepsPerFrame, "the cap must bound one frame");
 
-        // The remainder was discarded, so the next frame runs only its own time.
         ui.dom.runAnimationFrames(PERIOD * 11);
 
         assert.equal(
@@ -71,13 +67,11 @@ test("stepping stops after settleFrames quiet steps and any interaction resumes 
 
         assert.equal(steps(), K.physics.settleFrames, "the quiet run must step normally");
 
-        // Settled: further frames advance nothing.
         ui.dom.runAnimationFrames(PERIOD * (K.physics.settleFrames + 1));
         ui.dom.runAnimationFrames(PERIOD * (K.physics.settleFrames + 2));
 
         assert.equal(steps(), K.physics.settleFrames, "a settled layout must stop stepping");
 
-        // A dolly is interaction, so the layout starts moving again.
         ui.elements.canvas.dispatch("wheel", wheelEvent({ deltaY: 1 }));
 
         ui.dom.runAnimationFrames(PERIOD * (K.physics.settleFrames + 3));
@@ -97,8 +91,8 @@ test("a graph swap resumes a settled layout", () => {
 
         assert.equal(steps(), K.physics.settleFrames);
 
-        // A fresh graph must never inherit the previous layout's settled state.
-        // loadGraph builds a new solver, so the counter is re-installed on it.
+        // A fresh graph must never inherit the previous layout's settled state; loadGraph builds a new
+        // solver.
         ui.controller.loadGraph(settledGraph());
         const stepsAfterSwap = countSteps(ui.controller);
 
@@ -121,20 +115,16 @@ test("the setInterval fallback still ticks when rAF is unavailable", () => {
 
         assert.equal(steps(), 1, "one interval callback is one fixed tick");
 
-        // The legacy path deliberately bypasses the idle-frame skip: it steps on
-        // every callback, so it must draw on every callback too.
+        // The setInterval path bypasses the idle-frame skip: it steps and draws on every callback.
         assert.equal(ui.canvas.context.clears.length, clears + 1, "the legacy tick draws every callback");
     }, { graph: settledGraph(), animationFrame: false });
 });
-
-// ------------------------------------------------------- idle-frame skipping
 
 test("a settled, untouched scene issues no further clears", () => {
     withUIController(ui => {
         const timestamp = settleFrames(ui);
         const clears = ui.canvas.context.clears.length;
 
-        // Two more frames with no step due, no camera change and no interaction.
         ui.dom.runAnimationFrames(timestamp + PERIOD);
         ui.dom.runAnimationFrames(timestamp + PERIOD * 2);
 
@@ -153,7 +143,6 @@ test("a camera dolly redraws even when no step is due", () => {
 
         ui.elements.canvas.dispatch("wheel", wheelEvent({ deltaY: 1 }));
 
-        // The same timestamp means no elapsed time, so no step can run.
         ui.dom.runAnimationFrames(timestamp);
 
         assert.equal(ui.canvas.context.clears.length, clears + 1, "a dolly must force a redraw");
@@ -178,7 +167,6 @@ test("a position-writing drag redraws even when no step is due", () => {
     withUIController(ui => {
         const timestamp = settleFrames(ui);
 
-        // Select the node; onMouseDown leaves the left button held.
         ui.controller.onMouseDown(mouseEvent({ button: 0, clientX: 400, clientY: 300 }));
         ui.dom.runAnimationFrames(timestamp);
 
@@ -218,19 +206,15 @@ test("terminate() stops the loop on either scheduler", () => {
     }, { graph: settledGraph() });
 });
 
-// ------------------------------------------------------- the render worker path
-
 test("the worker path posts one frame per drawn frame and none while settled", () => {
     const fake = new FakeRenderWorker();
 
     withUIController(ui => {
-        // The controller's runner probes this worker; the handshake is what
-        // makes the canvas transferable and the backend ready.
+        // The handshake is what makes the canvas transferable and the backend ready.
         fake.becomeReady();
 
         const posts = () => fake.posts.filter(post => post.message.type === "frame").length;
 
-        // initialize() set needsRedraw, so the first frame draws and posts once.
         ui.dom.runAnimationFrames(0);
         assert.equal(posts(), 1, "the first frame posts once");
 
@@ -238,7 +222,6 @@ test("the worker path posts one frame per drawn frame and none while settled", (
 
         assert.equal(posts(), 1 + K.physics.settleFrames, "one post per drawn frame");
 
-        // Settled, the frame is skipped and nothing more crosses.
         ui.dom.runAnimationFrames(timestamp + PERIOD);
         assert.equal(posts(), 1 + K.physics.settleFrames, "a settled scene must not post");
     }, { graph: settledGraph(), workerFactory: () => fake });

@@ -18,11 +18,7 @@ import {
 } from "./support/dom";
 import { sparseGraph } from "./support/physics";
 
-/**
- * The controller draws through one render backend. These drive the seam with a
- * recording fake, so the draw path is observable without a real canvas, and
- * check that the default runner still draws in-process on the canvas context.
- */
+/** The controller draws through one render backend; these drive the seam with a recording fake. */
 
 const PERIOD = K.physics.timerTickPeriodMS;
 
@@ -103,11 +99,9 @@ test("a not-ready backend leaves the redraw pending so the next frame retries", 
     withUIController(ui => {
         backend.drawable = false;
 
-        // initialize() set needsRedraw, so the first frame draws and fails.
         ui.dom.runAnimationFrames(0);
         assert.equal(backend.draws.length, 1);
 
-        // Still pending: the next frame must draw again even though nothing moved.
         ui.dom.runAnimationFrames(0);
         assert.equal(backend.draws.length, 2, "a false draw must keep the frame pending");
 
@@ -115,7 +109,6 @@ test("a not-ready backend leaves the redraw pending so the next frame retries", 
         ui.dom.runAnimationFrames(0);
         assert.equal(backend.draws.length, 3);
 
-        // Consumed and recorded: an idle frame now draws nothing.
         ui.dom.runAnimationFrames(0);
         assert.equal(backend.draws.length, 3, "a completed frame clears the pending redraw");
     }, { backend, graph: settledGraph() });
@@ -185,9 +178,6 @@ test("the in-process backend exports the canvas as a PNG blob", async () => {
     }, { graph: settledGraph() });
 });
 
-// ------------------------------------------------------- the render worker path
-
-/** A runner over a FakeCanvas, wired to a fake worker, with its ready calls recorded. */
 function workerFixture(
     graph: Graph | null,
     options: Partial<RenderRunnerOptions> = {}
@@ -213,14 +203,12 @@ function workerFixture(
     return { canvas, fake, runner, ready };
 }
 
-/** Every frame message the worker has received, in order. */
 function frames(fake: FakeRenderWorker): FrameRequest[] {
     return fake.posts
         .filter(post => post.message.type === "frame")
         .map(post => post.message as FrameRequest);
 }
 
-/** Deliver the ack `frame` earns, as the real engine would. */
 function ack(fake: FakeRenderWorker, frame: FrameRequest, nodes: number): void {
     fake.deliver({
         type: "drawn",
@@ -333,12 +321,10 @@ test("draw coalesces to one frame in flight and carries the newest state", () =>
     runner.draw(graph, cameraA, null, 800, 600, Emphasis.nodes);
     assert.equal(frames(fake).length, 1);
 
-    // Two more draws while one frame is in flight: neither may post.
     runner.draw(graph, cameraB, null, 800, 600, Emphasis.nodes);
     runner.draw(graph, cameraC, graph.vertices[3], 800, 600, Emphasis.edges);
     assert.equal(frames(fake).length, 1, "one frame in flight");
 
-    // The ack posts the coalesced frame, carrying the newest camera and selection.
     ack(fake, frames(fake)[0], graph.vertices.length);
 
     assert.equal(frames(fake).length, 2, "exactly one more frame");

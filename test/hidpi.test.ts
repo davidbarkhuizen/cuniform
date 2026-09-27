@@ -15,7 +15,6 @@ import {
     withUIController,
 } from "./support/dom";
 
-// body 750x750 => a 750x750 full-screen logical canvas.
 function withController<T>(dpr: number | undefined, fn: (ui: UIControllerFixture) => T): T {
     return withUIController(fn, {
         devicePixelRatio: dpr,
@@ -25,8 +24,7 @@ function withController<T>(dpr: number | undefined, fn: (ui: UIControllerFixture
 }
 
 test("resizeBackingStore sizes the store in device pixels, then sets the transform", () => {
-    // The ordering is the rule: assigning width/height resets the context
-    // transform, so a transform set first would be discarded.
+    // Assigning width/height resets the context transform, so the transform must come after.
     const surface = new FakeContext2D();
     const target = { width: 0, height: 0 };
 
@@ -35,7 +33,6 @@ test("resizeBackingStore sizes the store in device pixels, then sets the transfo
     assert.deepEqual(target, { width: 1600, height: 1200 }, "the store is sized in device pixels");
     assert.deepEqual(surface.transforms, [[2, 0, 0, 2, 0, 0]], "the dpr transform is applied once");
 
-    // A second call at a different ratio overwrites both, with no drift.
     resizeBackingStore(target, surface, 400, 300, 1);
 
     assert.deepEqual(target, { width: 400, height: 300 });
@@ -116,8 +113,6 @@ test("projection uses the logical size, not the scaled backing store", () => {
     withController(2, ({ controller }) => {
         controller.onTimerTick();
 
-        // The backend projects with the logical 750x750 viewport; a device-pixel
-        // 1500x1500 one would map the same model point somewhere else.
         const node = controller.solver.graph.vertices[0];
         const logical = Projector.forCanvas(750, 750).toCanvas(node.position);
 

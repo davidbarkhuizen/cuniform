@@ -9,7 +9,6 @@ import { Tag } from "../src/graph/Tag";
 import { assertClose } from "./support/assert";
 import { CANVAS_H, CANVAS_W, newGraph, tag } from "./support/physics";
 
-/** Pre-adjacency reference: scan every edge, skipping those not incident to the target. */
 function bruteForceSpring(graph: Graph, target: Tag) {
     let Fx = 0;
     let Fy = 0;
@@ -102,10 +101,9 @@ test("the adjacency spring force equals a brute-force edge scan", () => {
     const a = tag("a", 0, 0);
     const b = tag("b", 40, 0);
     const c = tag("c", 0, 40);
-    // An off-plane node, so the equivalence also covers the z component.
+    // The off-plane node and the duplicate/self-loop edges exercise every branch of the comparison.
     const d = new Tag({ x: 10, y: 10, z: 35 }, "d");
     [a, b, c, d].forEach(t => graph.addNode(t));
-    // Fixture covers duplicate edges, a self-loop, stretched/compressed springs, and out-of-plane pairs.
     graph.addEdge(a, b);
     graph.addEdge(a, b);
     graph.addEdge(a, a);
@@ -130,10 +128,7 @@ test("one step visits each edge once per endpoint, not once per node", () => {
     const graph = newGraph(50, 3);
     const fdg = new ForceDirectedGraph(graph);
 
-    // Warm the solver once: the first step labels the connected components, an
-    // O(V + E) walk over the same adjacency, and that one-time cost is not what
-    // this test measures. The labelling is cached (topology is unchanged), so
-    // the instrumented step below runs only the spring pass.
+    // The first step also labels connected components (cached afterwards), so warm the solver first.
     fdg.step(CANVAS_W, CANVAS_H);
 
     const realIncidentEdges = graph.incidentEdges.bind(graph);
@@ -150,7 +145,6 @@ test("one step visits each edge once per endpoint, not once per node", () => {
     // Generated graphs have no self-loops, so the total is exactly 2*E.
     assert.equal(visited, 2 * graph.edges.length);
 
-    // The old pass rescanned all E edges for each of the V nodes.
     assert.ok(
         visited < graph.vertices.length * graph.edges.length,
         "the spring pass must not rescan every edge per node"

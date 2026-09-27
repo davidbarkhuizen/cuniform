@@ -6,8 +6,7 @@ import { Graph } from "../src/graph/Graph";
 import { Tag } from "../src/graph/Tag";
 import { CANVAS_H, CANVAS_W, edgeBetween, newGraph, singleNode } from "./support/physics";
 
-// A small, deterministic graph: positions and edges are explicit, so two builds
-// are identical without depending on the RNG.
+// Explicit positions and edges, so two builds match without the RNG.
 function reproducibleGraph(): Graph {
     const graph = new Graph();
     const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
@@ -92,9 +91,7 @@ test("two identical graphs stepped identically agree exactly", () => {
 });
 
 test("step() does not carry force-buffer residue from accumulateRepulsion()", () => {
-    // accumulateRepulsion() writes the solver's repulsion buffers; step() shares
-    // them, so it must clear them before accumulating or the first step would
-    // double-count the pair forces computed here.
+    // step() shares accumulateRepulsion()'s buffers and must clear them first, or forces double-count.
     const polluted = reproducibleGraph();
     const clean = reproducibleGraph();
 
@@ -120,11 +117,9 @@ test("the solver grows its buffers when the graph gains vertices in place", () =
 
     const solver = new ForceDirectedGraph(graph);
 
-    // Size the buffers for two vertices...
     solver.step(CANVAS_W, CANVAS_H);
 
-    // ...then exceed them through the same solver instance, which is the
-    // defensive growth path loadGraph() would otherwise hide.
+    // Exceed them on the same solver instance; loadGraph() would hide this growth path.
     for (let i = 2; i < 9; i++)
         graph.addNode(new Tag({ x: (i % 2 === 0 ? 1 : -1) * i * 20, y: i * 7, z: 3 }, `n${i}`));
 
@@ -141,8 +136,6 @@ test("the solver grows its buffers when the graph gains vertices in place", () =
 });
 
 test("the object-form accumulateRepulsion() still accumulates onto its input", () => {
-    // One pair keeps the arithmetic exact: the flat path must add the pair force
-    // to the caller's seed, matching the old "accumulate onto out" contract.
     const graph = new Graph();
     const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
     const b = new Tag({ x: 50, y: 0, z: 0 }, "b");

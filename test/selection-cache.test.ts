@@ -9,18 +9,14 @@ import { mouseEvent, poisonSelection, withUIController } from "./support/dom";
 const NODE_DEFAULT = K.colours.nodeDefault;
 const NODE_SELECTED = K.colours.nodeSelected;
 
-/** This suite's poison message: the scan would be by the controller's frame. */
 const NO_RESCAN = "the controller must not rescan for the selection";
 
 /**
- * The controller caches the selection so neither the pin decision nor the frame
- * rescans the graph. These tests prove the cache is what is used: after a real
- * click refreshes it, `graph.selectedVertex()` is replaced with a thrower, so a
- * regression to a per-frame scan fails loudly.
+ * After a real click refreshes the cache, `graph.selectedVertex()` is poisoned, so a per-frame-scan
+ * regression fails loudly.
  */
 
-// body 800x600 => an 800x600 logical canvas; the 600 model cube scales 1:1 and
-// the model origin lands on canvas (400, 300).
+// 800x600 canvas scales the 600 model cube 1:1; the model origin lands on canvas (400, 300).
 function twoNodes(): { graph: Graph; a: Tag; b: Tag } {
     const graph = new Graph();
     const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
@@ -35,7 +31,6 @@ test("the cached selection drives the frame without rescanning the graph", () =>
     const { graph, a } = twoNodes();
 
     withUIController(ui => {
-        // An actual click, at the canvas point the origin projects to.
         ui.controller.onMouseDown(mouseEvent({ button: 0, clientX: 400, clientY: 300 }));
         ui.controller.onMouseUp(mouseEvent({ button: 0 }));
 
@@ -109,11 +104,9 @@ test("dragging pins the cached selection", () => {
     const { graph, b } = twoNodes();
 
     withUIController(ui => {
-        // Select `b` (canvas x = 500).
         ui.controller.onMouseDown(mouseEvent({ button: 0, clientX: 500, clientY: 300 }));
         assert.equal(b.isSelected, true);
 
-        // Left button still down: the next tick must pin the cached node.
         assert.equal(ui.controller.state.b0Down, true);
 
         const pinnedIndices: number[] = [];

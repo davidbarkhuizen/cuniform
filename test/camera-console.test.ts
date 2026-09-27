@@ -23,10 +23,8 @@ import {
     withUIController,
 } from "./support/dom";
 
-// The console buttons are static markup in web/index.html, so these drive them
-// as the browser does: a bubbling pointerdown/keydown with the button as target.
+// The console buttons are static markup in web/index.html; these drive them as the browser does.
 
-/** One simulation tick's worth of console rotation, in radians. */
 const PER_TICK = K.camera.rotateRadiansPerSecond * K.physics.timerTickPeriodMS / 1000;
 
 const ROTATIONS: Record<string, (angle: number) => Mat3> = { x: rotX, y: rotY, z: rotZ };
@@ -91,8 +89,7 @@ test("each console button rotates about its own axis from the first press", () =
 });
 
 test("a press on a rotate button's SVG icon still reaches its button", () => {
-    // The icon is a child element, so a real pointer press can report it as the
-    // target; the handler must walk up to the button that carries the data.
+    // A real press can report the SVG child as target, so the handler must walk up to the button.
     withFixture(({ controller, consoleElement }) => {
         const target = button('x', 'acw');
         const icon = new FakeElement('path');
@@ -195,7 +192,6 @@ test("a zoom value that names no direction does nothing", () => {
 });
 
 test("a held button applies one small step per simulation tick", () => {
-    // The hold: small increments paced by the render tick, not one jump per press.
     assert.ok(PER_TICK < Math.PI / 36, `one step should be small, got ${PER_TICK} rad`);
 
     withFixture(({ controller, consoleElement }) => {
@@ -214,19 +210,14 @@ test("a held button applies one small step per simulation tick", () => {
 });
 
 test("a held button keeps rotating after the layout settles", () => {
-    // Regression: the rAF loop stops *stepping* the physics once the layout
-    // settles, and the console rotation rode that same step. A hold therefore
-    // froze ~settleFrames ticks after the press, then stayed frozen.
+    // Regression: rotation rode the physics step, so a hold froze once the rAF loop stopped stepping.
     withFixture(({ dom, controller, consoleElement }) => {
         const period = K.physics.timerTickPeriodMS;
 
-        // The first frame only establishes the clock; no step is due yet.
         dom.runAnimationFrames(0);
 
         pressDown(consoleElement, button('y', 'acw'));
 
-        // One step on press, then one per elapsed period, running well past the
-        // settle window so a frozen hold would show up as missing steps.
         const frames = K.physics.settleFrames + 5;
 
         for (let frame = 1; frame <= frames; frame++)
@@ -242,8 +233,7 @@ test("a held button keeps rotating after the layout settles", () => {
 });
 
 test("a settled hold turns the camera without re-stepping the layout", () => {
-    // The fix for the freeze above must not undo the settle optimisation: once
-    // the layout is quiet, a hold turns the camera on the clock alone.
+    // The fix must not undo the settle optimisation: a settled hold turns the camera on the clock alone.
     withFixture(({ dom, controller, consoleElement }) => {
         const steps = countSteps(controller);
 
@@ -252,14 +242,12 @@ test("a settled hold turns the camera without re-stepping the layout", () => {
         dom.runAnimationFrames(0);
         pressDown(consoleElement, button('y', 'acw'));
 
-        // Run the hold through the settle window.
         for (let frame = 1; frame <= K.physics.settleFrames; frame++)
             dom.runAnimationFrames(period * frame);
 
         const stepsAtSettle = steps();
         const turnedAtSettle = controller.state.camera.orientation;
 
-        // Further frames must keep turning the camera but step the solver no more.
         dom.runAnimationFrames(period * (K.physics.settleFrames + 1));
         dom.runAnimationFrames(period * (K.physics.settleFrames + 2));
 

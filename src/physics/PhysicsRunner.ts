@@ -5,23 +5,16 @@ import { initRequest, PositionsResponse, stepWithPin, StepRequest, WorkerRequest
 import { WorkerPort } from "../core/WorkerChannel";
 
 /**
- * The main-thread owner of the physics: either an in-process solver or a
- * physics worker, behind one interface so nothing above it knows which.
- *
- * Projection, hit-testing, selection and rendering all stay on the main thread;
- * only the force integration moves. See docs/physics.md ("Cadence").
+ * The main-thread owner of the physics; only force integration leaves this thread. See docs/physics.md
+ * ("Cadence").
  */
-
-/** The main-thread view of the physics worker. */
 export type PhysicsWorkerPort = WorkerPort<WorkerRequest, PositionsResponse>;
 
 export type WorkerFactory = () => PhysicsWorkerPort | null;
 
-/** What the runner hides: an in-process solver, or a worker round trip. */
 export interface PhysicsBackend {
-    /** True when physics runs off the main thread. */
     readonly usesWorker: boolean;
-    /** Largest node travel from the most recent step, for the settle detector. */
+    /** Largest node travel in the most recent step, read by the settle detector. */
     readonly maxDisplacement: number;
     step(pinnedIndex: number, x: number, y: number, z: number): void;
     /** The latest flat positions, length 3N. */
@@ -31,24 +24,20 @@ export interface PhysicsBackend {
     terminate(): void;
 }
 
-/** The default: a Worker when the browser has one, else null (in-process). */
 function defaultWorkerFactory(): PhysicsWorkerPort | null {
     if (typeof Worker === "undefined")
         return null;
 
     try {
-        // The demo serves web/index.html beside dist/main.js, so the worker
-        // bundle emitted by webpack's second entry resolves from there.
+        // Resolves because web/index.html is served beside dist/main.js, where webpack's second entry emits
+        // it.
         return new Worker("../dist/simulation.worker.js") as unknown as PhysicsWorkerPort;
     } catch {
         return null;
     }
 }
 
-/**
- * Runs the solver on the main thread. The solver owns the Tags, so `sync()` is
- * a no-op: the positions the renderer reads are already current.
- */
+/** Main-thread solver: it owns the Tags, so `sync()` is a no-op. */
 class InProcessBackend implements PhysicsBackend {
 
     readonly usesWorker = false;
@@ -61,8 +50,7 @@ class InProcessBackend implements PhysicsBackend {
 
     step(pinnedIndex: number, x: number, y: number, z: number): void {
 
-        // The same helper the worker engine uses, so a pin means the same thing
-        // on both backends.
+        // The same helper the worker engine uses, so a pin means the same thing on both backends.
         stepWithPin(this.solver, this.solver.graph, pinnedIndex, x, y, z);
     }
 
@@ -76,13 +64,11 @@ class InProcessBackend implements PhysicsBackend {
     }
 
     sync(_graph: Graph): void {
-        // The in-process solver already wrote the graph's own tags.
     }
 
     terminate(): void {}
 }
 
-/** Runs the solver in a worker and copies the returned positions back. */
 class WorkerBackend implements PhysicsBackend {
 
     readonly usesWorker = true;
@@ -101,14 +87,12 @@ class WorkerBackend implements PhysicsBackend {
 
         this.latest = new Float64Array(graph.vertices.length * 3);
 
-        // Mirror the graph immediately, so the first frame before the worker
-        // answers still draws the right thing.
+        // Mirror now: the first frame may be drawn before the worker answers.
         readPositions(graph, this.latest);
 
         worker.onmessage = event => this.receive(event.data);
 
-        // A worker script that fails to load never answers, so the runner must
-        // hand back to the in-process solver rather than freeze.
+        // A worker script that fails to load never answers: hand back rather than freeze.
         worker.onerror = () => onFailure(this.latest);
 
         worker.postMessage(initRequest(graph, this.generation));
@@ -146,7 +130,6 @@ class WorkerBackend implements PhysicsBackend {
         writePositions(graph, this.latest);
     }
 
-    /** Re-point the worker at a new graph, bumping the generation. */
     reinit(graph: Graph): void {
 
         this.generation++;
@@ -187,38 +170,31 @@ export class PhysicsRunner {
         this.backend = this.createBackend(solver.graph);
     }
 
-    /** True when physics is running in a worker rather than in-process. */
     get usesWorker(): boolean {
         return this.backend.usesWorker;
     }
 
-    /** Largest node travel from the most recent step. */
     get maxDisplacement(): number {
         return this.backend.maxDisplacement;
     }
 
-    /** Advance one fixed step, pinning `pinnedIndex` at the given position. */
     step(pinnedIndex: number, x: number, y: number, z: number): void {
         this.backend.step(pinnedIndex, x, y, z);
     }
 
-    /** The latest flat positions, length 3N. */
     positions(): Float64Array {
         return this.backend.positions();
     }
 
-    /** Copy the latest positions onto `graph`'s tags before projecting. */
     sync(graph: Graph): void {
         this.backend.sync(graph);
     }
 
-    /** Swap the graph, re-initialising the backend and dropping stale messages. */
     setGraph(solver: ForceDirectedGraph): void {
         this.solver = solver;
 
         if (this.backend.usesWorker && this.backend instanceof WorkerBackend) {
-            // Reuse the worker and bump the generation: a response computed for
-            // the graph just replaced must not be applied to the new one.
+            // Reuse the worker, bumping the generation so a response for the replaced graph is dropped.
             this.backend.reinit(solver.graph);
             return;
         }
@@ -234,8 +210,7 @@ export class PhysicsRunner {
 
         let worker: PhysicsWorkerPort | null = null;
 
-        // A worker that cannot even be constructed is not an error: the
-        // in-process backend is the documented fallback.
+        // A worker that cannot be constructed is not an error: in-process is the documented fallback.
         try {
             worker = this.workerFactory();
         } catch {
@@ -250,7 +225,6 @@ export class PhysicsRunner {
         return new InProcessBackend(this.solver);
     }
 
-    /** Replace a failed worker backend with the in-process solver. */
     private fallBack(failed: PhysicsWorkerPort, positions: Float64Array): void {
 
         // Ignore an error from a worker the runner has already replaced.
@@ -259,8 +233,7 @@ export class PhysicsRunner {
 
         failed.terminate();
 
-        // The tags are the in-process solver's state, so seed them from the last
-        // positions the worker reported before handing over.
+        // Seed the in-process solver's tags from the last positions the worker reported.
         writePositions(this.solver.graph, positions);
         this.backend = new InProcessBackend(this.solver);
     }

@@ -15,17 +15,14 @@ import {
     pairAt,
 } from "./support/physics";
 
-/**
- * The r -> 0 singularity used to fling a node ~1340 units in one step; reachable
- * because a drag pins only the dragged node, so the other absorbs the force.
- */
+/** The r -> 0 singularity: a drag pins only the dragged node, so the free one absorbs the force. */
 
 test("the minimum interaction radius is a positive, finite guard", () => {
     const minR = K.physics.minimumInteractionRadius;
 
     assert.ok(Number.isFinite(minR) && minR > 0, `guard radius was ${minR}`);
 
-    // The guard must not reach r = 10, the smallest radius tested in forces.test.ts.
+    // Must not reach r = 10, the smallest radius tested in forces.test.ts.
     assert.ok(minR <= 10, `guard radius ${minR} would alter the reference law at r = 10`);
 });
 
@@ -69,8 +66,7 @@ test("repulsion is exactly the reference law at and above the guard radius", () 
 });
 
 test("dragging a node onto another cannot fling the free node across the world", () => {
-    // One canvas pixel (600/700 model units) is the closest a pointer-driven
-    // drag can place two node centres apart.
+    // One canvas pixel (600/700 model units) is the closest a pointer drag can place two centres.
     const onePixel = K.space.W_0 / 700;
 
     const graph = new Graph();
@@ -82,7 +78,7 @@ test("dragging a node onto another cannot fling the free node across the world",
 
     const fdg = new ForceDirectedGraph(graph);
 
-    // The unbounded law would move the free node ~1340 units in the first step.
+    // Unbounded, this first step moves the free node ~1340 units.
     const before = { x: free.position.x, y: free.position.y, z: free.position.z };
     pinned.position = { x: 0, y: 0, z: 0 };
     fdg.step(CANVAS_W, CANVAS_H, tag => tag === pinned);
@@ -94,7 +90,6 @@ test("dragging a node onto another cannot fling the free node across the world",
 
     assert.ok(firstStep < 20, `first step moved ${firstStep} units, expected a bounded nudge`);
 
-    // A pinned node's position is never integrated, so parking the pointer once is enough.
     pinned.position = { x: 0, y: 0, z: 0 };
     const maxDistanceFromOrigin = maxAbsPosition(fdg, graph, 3000, tag => tag === pinned);
 
@@ -107,7 +102,6 @@ test("dragging a node onto another cannot fling the free node across the world",
         "the free node's position must stay finite"
     );
 
-    // The guard must not change where the pair settles: the undisturbed single-edge equilibrium.
     const settled = Math.hypot(
         free.position.x - pinned.position.x,
         free.position.y - pinned.position.y,

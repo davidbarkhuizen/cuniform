@@ -28,9 +28,8 @@ interface PanFixture {
     b: Tag;
 }
 
-// Two nodes on a 600x600 canvas over a 600x600 model (one unit is one unit),
-// at the cached camera distance so a drag has a real plane. Middle-drag orbits
-// rather than translating nodes; Shift+middle moves the camera target.
+// One unit is one unit at the cached camera distance, so a drag has a real plane; middle-drag orbits,
+// Shift+middle moves the camera target.
 function withFixture<T>(fn: (ui: PanFixture) => T): T {
     const elements = demoElements();
     const canvas = elements.canvas as FakeCanvas;
@@ -53,8 +52,6 @@ function withFixture<T>(fn: (ui: PanFixture) => T): T {
         return fn({ dom, canvas, controller, graph, fdg: controller.solver, a, b });
     });
 }
-
-// ------------------------------------------------------------------ orbiting
 
 test("middle-drag orbits the camera and leaves node positions untouched", () => {
     withFixture(({ controller, a, b }) => {
@@ -95,7 +92,6 @@ test("successive middle moves accumulate the orbit", () => {
 
 test("the first middle move only anchors the gesture and moves nothing", () => {
     withFixture(({ controller, a, b }) => {
-        // Simulate a middle drag already marked down without an anchor.
         controller.state.b1Down = true;
 
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 400, clientY: 300 }));
@@ -137,8 +133,6 @@ test("middle mousedown records the anchor and prevents autoscroll", () => {
     });
 });
 
-// ---------------------------------------------------------- camera-target pan
-
 test("Shift+middle-drag moves the camera target, not the nodes", () => {
     withFixture(({ controller, a, b }) => {
         const beforeA = { ...a.position };
@@ -147,8 +141,7 @@ test("Shift+middle-drag moves the camera target, not the nodes", () => {
         controller.onMouseDown(mouseEvent({ button: 1, clientX: 100, clientY: 100 }));
         controller.onMouseMove(mouseEvent({ button: 1, clientX: 150, clientY: 120, shiftKey: true }));
 
-        // One unit is one unit and the camera is the identity, so +50/-20 canvas is
-        // +50/-20 target on the target plane; node positions are never written.
+        // One unit is one unit with an identity camera, so canvas deltas equal target deltas.
         assertClose(controller.state.camera.target.x, 50, 1e-9, "target x");
         assertClose(controller.state.camera.target.y, -20, 1e-9, "target y");
         assertClose(controller.state.camera.target.z, 0, 1e-9, "target z");
@@ -168,8 +161,6 @@ test("successive Shift+middle moves accumulate the camera pan", () => {
         assertClose(controller.state.camera.target.y, -20, 1e-9, "target y");
     });
 });
-
-// ------------------------------------------------------------------- dolly
 
 test("the wheel dollies the camera distance and prevents page scroll", () => {
     withFixture(({ controller }) => {
@@ -207,8 +198,6 @@ test("a wheel event with no delta is a no-op", () => {
         assert.equal(controller.state.camera.distance, K.camera.distance);
     });
 });
-
-// --------------------------------------------------------------- node drag
 
 test("left-drag unprojects the cursor at the node's depth", () => {
     withFixture(({ controller, a, b }) => {
@@ -269,7 +258,6 @@ test("a culled selected node drags on the near plane", () => {
 
 test("pointer mapping uses the canvas rect, so an offset canvas stays accurate", () => {
     withFixture(({ dom, canvas, controller, a }) => {
-        // The canvas sits at (50, 30) with a page scroll the old offsetParent walk added.
         canvas.rect = {
             top: 30, left: 50, right: 650, bottom: 630,
             width: 600, height: 600, x: 50, y: 30,
@@ -295,13 +283,10 @@ test("a middle move while the left button is up does not follow the node-drag pa
 
         controller.onMouseMove(mouseEvent({ button: 0, clientX: 400, clientY: 300 }));
 
-        // b1Down orbits from the anchor; the selected node is not teleported.
         assert.deepEqual({ ...a.position }, { x: 0, y: 0, z: 0 });
         assert.deepEqual({ ...controller.state.lastMiddleDragPos }, { x: 400, y: 300 });
     });
 });
-
-// ------------------------------------------------------------- camera lifetime
 
 test("a reset rebuilds the graph without losing the viewing angle", () => {
     withFixture(({ controller }) => {
@@ -319,8 +304,6 @@ test("a reset rebuilds the graph without losing the viewing angle", () => {
         assert.equal(controller.state.camera.distance, distance, "zoom must survive a reset");
     });
 });
-
-// ------------------------------------------------------------------- teardown
 
 test("mouseout releases every button and the gesture anchor", () => {
     withFixture(({ controller }) => {
@@ -347,7 +330,7 @@ test("handlers run on a controller that was never initialized", () => {
 
         const controller = newUIController(elements, { width: 600, height: 600, graph });
 
-        // initialize() used to install these globals; no handler may still need them.
+        // No handler may depend on globals initialize() once installed.
         delete dom.window.state;
         delete dom.window.fdg;
 

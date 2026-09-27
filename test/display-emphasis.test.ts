@@ -24,24 +24,16 @@ import { pointerEvent } from "./support/dom";
 import { sparseGraph } from "./support/physics";
 import { withRendererSettings } from "./support/settings";
 
-/**
- * The display emphasis: one frame configuration per graph element. The vocabulary
- * and its preset, then the same policy asserted per draw path, because the
- * per-item, batched and coarse paths are a performance ladder rather than three
- * renderers and a configuration that reversed above a size threshold would be a
- * bug the demo's eleven nodes never show.
- */
-
+// The per-item, batched and coarse draw paths are a performance ladder, so the emphasis policy must hold in
+// all three.
 const NODES = K.renderer.emphasis[Emphasis.nodes];
 const EDGES = K.renderer.emphasis[Emphasis.edges];
-
-// ------------------------------------------------------------- the vocabulary
 
 test("isEmphasis accepts exactly the two wire values", () => {
     assert.equal(isEmphasis(Emphasis.nodes), true);
     assert.equal(isEmphasis(Emphasis.edges), true);
 
-    // Names are the panel's vocabulary, not the wire's.
+    // The panel's string names are not wire values.
     for (const value of ['nodes', 'edges', null, undefined, 2, -1, NaN, 0.5, {}, true]) {
         assert.equal(isEmphasis(value as unknown), false, `isEmphasis(${String(value)}) must be false`);
     }
@@ -61,8 +53,7 @@ test("emphasisFromWire maps an unknown number to the default", () => {
 });
 
 test("the two presets differ in exactly the declared fields", () => {
-    // The two configurations are the whole feature: a field added to one preset
-    // and forgotten in the other is the bug this pins.
+    // A field added to one preset and forgotten in the other is the bug this pins.
     assert.deepEqual(
         Object.keys(NODES).sort(),
         Object.keys(EDGES).sort(),
@@ -84,17 +75,12 @@ test("the two presets differ in exactly the declared fields", () => {
 });
 
 test("the shipped node alpha scale keeps the measured contrast floor", () => {
-    // Dimming the node fills collapses node/edge contrast: 0.70 measures 1.95:1
-    // and 0.85 measures 2.77:1, both below the 3:1 UI floor, while the shipped
-    // palette at full opacity is 3.78:1. So both presets leave it at 1.0, and a
-    // future tune has to move this assertion deliberately.
+    // Dimming node fills collapses node/edge contrast (0.70 measures 1.95:1, 0.85
+    // measures 2.77:1, both below the 3:1 floor), so both presets ship 1.0.
     assert.equal(NODES.nodeAlphaScale, 1.0, "the nodes preset must not fade the nodes");
     assert.equal(EDGES.nodeAlphaScale, 1.0, "the edges preset must not fade the nodes");
 });
 
-// ------------------------------------------------------------ the fixture
-
-/** A path n0 - n1 - n2, with the given view depth per node. */
 function chain(depths: number[]): { graph: Graph; nodes: Tag[] } {
     const graph = new Graph();
     const nodes = depths.map((depth, i) => {
@@ -110,9 +96,8 @@ function chain(depths: number[]): { graph: Graph; nodes: Tag[] } {
     return { graph, nodes };
 }
 
-// n0 - n1 - n2 falling away from the camera: the painter order *within* a class
-// is n0, n1, n2 (farthest first), so a trace reads in node index order. The two
-// edges sit at 250 and 150.
+// DESCENDING chain depths 300/200/100: painter order within a class is farthest
+// first, so a trace reads n0, n1, n2; its two edges sit at 250 and 150.
 const DESCENDING = () => chain([300, 200, 100]);
 
 function draw(graph: Graph, emphasis: Emphasis): FakeContext2D {
@@ -124,12 +109,9 @@ function draw(graph: Graph, emphasis: Emphasis): FakeContext2D {
     return context;
 }
 
-/** The op kinds with each label named, so an order assertion reads. */
 function trace(context: FakeContext2D): string[] {
     return context.ops.map(op => (op.kind === "text" ? `text:${op.text}` : op.kind));
 }
-
-// ------------------------------------------------------- per-item paint order
 
 test("nodes emphasis draws the whole mesh behind the nodes", () => {
     const { graph } = DESCENDING();
@@ -158,7 +140,6 @@ test("edges emphasis draws the whole mesh over the nodes", () => {
 });
 
 test("the per-item emphasis reverses the order and nothing else", () => {
-    // Same nodes, same edges, same colours: only the class order moves.
     const { graph } = DESCENDING();
 
     const nodes = draw(graph, Emphasis.nodes);
@@ -170,11 +151,7 @@ test("the per-item emphasis reverses the order and nothing else", () => {
     assert.notDeepEqual(trace(edges), trace(nodes), "but not the same paint order");
 });
 
-// ------------------------------------------------------- batched paint order
-
 test("the batched path draws edges before the nodes in nodes mode", () => {
-    // Above the gate the frame keeps the old shape: the whole mesh in one pass,
-    // then the depth-sorted nodes over it.
     const { graph } = DESCENDING();
 
     const context = withRendererSettings({ batchEdgesMinEdges: 0 }, () => draw(graph, Emphasis.nodes));
@@ -184,8 +161,7 @@ test("the batched path draws edges before the nodes in nodes mode", () => {
 });
 
 test("the batched path draws edges after the nodes in edges mode", () => {
-    // The size gate must not exempt the frame: this is the regression the demo's
-    // 11 nodes can never show.
+    // The size gate must not exempt the frame; the demo's 11 nodes never reach it.
     const { graph } = DESCENDING();
 
     const context = withRendererSettings({ batchEdgesMinEdges: 0 }, () => draw(graph, Emphasis.edges));
@@ -204,8 +180,6 @@ test("no edge is drawn twice when the batch pass moves after the node loop", () 
     assert.equal(context.strokes.length, 2, "one stroke per depth bucket, not one per edge");
 });
 
-// -------------------------------------------------------- coarse paint order
-
 test("the coarse path draws edges after the fills in edges mode", () => {
     const { graph, nodes } = DESCENDING();
     nodes[1].isSelected = true;
@@ -220,8 +194,6 @@ test("the coarse path draws edges after the fills in edges mode", () => {
 });
 
 test("the coarse path keeps the ordinary order in nodes mode", () => {
-    // The mesh is drawn first, then the colour-batched fills, then the selection's
-    // ring and labels on top of everything.
     const { graph, nodes } = DESCENDING();
     nodes[1].isSelected = true;
 
@@ -237,8 +209,7 @@ test("the coarse path keeps the ordinary order in nodes mode", () => {
 });
 
 test("the coarse edges mode re-draws the selection's ring and labels over the mesh", () => {
-    // Without the bounded second pass a 2.5 px mesh would bury the one label the
-    // user is reading. The set is the selection and its incident neighbours.
+    // Without the bounded second pass a 2.5 px mesh would bury the selected label.
     const { graph, nodes } = DESCENDING();
     nodes[1].isSelected = true;
 
@@ -249,8 +220,6 @@ test("the coarse edges mode re-draws the selection's ring and labels over the me
     assert.equal(context.ops[context.ops.length - 1].kind, "text", "the last op is a label");
     assert.ok(lastStroke < context.ops.length - 1, "the label pass must follow the edge pass");
 
-    // Nodes 0, 1 and 2 are the selection and its neighbours, each drawn twice:
-    // once before the mesh and once after it.
     const after = context.textLabels.slice(-3);
     assert.deepEqual([...after].sort(), ["n0", "n1", "n2"]);
     assert.equal(context.textLabels.length, 6, "each label is drawn on both passes");
@@ -265,16 +234,12 @@ test("the coarse edges mode does not re-draw anything without a selection", () =
     assert.equal(context.ops[context.ops.length - 1].kind, "stroke", "the mesh is still last");
 });
 
-// ------------------------------------------------------------------- alpha
-
 test("the nodes preset scales only the edge alphas", () => {
     const { graph } = chain([100, 300, 500]);
-
 
     const scaled = draw(graph, Emphasis.nodes);
     const plain = draw(graph, Emphasis.edges);
 
-    // The per-item path draws each edge at its own depth.
     assert.equal(scaled.strokeAlphas.length, plain.strokeAlphas.length);
     scaled.strokeAlphas.forEach((alpha, i) => {
         assert.equal(
@@ -292,7 +257,7 @@ test("the edges preset leaves every alpha at the unscaled ramp", () => {
 
     const context = draw(graph, Emphasis.edges);
 
-    // The fade spans the drawn range 100..300: near 1.0, far 0.35.
+    // The fade spans the drawn range 100..300.
     const ramp = (depth: number) => {
         const t = (depth - 100) / 200;
         return K.depthCue.maxAlpha + (K.depthCue.minAlpha - K.depthCue.maxAlpha) * t;
@@ -300,8 +265,7 @@ test("the edges preset leaves every alpha at the unscaled ramp", () => {
 
     assert.deepEqual(context.fillAlphas, [ramp(300), ramp(200), ramp(100)]);
 
-    // The two edges sit at 250 and 150, on the plain ramp; the batch groups run
-    // nearest bucket first, so the nearer edge strokes first.
+    // The two edges sit at 250 and 150; batch groups run nearest bucket first.
     assert.deepEqual(
         context.strokeAlphas.map(a => Number(a.toFixed(6))),
         [Number(ramp(250).toFixed(6)), Number(ramp(150).toFixed(6))]
@@ -309,8 +273,7 @@ test("the edges preset leaves every alpha at the unscaled ramp", () => {
 });
 
 test("the batched paths scale their bucketed alphas by the class scale", () => {
-    // A flat chain: every bucket sits at the top of the ramp, so the nodes preset's
-    // scale is the only thing that can move the batched alpha.
+    // A flat chain puts every bucket at the top of the ramp, isolating the class scale.
     const { graph } = chain([K.camera.distance, K.camera.distance, K.camera.distance]);
 
     const nodes = withRendererSettings({ batchEdgesMinEdges: 0 }, () => draw(graph, Emphasis.nodes));
@@ -319,12 +282,9 @@ test("the batched paths scale their bucketed alphas by the class scale", () => {
     assert.equal(nodes.strokeAlphas[0], K.depthCue.maxAlpha * NODES.edgeAlphaScale);
     assert.equal(edges.strokeAlphas[0], K.depthCue.maxAlpha);
 
-    // The collapsed coarse fill follows the same rule.
     const coarse = withRendererSettings({ minNodes: 0 }, () => draw(graph, Emphasis.edges));
     assert.equal(coarse.fillAlphas[0], K.depthCue.maxAlpha);
 });
-
-// -------------------------------------------------------------- edge width
 
 test("the edge stroke width follows the emphasis in every path", () => {
     const { graph } = DESCENDING();
@@ -343,15 +303,13 @@ test("the edge stroke width follows the emphasis in every path", () => {
 });
 
 test("the selection ring keeps its own width beside a heavier mesh", () => {
-    // The ring must not inherit the edge width: `edges` mode is what makes that
-    // inheritance possible, so it is asserted rather than assumed.
+    // The ring must not inherit the edge width; `edges` mode is what makes that possible.
     const { graph, nodes } = DESCENDING();
     nodes[0].isSelected = true;
 
     const context = draw(graph, Emphasis.edges);
 
-    // The ring is drawn with its node, before the mesh; every other stroke is an
-    // edge at the emphasis's width. The ring must not inherit it.
+    // The ring is drawn with its node, before the mesh.
     assert.equal(context.strokeWidths.length, graph.edges.length + 1);
 
     const ringAt = context.strokes.indexOf(K.colours.nodeSelected);
@@ -366,8 +324,7 @@ test("the selection ring keeps its own width beside a heavier mesh", () => {
 });
 
 test("the coarse ring and labels take no node alpha scale", () => {
-    // Text is the one thing the depth fade must not compound, so the label alpha
-    // is the plain ramp even when a node scale exists.
+    // Text is the one thing the depth fade must not compound: labels get the plain ramp.
     const { graph, nodes } = DESCENDING();
     nodes[1].isSelected = true;
 
@@ -378,8 +335,6 @@ test("the coarse ring and labels take no node alpha scale", () => {
         `labels must stay on the full ramp, got ${context.textAlphas}`
     );
 });
-
-// --------------------------------------------------------------- determinism
 
 test("each emphasis is deterministic", () => {
     const { graph } = DESCENDING();
@@ -406,26 +361,18 @@ test("the renderer still never scans the graph in either emphasis", () => {
     }
 });
 
-// ------------------------------------------------------- the panel control
-
-/** The `data-emphasis` button the fake console owns. */
 function emphasisButton(ui: { elements: Record<string, FakeElement> }, name: string): FakeElement {
     const button = ui.elements.emphasisConsole.children.find(child => child.getAttribute('data-emphasis') === name);
     assert.ok(button, `the console needs a ${name} button`);
     return button;
 }
 
-/**
- * Press a console button: the fake DOM does not bubble, so the delegated listener
- * is invoked where the browser would invoke it, on the container, with the button
- * as the target.
- */
+// The fake DOM does not bubble, so dispatch on the container with the button as target.
 function press(ui: { elements: Record<string, FakeElement> }, name: string): void {
     const button = emphasisButton(ui, name);
     ui.elements.emphasisConsole.dispatch('click', { target: button, detail: 1 });
 }
 
-/** Read `aria-pressed` off both buttons, as the browser would. */
 function pressed(ui: { elements: Record<string, FakeElement> }): Record<string, string | null> {
     return {
         nodes: emphasisButton(ui, 'nodes').getAttribute('aria-pressed'),
@@ -539,9 +486,7 @@ test("the emphasis console carries one delegated click listener", () => {
 });
 
 test("a press on an emphasis button never starts a panel drag", () => {
-    // The panel is a drag surface. Real buttons are what make the control safe
-    // without a stopPropagation guard, so the exclusion is asserted rather than
-    // assumed.
+    // Real buttons are what keep the panel drag safe without a stopPropagation guard.
     const panel = new FakeElement('DIV');
     const console = emphasisConsoleElement();
     panel.appendChild(console);
@@ -582,8 +527,7 @@ test("the selection highlight composes with, and is never replaced by, the empha
 });
 
 test("toggling the emphasis neither wakes the layout nor moves the camera", () => {
-    // The toggle is a legibility control, not a data operation: it redraws, and a
-    // settled layout must stay settled.
+    // The toggle is a legibility control, not a data operation: a settled layout must stay settled.
     const backend = new FakeRenderBackend();
 
     withUIController(ui => {

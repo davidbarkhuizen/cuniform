@@ -1,12 +1,9 @@
 /**
- * The element walk shared by the panel drag and the two delegated consoles.
- *
- * Declared structurally rather than as `HTMLElement`: the walk must run on the
- * dependency-free test DOM as well as in a browser, which is also why it
- * ascends via `parentElement` rather than calling `closest()`.
+ * The element walk shared by the panel drag and the delegated consoles. Declared
+ * structurally, and ascending via `parentElement` rather than `closest()`, so it
+ * also runs on the dependency-free test DOM.
  */
 
-/** The structural node shape the walk needs: a parent link and what it tests. */
 export interface AncestorNode {
     parentElement?: AncestorNode | null;
     tagName?: string;
@@ -15,13 +12,9 @@ export interface AncestorNode {
 
 /**
  * The nearest node on `target`'s ancestor chain - `target` included - that
- * `accept` takes, or null when the chain ends first.
- *
- * `stopBefore` is exclusive: a press that starts on a component's body must not
- * match that component's own boundary. One implementation, so the panel drag's
- * press-ownership check, the camera console's delegated buttons and the emphasis
- * console's delegated buttons cannot disagree about which element an event
- * belongs to (or about where their walk stops).
+ * `accept` takes, or null when the chain ends first. `stopBefore` is exclusive:
+ * a press that starts on a component's body must not match that component's own
+ * boundary.
  */
 export function firstAncestor<T extends AncestorNode>(
     target: EventTarget | null,

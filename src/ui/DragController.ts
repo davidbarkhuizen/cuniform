@@ -1,12 +1,10 @@
 import { AncestorNode, firstAncestor } from "./Dom";
 
-// Elements that own their own press. Pointer capture retargets the compatibility
-// `click` to the panel, so without this guard a control's click would be swallowed.
+// A control owns its own press; pointer capture retargets `click` to the panel, which would swallow it.
 const INTERACTIVE_TAGS = new Set([
     'A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL', 'SUMMARY',
 ]);
 
-/** Drags the floating overlay panel; pointer events cover mouse, touch and pen continuously. */
 export class DragController {
 
 	public startPointerX: number = 0;
@@ -20,8 +18,7 @@ export class DragController {
 
     public element: HTMLElement;
 
-    // The grip a touch drag must start on, or null when the whole element is the
-    // drag surface. Mouse and pen always drag the whole element.
+    // Touch drag must start here; null means the whole element is the drag surface.
     private readonly touchHandle: HTMLElement | null;
 
     private activePointerId: number | null = null;
@@ -31,11 +28,9 @@ export class DragController {
 		this.element = element
 		this.touchHandle = touchHandle;
 
-		// The panel body must stay touch-scrollable, so `touch-action: none` goes on
-		// the handle when there is one; without a handle the element is the surface.
+		// On the handle when there is one, so the panel body stays touch-scrollable.
 		(touchHandle ?? element).style.touchAction = 'none';
 
-		// user-select: none stops label selection during a drag.
 		this.element.style.userSelect = 'none';
 
 		this.element.addEventListener('pointerdown', this.onPointerDown);
@@ -46,15 +41,13 @@ export class DragController {
 
 	onPointerDown = (event: PointerEvent) => {
 
-		// A right- or middle-click must not move the panel.
 		if (event.button !== 0)
 			return;
 
-		// A press starting on a control belongs to that control, not the panel.
 		if (this.ownsInteractivePress(event.target))
 			return;
 
-		// A touch on the panel body scrolls it; only the handle starts a touch drag.
+		// Touch on the body scrolls; only the handle starts a touch drag.
 		if (event.pointerType === 'touch' && this.touchHandle && !this.isWithin(this.touchHandle, event.target))
 			return;
 
@@ -73,7 +66,7 @@ export class DragController {
 		this.startTop = parentRect ? rect.top - parentRect.top : 0;
 		this.startLeft = parentRect ? rect.left - parentRect.left : 0;
 
-		// Capture so moves keep arriving once the pointer leaves the panel.
+		// So moves keep arriving outside the panel.
 		this.element.setPointerCapture(event.pointerId);
 	}
 
@@ -85,7 +78,6 @@ export class DragController {
 		this.dragX = event.clientX - this.startPointerX;
 		this.dragY = event.clientY - this.startPointerY;
 
-		// Apply each move so the panel tracks the pointer instead of jumping on release.
 		this.applyPosition();
 	}
 
@@ -103,9 +95,7 @@ export class DragController {
 			this.element.releasePointerCapture(event.pointerId);
 	}
 
-	// Walks the ancestor chain rather than closest(), so the check works on the
-	// dependency-free test DOM as well as the browser. The walk itself lives in
-	// `Dom.firstAncestor()`, shared with the console's delegated handlers.
+	// Uses Dom.firstAncestor() (the test DOM has no closest()), shared with the delegated handlers.
 	private ownsInteractivePress(target: EventTarget | null): boolean {
 
 		const panel = this.element as unknown as AncestorNode;
@@ -116,7 +106,6 @@ export class DragController {
 		}, panel) !== null;
 	}
 
-	/** True when `target` is `ancestor` itself or one of its descendants. */
 	private isWithin(ancestor: HTMLElement, target: EventTarget | null): boolean {
 
 		const wanted = ancestor as unknown as AncestorNode;

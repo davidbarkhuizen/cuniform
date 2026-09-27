@@ -5,18 +5,15 @@ import { K } from "../src/core/K";
 import { readWeb } from "./support/files";
 
 /**
- * The layout lives in the two static demo assets rather than in TypeScript, so
- * these read them back and pin the structure the UI depends on.
+ * The layout lives in the static demo assets; these read them back and pin the structure the UI depends on.
  */
 
-/** Everything from the overlay panel's opening tag to the end of the body. */
 function panelMarkup(html: string): string {
     const start = html.indexOf('id="selectionInfoPanel"');
     assert.notEqual(start, -1, "index.html has no #selectionInfoPanel");
     return html.slice(start, html.indexOf("</body>", start));
 }
 
-/** The declaration block of the first rule whose selector contains `selector`. */
 function cssRule(css: string, selector: string): string {
     const start = css.indexOf(selector);
     assert.notEqual(start, -1, `stylez.css has no rule matching ${selector}`);
@@ -24,8 +21,6 @@ function cssRule(css: string, selector: string): string {
     const close = css.indexOf("}", open);
     return css.slice(open + 1, close);
 }
-
-// ------------------------------------------------------------------ markup
 
 test("the title and the export/reset links live inside the floating panel", () => {
     const panel = panelMarkup(readWeb("index.html"));
@@ -52,8 +47,6 @@ test("the panel's fixed menu comes before the selected-node section", () => {
         assert.ok(panel.indexOf(`id="${id}"`) > selection, `${id} belongs in the selection section`);
     }
 
-    // The actions used to share this section; they now sit at the foot of the
-    // panel, below the camera console.
     for (const id of ["export_canvas_link", "reset_link"]) {
         assert.ok(panel.indexOf(`id="${id}"`) > menu, `${id} should no longer sit in the menu section`);
     }
@@ -176,8 +169,6 @@ test("the export and reset actions sit below the camera console", () => {
     assert.notEqual(actions, -1, "the panel needs its export/reset actions");
     assert.ok(camera < actions, "the actions belong below the camera console");
 
-    // The actions are the panel's last section, so each id is found after its
-    // opening tag and before the panel closes.
     for (const id of ["export_canvas_link", "reset_link"]) {
         assert.ok(
             panel.indexOf(`id="${id}"`) > actions,
@@ -189,7 +180,6 @@ test("the export and reset actions sit below the camera console", () => {
 test("the camera console has six labelled axis/direction rotate buttons", () => {
     const panel = panelMarkup(readWeb("index.html"));
 
-    // Attributes may span several lines, so compare against whitespace-normalised markup.
     const markup = panel.replace(/\s+/g, " ");
 
     for (const axis of ["x", "y", "z"]) {
@@ -218,11 +208,8 @@ test("the camera console has six labelled axis/direction rotate buttons", () => 
 test("each rotate button draws its own axis and direction icon", () => {
     const panel = panelMarkup(readWeb("index.html"));
 
-    // Attributes may span several lines, so compare against whitespace-normalised markup.
     const markup = panel.replace(/\s+/g, " ");
 
-    // The one shared glyph per direction is gone: a rotate button now carries
-    // an inline SVG, so the icon can name the axis and the way it turns.
     assert.ok(!markup.includes("&#8635;") && !markup.includes("&#8634;"),
         "the shared rotate glyphs should be replaced by per-axis icons");
 
@@ -251,7 +238,6 @@ test("each rotate button draws its own axis and direction icon", () => {
 test("the camera console has a labelled zoom row with in and out buttons", () => {
     const panel = panelMarkup(readWeb("index.html"));
 
-    // Attributes may span several lines, so compare against whitespace-normalised markup.
     const markup = panel.replace(/\s+/g, " ");
 
     for (const direction of ["in", "out"]) {
@@ -313,8 +299,7 @@ test("the canvas is focusable and carries fallback content", () => {
 });
 
 test("the canvas accessible label names the 3D view and the mouse gestures", () => {
-    // The gestures are mouse-only, so the label is the only place a non-visual
-    // user learns the view is 3D.
+    // The gestures are mouse-only, so the label is the only place a non-visual user learns the view is 3D.
     const html = readWeb("index.html");
 
     const start = html.indexOf("<canvas");
@@ -327,8 +312,6 @@ test("the canvas accessible label names the 3D view and the mouse gestures", () 
     assert.match(label, /wheel to zoom/i, "the label should describe the dolly gesture");
     assert.match(label, /Shift\+F10/, "the label should keep the actions-menu hint");
 });
-
-// -------------------------------------------------------------------- css
 
 test("the canvas container fills the viewport and the canvas fills it", () => {
     const css = readWeb("stylez.css");
@@ -351,8 +334,6 @@ test("the overlay panel is opaque and outlined rather than washed out", () => {
     assert.match(panel, /border\s*:/);
     assert.ok(!/opacity\s*:/.test(panel), "the panel should no longer be translucent");
 });
-
-// ----------------------------------------------------------------- colours
 
 /** WCAG relative luminance of a `#rrggbb` colour. */
 function luminance(hex: string): number {
@@ -388,10 +369,7 @@ test("nodes and the selection highlight contrast strongly with the edges", () =>
 });
 
 test("the stylesheet palette mirrors the canvas palette", () => {
-    // The panel's selected-node text and the selected node itself are meant to
-    // read as one highlight, so --fg is K.colours.label and --highlight is
-    // K.colours.nodeSelected. Nothing but this assertion keeps the two
-    // languages' copies in step.
+    // Nothing but this assertion keeps the stylesheet's --fg/--highlight in step with K.colours.
     const root = cssRule(readWeb("stylez.css"), ":root");
 
     const token = (name: string): string | undefined =>
@@ -404,8 +382,6 @@ test("the stylesheet palette mirrors the canvas palette", () => {
         "--highlight must be K.colours.nodeSelected"
     );
 });
-
-// ------------------------------------------------------------------ wizard
 
 test("the graph wizard layers above the floating panel", () => {
     const css = readWeb("stylez.css");

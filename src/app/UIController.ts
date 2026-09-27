@@ -27,37 +27,24 @@ import { handleNodeSelectionAttempt } from "../ui/Selection";
 import { State } from "./State";
 import { Tag } from "../graph/Tag";
 
-/**
- * Builds the graph a `GraphSpec` describes. Supplied by the caller rather than
- * read from globals; the spec is passed by value because the chooser decides
- * which graph to build after the controller exists.
- */
+/** Builds the graph a `GraphSpec` describes; supplied by the caller, not read from globals. */
 export type GraphSource = (spec: GraphSpec) => Graph;
 
 const defaultGraphSource: GraphSource = spec => new GraphFactory().build(spec);
 
-/** The two keys a focused button activates on. Browsers synthesise a click for
- * both, which is why the hold paths must cancel the default.
- */
+/** The two keys a focused button activates on; browsers synthesise a click for both. */
 const isButtonActivationKey = (event: KeyboardEvent): boolean =>
 	event.key === 'Enter' || event.key === ' ';
 
-// A parsed console button: a rotation about one camera axis, or a dolly step.
-// The two shapes are discriminated so the handlers can branch on `kind` without
-// re-reading the element's attributes.
 type CameraButton =
 	| { kind: 'rotate'; axis: CameraAxis; direction: CameraDirection }
 	| { kind: 'zoom'; zoom: CameraZoom };
 
 export class UIController {
 
-    /**
-     * The setInterval handle when the fallback scheduler is in use, else null.
-     * Where it exists, requestAnimationFrame drives the simulation instead.
-     */
+    /** The setInterval handle when the fallback scheduler is in use, else null. */
     timer: ReturnType<typeof setInterval> | null = null;
 
-    /** The pending requestAnimationFrame handle, else null. */
     private frameHandle: number | null = null;
 
     /** Real time accumulated since the last fixed physics step, milliseconds. */
@@ -66,28 +53,16 @@ export class UIController {
     /** Timestamp of the previous frame; null before the first frame or after a wake. */
     private lastFrameTime: number | null = null;
 
-    /** Consecutive steps whose largest travel was below the settle epsilon. */
     private quietSteps = 0;
 
-    /** True once the layout has settled and stepping has stopped. */
     private settled = false;
 
-    /**
-     * True when the next animation frame must draw even if no step ran and the
-     * camera did not move. Any change that is neither physics nor camera -
-     * selection, drag, resize, graph swap - sets it through requestRedraw().
-     */
+    /** Set through requestRedraw() by any change that is neither physics nor camera. */
     private needsRedraw = true;
 
-    /**
-     * The mutable camera values the last drawn frame used, in reusable scratch.
-     * A frame is skipped while these still match the live camera, so a settled,
-     * untouched scene issues no canvas work at all. Seeded from
-     * `defaultCameraView()`, so the default camera has one definition.
-     */
+    /** Reusable scratch holding the last drawn camera; seeded from `defaultCameraView()`. */
     private readonly lastDrawnCamera = cameraScratch();
 
-    /** True while the simulation loop is scheduled, by either scheduler. */
     get running(): boolean {
         return this.frameHandle !== null || this.timer !== null;
     }
@@ -96,13 +71,10 @@ export class UIController {
 
     private solverRef: ForceDirectedGraph | null = null;
 
-    // The physics owner: an in-process solver, or a worker behind the same
-    // interface. Null until the solver exists.
+    // The physics owner: an in-process solver or a worker behind the same interface.
     private runnerRef: PhysicsRunner | null = null;
 
-    // The drawing owner: an in-process canvas backend, or a render worker behind
-    // the same interface. Null until initialize() (or the lazy getter a handler
-    // can reach before it) builds one.
+    // The drawing owner: an in-process canvas backend or a render worker behind the same interface.
     private renderRunnerRef: RenderRunner | null = null;
 
     body: HTMLElement;
@@ -110,49 +82,38 @@ export class UIController {
     exportElement: HTMLElement;
     resetElement: HTMLElement;
 
-    // What updateSelectionInfo() writes to; resolved by the entrypoint, not
-    // looked up here by hardcoded ID.
+    // Written by updateSelectionInfo(); resolved by the entrypoint, not by hardcoded ID.
     selectionInfoLabel: HTMLElement;
     selectionInfoList: HTMLElement;
 
-    // The camera console's container; null in a fixture that builds a
-    // controller without the console.
+    // The camera console's container; null in fixtures without one.
     cameraConsole: HTMLElement | null;
 
-    // The display emphasis control's container; null in a fixture that builds a
-    // controller without it.
+    // The emphasis control's container; null in fixtures without one.
     emphasisConsole: HTMLElement | null;
 
-    // The console button currently held, or null. While set, each simulation
-    // tick applies one small step, so holding turns or zooms smoothly.
+    // The console button currently held; each tick applies one step while it is set.
     private heldButton: CameraButton | null = null;
 
-    // One tick's worth of console rotation, radians; derived from a rate so the
-    // felt speed survives a retune of the tick period.
+    // Radians per tick, derived from a rate so felt speed survives a tick-period retune.
     private static readonly ROTATION_PER_TICK =
         K.camera.rotateRadiansPerSecond * K.physics.timerTickPeriodMS / 1000;
 
     contextMenu: ContextMenu | null = null;
 
-    // The open graph chooser, or null. Owned so terminate() can close it.
+    // Owned so terminate() can close it.
     wizard: GraphWizard | null = null;
 
-    // The current graph description: the shipped random default set by
-    // initialize(), then whatever the last chooser choice was. The graph itself
-    // lives in the solver.
+    // The current graph description; the graph itself lives in the solver.
     spec: GraphSpec | null = null;
 
-    // The cached selection: the renderer takes it as an argument instead of
-    // rescanning the graph every frame. Refreshed by updateSelectionInfo(),
-    // which every selection-changing path already calls.
+    // Cached selection passed to the renderer; refreshed by updateSelectionInfo().
     private selected: Tag | null = null;
 
-    // The panel's current-graph line; it names the technical spec so the word
-    // cloud's short chips never lose the identity of the loaded graph.
+    // Names the technical spec, unlike the word cloud's short chips.
     currentGraphLabel: HTMLElement;
 
-    // Logical (CSS-pixel) canvas size; all projected-plane <-> canvas mapping
-    // uses these so pointer coordinates survive a scaled HiDPI backing store.
+    // Logical (CSS-pixel) canvas size; all canvas mapping uses these, not the HiDPI backing store.
     width: number = 0;
     height: number = 0;
 
@@ -166,12 +127,10 @@ export class UIController {
         currentGraphLabel: HTMLElement,
         cameraConsole: HTMLElement | null,
         private readonly makeGraph: GraphSource = defaultGraphSource,
-        // A test seam: the backend the runner wraps instead of the canvas's own
-        // 2D context. Production always draws through the real one.
+        // Test seam: the backend the runner wraps instead of the canvas's own 2D context.
         private readonly renderBackend: RenderBackend | null = null,
-        // A test seam: the worker the runner probes instead of the bundled one.
+        // Test seam: the worker the runner probes instead of the bundled one.
         private readonly renderWorkerFactory: RenderWorkerFactory | undefined = undefined,
-        // The display emphasis control's container; null when the panel has none.
         emphasisConsole: HTMLElement | null = null
 	) {
         this.body = body;
@@ -185,13 +144,11 @@ export class UIController {
         this.emphasisConsole = emphasisConsole;
 	}
 
-    /** The graph a fresh initialize() shows: the last choice, else the default. */
     private initialGraph(): Graph {
         return this.makeGraph(this.spec ?? defaultGraphSpec());
     }
 
-    // Built lazily so a handler that runs before initialize() (or a test that
-    // never initializes) still has one.
+    // Built lazily for handlers that run before initialize().
     get solver(): ForceDirectedGraph {
         if (this.solverRef === null)
             this.solverRef = new ForceDirectedGraph(this.initialGraph());
@@ -199,7 +156,6 @@ export class UIController {
         return this.solverRef;
     }
 
-    /** The physics owner, built lazily alongside the solver. */
     get runner(): PhysicsRunner {
         if (this.runnerRef === null)
             this.runnerRef = new PhysicsRunner(this.solver);
@@ -207,7 +163,6 @@ export class UIController {
         return this.runnerRef;
     }
 
-    /** The drawing owner, built lazily alongside the solver. */
     get renderRunner(): RenderRunner {
         if (this.renderRunnerRef === null)
             this.renderRunnerRef = this.createRenderRunner(this.solver.graph);
@@ -215,10 +170,7 @@ export class UIController {
         return this.renderRunnerRef;
     }
 
-    // The injected backend in tests, else a probed render worker, else the
-    // canvas's own context. A backend that becomes ready later asks for the
-    // redraw through onReady, so the controller's private needsRedraw stays
-    // private.
+    // onReady routes a late-ready backend's redraw request, keeping needsRedraw private.
     private createRenderRunner(graph: Graph): RenderRunner {
         const onReady = () => this.requestRedraw();
 
@@ -230,8 +182,7 @@ export class UIController {
             workerFactory: this.renderWorkerFactory,
         });
 
-        // entrypoint() refuses to start when the canvas can neither transfer nor
-        // give a context, so this is the impossible path.
+        // entrypoint() refuses such a canvas, so this path is unreachable.
         if (runner === null)
             throw new Error("UIController: the canvas can neither transfer to an OffscreenCanvas nor give a 2d context");
 
@@ -244,15 +195,12 @@ export class UIController {
 
 	onMouseMove = (event: MouseEvent) => {
 
-		// A drag or an orbit is interaction, so a settled layout starts moving again.
 		if (this.state.b0Down || this.state.b1Down)
 			this.wake();
 
 		if (this.state.b0Down) {
 
-			// Left-drag: each selected node follows the cursor in the view
-			// plane through its own depth, the exactly invertible policy. A
-			// culled node has no usable depth, so it drags on the near plane.
+			// A culled node has no usable depth, so it drags on the near plane.
 			const mxy = this.getMousePos(this.canvas, event);
 			const projector = this.projector();
 
@@ -268,15 +216,11 @@ export class UIController {
 				vertex.position = projector.unproject(mxy, depth);
 			}
 
-			// Writing positions is neither a step nor a camera move, and a frame
-			// whose accumulator is below one period runs no step, so without this
-			// the drag would freeze between ticks.
+			// No step or camera move here, so the idle-frame skip would freeze the drag.
 			this.requestRedraw();
 		}
 		else if (this.state.b1Down) {
 
-			// Middle-drag orbits; Shift+middle-drag pans the camera target. The
-			// modifier is read per move, so it can change mid-drag.
 			const mxy = this.getMousePos(this.canvas, event);
 
 			if (event.shiftKey)
@@ -286,12 +230,7 @@ export class UIController {
 		}
 	};
 
-	/**
-	 * The previous middle-drag anchor, or null after seeding it from the first
-	 * move of a gesture. Orbit and Shift+pan consume the anchor identically, so
-	 * the "first move seeds and returns, later moves consume-and-restore"
-	 * lifecycle lives here once.
-	 */
+	/** Previous middle-drag anchor, or null after seeding it from the gesture's first move. */
 	private takeDragAnchor(mxy: Point2D): Point2D | null {
 
 		const last = this.state.lastMiddleDragPos;
@@ -305,8 +244,6 @@ export class UIController {
 		return last;
 	};
 
-	// Orbit by the pointer delta since the anchor. The live camera lives in
-	// State, so reset() rebuilds the graph without losing the angle.
 	orbitTo = (mxy: Point2D) => {
 
 		const last = this.takeDragAnchor(mxy);
@@ -317,8 +254,6 @@ export class UIController {
 		this.state.camera.orbit(mxy.x - last.x, mxy.y - last.y);
 	};
 
-	// Shift+middle-drag pans the camera target (D4): the pointer delta is
-	// unprojected at the target's depth, and node positions are never touched.
 	panCameraTo = (mxy: Point2D) => {
 
 		const last = this.takeDragAnchor(mxy);
@@ -328,8 +263,7 @@ export class UIController {
 
 		const projector = this.projector();
 
-		// The target's depth is `distance`, so this slides the plane through
-		// the target.
+		// Unprojecting at `distance` slides the plane through the camera target.
 		const depth = this.state.camera.distance;
 
 		const now = projector.unproject(mxy, depth);
@@ -340,8 +274,7 @@ export class UIController {
 		);
 	};
 
-	// Wheel dollies; `focalLength` is constant by design, so only the distance
-	// changes, clamped above the near plane.
+	// Wheel dollies; `focalLength` is constant by design, so only the distance changes.
 	onWheel = (event: WheelEvent) => {
 
 		const notches = event.deltaY > 0 ? 1 : event.deltaY < 0 ? -1 : 0;
@@ -349,17 +282,13 @@ export class UIController {
 		if (notches !== 0) {
 			this.state.camera.dolly(notches);
 
-			// A dolly is interaction, so a settled layout starts moving again.
 			this.wake();
 		}
 
-		// The canvas fills the viewport; the wheel must not scroll the page.
 		event.preventDefault();
 	};
 
-	// Parse a console button out of an event target. The container is stable, so
-	// one delegated listener per event type serves every button, and the data
-	// attributes name the direction (and, for a rotation, the axis).
+	// Parse a console button out of an event target.
 	private cameraButton(target: EventTarget | null): CameraButton | null {
 
 		const element = this.consoleButton(target);
@@ -367,9 +296,7 @@ export class UIController {
 		if (!element)
 			return null;
 
-		// The guards are the runtime half of the CameraAxis/CameraDirection/
-		// CameraZoom vocabularies, so this cannot accept a value a type does not
-		// name. A zoom is tried first: its button carries no axis or direction.
+		// Guards are the runtime half of the Camera* vocabularies; zoom is tried first.
 		const zoom = element.getAttribute('data-zoom');
 
 		if (isCameraZoom(zoom))
@@ -387,10 +314,7 @@ export class UIController {
 		return { kind: 'rotate', axis, direction };
 	}
 
-	// The button carrying the console data attributes, from `target` upwards: a
-	// rotate button holds an SVG icon, so a press can land on the icon rather
-	// than the button itself. The walk stops at the console, so a press on the
-	// panel around it finds nothing.
+	// Walks up because a press can land on a button's SVG icon; the walk stops at the console.
 	private consoleButton(target: EventTarget | null): HTMLElement | null {
 
 		const element = firstAncestor<AncestorNode>(
@@ -403,9 +327,7 @@ export class UIController {
 		return element as HTMLElement | null;
 	}
 
-	// One step of a console button: a small rotation, or one dolly notch.
-	// Anticlockwise is the right-hand positive sense about the axis, so it is the
-	// positive step; a zoom names its direction, so the camera owns that sign.
+	// Anticlockwise is the right-hand positive sense about the axis, hence the positive step.
 	private applyCameraButton(button: CameraButton): void {
 
 		if (button.kind === 'zoom') {
@@ -420,35 +342,29 @@ export class UIController {
 		this.state.camera.rotateLocal(button.axis, step);
 	}
 
-	// One tick's worth of a held button. Called from onTimerTick() and the
-	// animation frame before the step, so the hold rides the render loop.
 	onCameraHoldTick = () => {
 
 		if (this.heldButton)
 			this.applyCameraButton(this.heldButton);
 	};
 
-	// Begin a hold: one step at once so a tap still moves, then one per tick.
+	// One step at once so a tap still moves, then one per tick.
 	private startCameraHold(button: CameraButton): void {
 
 		this.heldButton = button;
 		this.applyCameraButton(button);
 
-		// A console step is interaction, so a settled layout starts moving again.
 		this.wake();
 	}
 
-	/** Stop any held console button. Safe when nothing is held. */
 	stopCameraHold = () => {
 		this.heldButton = null;
 	};
 
-	// A press on a console button. The pointer can be released anywhere, so the
-	// release half is watched on the window (see toggleEventListeners).
+	// The release half is watched on the window; see toggleEventListeners.
 	onCameraPointerDown = (event: PointerEvent) => {
 
-		// The panel is a drag handle: DragController captures the pointer on
-		// pointerdown, so a press that starts on the console must not reach it.
+		// DragController captures the pointer on pointerdown, so a console press must not reach it.
 		event.stopPropagation();
 
 		const button = this.cameraButton(event.target);
@@ -461,11 +377,7 @@ export class UIController {
 		this.stopCameraHold();
 	};
 
-	/**
-	 * Keyboard hold: Enter or Space starts a rotation that keyup ends. The
-	 * default action is cancelled so the browser does not also synthesise a
-	 * click for the same press, which would double-count it.
-	 */
+	/** Cancels the default so the browser does not also synthesise a click for the same press. */
 	onCameraKeyDown = (event: KeyboardEvent) => {
 
 		if (!isButtonActivationKey(event))
@@ -493,8 +405,7 @@ export class UIController {
 		this.stopCameraHold();
 	};
 
-	// Pointer and key activation both produce a click, and the hold paths
-	// cover those; `detail === 0` is the one click that still steps.
+	// Pointer and key activation both produce a click, which the hold paths cover; only `detail === 0` steps.
 	onCameraButtonClick = (event: MouseEvent) => {
 
 		if (event.detail !== 0)
@@ -506,10 +417,7 @@ export class UIController {
 			this.applyCameraButton(button);
 	};
 
-	// The pressed button's data-emphasis value, from `target` upwards. The walk
-	// stops at the container, so a press on the section around the buttons finds
-	// nothing. `isEmphasisName` is the runtime half of the vocabulary, so an
-	// attribute can only ever name a configuration that exists.
+	// Walks up from `target`; `isEmphasisName` is the runtime half of the vocabulary.
 	private emphasisButton(target: EventTarget | null): Emphasis | null {
 
 		const element = firstAncestor<AncestorNode>(
@@ -521,21 +429,12 @@ export class UIController {
 		if (element === null)
 			return null;
 
-		// The walk proved this attribute is a name in the panel's vocabulary.
 		const name = attributeOf(element, 'data-emphasis');
 
 		return isEmphasisName(name) ? emphasisValue(name) : null;
 	}
 
-	/**
-	 * The panel's display emphasis. A `click` is enough: Enter and Space on a real
-	 * button produce one, and `DragController.ownsInteractivePress()` already
-	 * excludes a press inside a BUTTON, so no pointerdown guard is needed here the
-	 * way the camera console's hold needs one.
-	 *
-	 * This is a display change, so it calls requestRedraw() and never wake(): it is
-	 * neither a step nor a camera move, and a settled layout must stay settled.
-	 */
+	/** DragController already excludes BUTTON presses, so no pointerdown guard; redraws without waking. */
 	onEmphasisClick = (event: MouseEvent) => {
 
 		const emphasis = this.emphasisButton(event.target);
@@ -544,7 +443,7 @@ export class UIController {
 			this.setEmphasis(emphasis);
 	};
 
-	/** Switch the frame's display emphasis and redraw. The one writer. */
+	/** The one writer of the display emphasis. */
 	setEmphasis = (emphasis: Emphasis) => {
 
 		if (this.state.emphasis === emphasis)
@@ -555,11 +454,7 @@ export class UIController {
 		this.requestRedraw();
 	};
 
-	/**
-	 * Mirror the live emphasis onto the buttons' `aria-pressed`. The markup ships
-	 * with `nodes` pressed, so a controller that never toggles is still correct;
-	 * this is what keeps the pair honest after one.
-	 */
+	/** Keeps the buttons' `aria-pressed` in sync after a toggle; the markup ships with `nodes` pressed. */
 	private updateEmphasisButtons = () => {
 
 		if (this.emphasisConsole === null)
@@ -580,7 +475,6 @@ export class UIController {
 		}
 	};
 
-	/** The projection for the current canvas size and live camera. */
 	projector(): Projector {
 		return Projector.forCanvas(this.width, this.height, this.state.camera);
 	}
@@ -589,7 +483,6 @@ export class UIController {
 
 		this.hideContextMenu();
 
-		// Any press is interaction, so a settled layout starts moving again.
 		this.wake();
 
 		var mxy = this.getMousePos(
@@ -599,9 +492,7 @@ export class UIController {
 		
 		if (event.button === 0) {
 
-			// macOS Ctrl+click is the context-menu gesture, and the browser reports
-			// it as a primary press with ctrlKey set. Flag it so the contextmenu
-			// event that follows opens the menu, and do not touch the selection.
+			// macOS Ctrl+click arrives as a primary press with ctrlKey; flag it for the contextmenu event.
 			if (event.ctrlKey) {
 				this.state.b2Down = true;
 				return;
@@ -627,9 +518,7 @@ export class UIController {
 		}
 	}
 
-	// Right-click, or the Ctrl+click gesture macOS reports as a primary press. The
-	// native menu is always suppressed; ours opens only for one of those two, so a
-	// programmatic event cannot.
+	// The native menu is always suppressed; ours opens only for a real right-click or Ctrl+click.
 	onContextMenu = (event: MouseEvent) => {
 
 		event.preventDefault();
@@ -645,8 +534,7 @@ export class UIController {
 			this.contextMenu.open(x, y);
 	};
 
-	// Keyboard path to the actions menu: Shift+F10 and the context-menu key.
-	// The menu handles Escape while focused; this covers focus on the canvas.
+	// Keyboard path to the menu; Escape here covers canvas focus, the menu handles its own.
 	onKeyDown = (event: KeyboardEvent) => {
 
 		const opensMenu =
@@ -675,8 +563,7 @@ export class UIController {
 	
 	getMousePos = (cnvs: HTMLCanvasElement, evt: MouseEvent) => {
 
-		// clientX/clientY and the bounding rect share the viewport frame, so
-		// the subtraction survives scrolling, transforms and devicePixelRatio.
+		// Both share the viewport frame, so the subtraction survives scrolling, transforms and DPR.
 		const rect = cnvs.getBoundingClientRect();
 
 		return point(
@@ -690,7 +577,7 @@ export class UIController {
 		if (event.button === 0) {
 			this.state.b0Down = false;
 
-			// A Ctrl+click flagged b2Down as a context-menu press; release it too.
+			// A Ctrl+click set b2Down too, so release it as well.
 			this.state.b2Down = false;
 
 			this.updateSelectionInfo();
@@ -705,14 +592,9 @@ export class UIController {
 
 	onExport = (event?: MouseEvent) => {
 
-		// The link is inside the overlay panel and carries an href, so the
-		// default navigation must be suppressed or the page reloads.
 		event?.preventDefault();
 
-		// The backend produces the PNG (a worker's convertToBlob, or the
-		// element's own toDataURL). A `data:` URL cannot be opened by top-frame
-		// navigation, so the download rides an object URL instead: no popup and
-		// no blocked navigation.
+		// A `data:` URL cannot be opened by top-frame navigation, so the download rides an object URL.
 		void this.renderRunner.exportPng().then(blob => {
 
 			const url = URL.createObjectURL(blob);
@@ -725,14 +607,12 @@ export class UIController {
 			// Revoking synchronously can cancel the download in some browsers.
 			setTimeout(() => URL.revokeObjectURL(url), 0);
 		}).catch(error => {
-			// A worker that is still probing cannot export; a click that early
-			// must not surface an unhandled rejection.
+			// An export before the worker is ready must not surface an unhandled rejection.
 			console.error("export failed", error);
 		});
 	};
 
-	// Opens the chooser and leaves the running graph, timer, listeners, context
-	// menu and camera alone until a choice is made; cancelling changes nothing.
+	// Cancelling the chooser changes nothing.
 	onReset = (event?: MouseEvent) => {
 
 		event?.preventDefault();
@@ -742,19 +622,15 @@ export class UIController {
 		return false;
 	};
 
-	// Replace the simulated graph in place: the timer, listeners, context menu
-	// and camera are untouched, only the graph the solver steps changes.
 	loadGraph = (graph: Graph) => {
 
 		this.solverRef = new ForceDirectedGraph(graph);
 
-		// Re-initialise the physics owner, dropping any in-flight worker message
-		// from the graph that was just replaced.
+		// Re-initialise the physics owner, dropping in-flight messages from the replaced graph.
 		if (this.runnerRef !== null)
 			this.runnerRef.setGraph(this.solverRef);
 
-		// The drawing owner's worker mirror is keyed to a graph too: a swap
-		// re-initialises it and bumps its generation.
+		// The render worker's graph mirror must be re-initialised too.
 		if (this.renderRunnerRef !== null)
 			this.renderRunnerRef.setGraph(this.solverRef.graph);
 
@@ -775,9 +651,7 @@ export class UIController {
 		this.closeGraphWizard();
 	};
 
-	// Open the chooser. The context menu is hidden first so the two overlays
-	// can never be open together; the wizard is stored before it is opened so a
-	// synchronous completion cannot leave a stale reference.
+	// Hides the context menu first so the overlays cannot coexist; stores the wizard before opening it.
 	openGraphWizard = () => {
 
 		this.closeGraphWizard();
@@ -787,9 +661,7 @@ export class UIController {
 			onComplete: this.applyGraphSpec,
 			onCancel: this.closeGraphWizard,
 			onDismiss: () => this.canvas.focus(),
-			// initialize() always seeds a spec, so a reset chooser is
-			// dismissible; the guard only covers a caller that opens the
-			// chooser before any graph exists.
+			// initialize() always seeds a spec, so this is only false for a chooser opened before any graph.
 			dismissible: this.spec !== null,
 			initialSpec: this.spec,
 		});
@@ -805,7 +677,6 @@ export class UIController {
 		}
 	};
 
-	/** The panel's current-graph line: the technical name of the loaded graph. */
 	private updateCurrentGraphLabel = () => {
 		this.currentGraphLabel.innerHTML = specLabel(this.spec ?? defaultGraphSpec());
 	};
@@ -815,27 +686,20 @@ export class UIController {
 		this.updateSelectionInfo();
 	};
 
-	// One fixed tick, drawing included: the meaning tests and the setInterval
-	// fallback depend on, so it never consults the settle state. It also
-	// deliberately bypasses the idle-frame skip: this path steps on every
-	// interval and never settles, so skipping a draw would freeze the picture
-	// while the physics kept moving.
+	// Deliberately bypasses the idle-frame skip: this path never settles, so a skipped draw would freeze the
+	// picture.
 	onTimerTick = () => {
 		this.renderFrame(this.advanceOneTick());
 	};
 
-	// Physics for one fixed tick, without drawing. Returns the live camera, so
-	// the draw resolves its projector from the same camera this step ran under
-	// (invariant 2). A held console button turns or zooms the camera first.
+	// Returns the live camera so the draw projects under the same view this step ran with.
 	private advanceOneTick(): CameraView {
 
 		this.onCameraHoldTick();
 
 		const graph = this.solver.graph;
 
-		// The pin is expressed as an index and a position, so it crosses to a
-		// worker as data and the solver never reads browser state itself. The
-		// cached selection is used here, so no O(N) scan runs per tick.
+		// The pin crosses to a worker as index and position, so the solver never reads browser state.
 		const selected = this.state.b0Down ? this.selected : null;
 		const pinnedIndex = selected === null ? -1 : graph.vertices.indexOf(selected);
 		const pinnedPosition = pinnedIndex >= 0 ? graph.vertices[pinnedIndex].position : null;
@@ -847,8 +711,7 @@ export class UIController {
 			pinnedPosition?.z ?? 0
 		);
 
-		// A worker answers asynchronously; this copies whatever it last reported
-		// onto the tags before the backend projects. In-process it is current.
+		// A worker answers asynchronously, so this copies its last report onto the tags before projection.
 		this.runner.sync(graph);
 
 		this.trackSettle();
@@ -858,8 +721,6 @@ export class UIController {
 
 	private renderFrame(camera: CameraView = this.state.camera): void {
 
-		// The backend projects and draws, so the main thread no longer has an
-		// O(N) projection pass of its own; a worker does both in its own realm.
 		const drawn = this.renderRunner.draw(
 			this.solver.graph,
 			camera,
@@ -869,30 +730,24 @@ export class UIController {
 			this.state.emphasis
 		);
 
-		// A backend that is not ready yet keeps the frame pending: consuming the
-		// request here would leave the canvas blank until the next interaction.
+		// Consuming the request while the backend is not ready would leave the canvas blank.
 		if (!drawn)
 			return;
 
-		// Record the view this frame drew with and consume any pending request, so
-		// the next idle frame can be skipped. The record is scratch, not a copy.
 		this.recordDrawnCamera(camera);
 		this.needsRedraw = false;
 	}
 
-	/** Ask the next animation frame to draw even if nothing stepped or moved. */
 	private requestRedraw(): void {
 		this.needsRedraw = true;
 	}
 
-	// Overwrite the scratch fingerprint with `view`'s mutable values. Allocation
-	// free: the orientation array is reused and the target Point3D is mutated.
+	// Allocation free: the orientation array is reused and the target Point3D mutated.
 	private recordDrawnCamera(view: CameraView): void {
 		copyCameraView(view, this.lastDrawnCamera);
 	}
 
-	// Stop stepping once the layout has been quiet for settleFrames steps. Any
-	// interaction calls wake() to start it again.
+	// Stepping stops after K.physics.settleFrames quiet steps; wake() resumes it.
 	private trackSettle(): void {
 
 		if (this.runner.maxDisplacement < K.physics.settleEpsilon) {
@@ -913,12 +768,10 @@ export class UIController {
 		this.quietSteps = 0;
 	}
 	
-	// Attach or detach the whole listener set from one list, so the two
-	// directions cannot drift; a listener added later cannot survive reset().
+	// One list for both directions, so attach and detach cannot drift apart.
 	private toggleEventListeners(attach: boolean) {
 
-		// The handlers mix MouseEvent and no-argument callbacks, so the
-		// parameter is left open.
+		// The handlers mix MouseEvent and no-argument callbacks, hence the open parameter.
 		const bind = (
 			target: EventTarget,
 			type: string,
@@ -942,11 +795,8 @@ export class UIController {
 
 		bind(this.resetElement, "click", this.onReset);
 
-		// One delegated listener per event type on the console container, plus
-		// the guard that stops a press on a button from starting a panel drag.
-		// A held button is released wherever the pointer is, so pointerup is
-		// watched on the window; blur covers the lost focus case.
-		//
+		// A held button is released wherever the pointer is, so release is watched on the window; blur covers lost
+		// focus.
 		if (this.cameraConsole) {
 			bind(this.cameraConsole, "pointerdown", this.onCameraPointerDown);
 			bind(this.cameraConsole, "keydown", this.onCameraKeyDown);
@@ -958,9 +808,6 @@ export class UIController {
 			bind(window, "blur", this.onCameraPointerUp);
 		}
 
-		// The emphasis control is click-only: a real button turns Enter and Space
-		// into a click, and a press inside one never reaches the panel's drag
-		// surface, so it needs no press guard.
 		if (this.emphasisConsole)
 			bind(this.emphasisConsole, "click", this.onEmphasisClick);
 
@@ -978,7 +825,7 @@ export class UIController {
 		this.contextMenu = menu;
 	};
 
-	/** Re-read the graph's selection into the cache. One home for "selection changed". */
+	/** Re-reads the graph's selection into the cache. */
 	private refreshSelection = () => {
 		this.selected = this.solver.graph.selectedVertex();
 	};
@@ -987,9 +834,7 @@ export class UIController {
 	
 		this.refreshSelection();
 
-		// Every selection-changing path funnels through here (a click, a clear, a
-		// graph swap), and none of them is a step or a camera move, so the frame
-		// would otherwise be skipped. This is the one home for that request.
+		// Every selection-changing path funnels through here, and none is a step or camera move.
 		this.requestRedraw();
 
 		const selectedNode = this.selected;
@@ -1024,9 +869,7 @@ export class UIController {
 		}
 	};
 
-	// Fill the viewport. The backend sizes the backing store in device pixels so
-	// lines stay sharp on HiDPI, and applies the transform that keeps drawing in
-	// CSS pixels; the element always carries the logical CSS size.
+	// The backend sizes the backing store in device pixels; the element keeps the logical CSS size.
 	resizeCanvas = () => {
 
 		const width = this.body.clientWidth;
@@ -1040,24 +883,19 @@ export class UIController {
 		this.canvas.style.width = `${width}px`;
 		this.canvas.style.height = `${height}px`;
 
-		// The backend owns the backing store: with a worker the element is a
-		// placeholder whose width/height no longer govern anything.
+		// The backend owns the backing store; with a worker the element's width/height govern nothing.
 		this.renderRunner.resize(width, height, dpr);
 	};
 
 	onResize = () => {
 		this.resizeCanvas();
 
-		// A resize is interaction, so a settled layout starts moving again.
 		this.wake();
 
-		// The backing store was just re-created, so a redraw is mandatory no matter
-		// what the camera or the settle state say.
+		// The backing store was just re-created, so a redraw is mandatory.
 		this.requestRedraw();
 	};
 
-	// The browser loop: requestAnimationFrame where it exists, else the original
-	// fixed interval. The fallback keeps the pre-cadence behaviour exactly.
 	private startSimulationLoop(): void {
 
 		if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
@@ -1071,16 +909,10 @@ export class UIController {
 		this.timer = setInterval(this.onTimerTick, K.physics.timerTickPeriodMS);
 	}
 
-	// One animation frame: run the fixed steps the accumulator says are due, up to
-	// the per-frame cap, then draw only if something actually changed: a step ran,
-	// a requestRedraw() was posted, or the live camera no longer matches the last
-	// drawn view. A settled, untouched scene therefore issues no canvas work,
-	// leaving the previous frame on the canvas.
 	onAnimationFrame = (timestamp: number): void => {
 
 		this.frameHandle = null;
 
-		// The first frame establishes the clock; there is no elapsed time yet.
 		const elapsed = this.lastFrameTime === null ? 0 : timestamp - this.lastFrameTime;
 		this.lastFrameTime = timestamp;
 
@@ -1092,9 +924,7 @@ export class UIController {
 
 		while (this.accumulator >= period && steps < K.physics.maxStepsPerFrame) {
 
-			// A settled layout has nothing left to step, so drop the backlog
-			// rather than run it - unless a console button is held, whose
-			// rotation or zoom rides this fixed clock and must keep turning.
+			// Drop the backlog once settled, unless a console button is held on this clock.
 			if (this.settled && this.heldButton === null) {
 				this.accumulator = 0;
 				break;
@@ -1103,9 +933,7 @@ export class UIController {
 			this.accumulator -= period;
 			steps++;
 
-			// Once settled, only the camera is still moving. Turning or zooming
-			// it without re-stepping the solved layout is what lets a hold
-			// outlive the settle without paying for the physics again.
+			// Once settled only the camera moves; re-stepping the solved layout would waste physics.
 			if (this.settled)
 				this.onCameraHoldTick();
 			else
@@ -1124,45 +952,29 @@ export class UIController {
 
 	initialize = () => {
 
-		// Idempotent: tear down any previous run first, so a second initialize()
-		// cannot double the timer, the listeners or the context menu.
+		// Idempotent: tearing down first stops a second initialize() doubling the listeners.
 		this.terminate();
 
-		// Reset the existing state object rather than allocating a new one, so
-		// handlers holding a reference see the cleared flags. The camera and the
-		// display emphasis deliberately survive reset(), so a run starts where the
-		// last one left them.
+		// The same State object is reused so handlers see the cleared flags; camera and emphasis survive reset().
 		this.state.reset();
 
-		// The resting emphasis is the shipped default, and the buttons are told so
-		// once per run: the markup ships with `nodes` pressed, but a controller
-		// reused after a toggle must not keep a stale button.
+		// A controller reused after a toggle must not keep a stale pressed button.
 		this.state.emphasis = Emphasis.nodes;
 		this.updateEmphasisButtons();
 
-		// The startup graph is the shipped random default. The chooser is not
-		// opened automatically, so this spec is what the panel names and what a
-		// later reset can cancel back to; the last choice survives a
-		// re-initialize, and only a controller that has never chosen falls back.
+		// The last chooser choice survives re-initialization; only a controller that never chose falls back.
 		this.spec ??= defaultGraphSpec();
 
-		// The default spec guarantees a valid graph, so no render path needs a
-		// "no graph" special case.
+		// initialize() always seeds a spec, so no render path needs a "no graph" case.
 		this.solverRef = new ForceDirectedGraph(this.initialGraph());
 
-		// One drawing owner for this run, built before resizeCanvas() draws
-		// through it: a probed render worker, the canvas's own context, or the
-		// injected test backend. It is handed the graph so a worker mirror is
-		// initialised before the first frame.
+		// Built before resizeCanvas() draws through it; handed the graph so a worker mirror starts first.
 		this.renderRunnerRef = this.createRenderRunner(this.solverRef.graph);
 
 		this.resizeCanvas();
 
-		// The first drawn frame is not optional, whatever the camera scratch says.
 		this.needsRedraw = true;
 
-		// One physics owner for this run: a worker when the browser has one, else
-		// the in-process solver.
 		this.runnerRef = new PhysicsRunner(this.solverRef);
 
 		this.updateCurrentGraphLabel();
@@ -1189,14 +1001,13 @@ export class UIController {
 			this.frameHandle = null;
 		}
 
-		// Stop the physics owner too: a worker must not outlive the controller.
+		// A worker must not outlive the controller.
 		if (this.runnerRef !== null) {
 			this.runnerRef.terminate();
 			this.runnerRef = null;
 		}
 
-		// The drawing owner holds the canvas: a render worker must not outlive the
-		// controller either.
+		// The drawing owner holds the canvas, so it must not outlive the controller either.
 		if (this.renderRunnerRef !== null) {
 			this.renderRunnerRef.terminate();
 			this.renderRunnerRef = null;
