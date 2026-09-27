@@ -279,6 +279,12 @@ export class Octree {
                 // `d === 0` makes the test false, so such a cell recurses instead.
                 if (!contains && d > 0 && extent / d < theta) {
 
+                    // Deliberately inline rather than Kernel.radialComponentsInto(),
+                    // unlike the leaf below: this is the hot traversal, and routing
+                    // it through the helper measured 8-25% slower on the committed
+                    // benchmark's repulsion column (docs/performance.md). `d > 0` is
+                    // guaranteed by the test above, so the coincident tie-break
+                    // cannot apply, and the arithmetic is the helper's own.
                     const magnitude = mass[cell] * repulsionMagnitude(d);
 
                     fx += (magnitude * dx) / d;

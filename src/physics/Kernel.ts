@@ -93,9 +93,13 @@ export function integrateVelocity(v: number, force: number): number {
  * there, so the push is exactly `-/+ magnitude`.
  *
  * The single home for that rule: the exact paired pass, the per-node reference,
- * the spring pass and the Barnes-Hut leaf all call it, so they cannot disagree
- * about direction at the singular boundary. `out` is caller-owned scratch, which
- * is what keeps the hot passes allocation-free.
+ * the spring pass, the component anchor and the Barnes-Hut leaf all call it, so
+ * they cannot disagree about direction at the singular boundary. The Barnes-Hut
+ * *aggregate* deliberately inlines the same arithmetic instead of calling it: it
+ * is the hot traversal, and the call measured 8-25% slower on the committed
+ * benchmark's repulsion column (see `Octree.accumulateForce()` and
+ * docs/performance.md). `out` is caller-owned scratch, which is what keeps the
+ * hot passes allocation-free.
  */
 export function radialComponentsInto(
     dx: number,

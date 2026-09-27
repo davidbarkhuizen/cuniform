@@ -59,6 +59,11 @@ export class ForceDirectedGraph {
     // path; the step pass writes the pooled per-component buffers instead.
     private readonly anchorScratch = new Float64Array(3);
 
+    // Where one component's anchor vector lands before the step pass scatters it
+    // into the pooled per-component buffers. Both anchor paths get their vector
+    // from Kernel.radialComponentsInto(), so the direction has one home.
+    private readonly anchorDirectionScratch = new Float64Array(3);
+
     // The Barnes-Hut tree, rebuilt from the pre-step positions each step. It owns
     // its own pooled buffers, so it also allocates nothing steady-state.
     private readonly octree = new Octree();
@@ -378,11 +383,22 @@ export class ForceDirectedGraph {
 			if (r > anchorRadius)
 				anyActive = true;
 
-			const magnitude = componentAnchorMagnitude(r);
+			// The kernel owns the radial direction, so the anchor cannot spell it
+			// differently from the pairwise laws. The pull is toward the origin,
+			// hence the negated centroid.
+			radialComponentsInto(
+				-cx,
+				-cy,
+				-cz,
+				r,
+				componentAnchorMagnitude(r),
+				false,
+				this.anchorDirectionScratch
+			);
 
-			this.componentAnchorX[c] = (magnitude * -cx) / r;
-			this.componentAnchorY[c] = (magnitude * -cy) / r;
-			this.componentAnchorZ[c] = (magnitude * -cz) / r;
+			this.componentAnchorX[c] = this.anchorDirectionScratch[0];
+			this.componentAnchorY[c] = this.anchorDirectionScratch[1];
+			this.componentAnchorZ[c] = this.anchorDirectionScratch[2];
 		}
 
 		if (!anyActive)
@@ -474,12 +490,9 @@ export class ForceDirectedGraph {
 		// A zero centroid radius has no direction, and the magnitude is zero there
 		// for any dead zone, so the explicit branch above is about the direction
 		// only. Every node of the component gets this same vector, which is what
-		// makes the anchor a pure translation of the component.
-		const magnitude = componentAnchorMagnitude(r);
-
-		out[0] = (magnitude * -cx) / r;
-		out[1] = (magnitude * -cy) / r;
-		out[2] = (magnitude * -cz) / r;
+		// makes the anchor a pure translation of the component. The kernel writes
+		// it, so the reference returns exactly the vector step() adds.
+		radialComponentsInto(-cx, -cy, -cz, r, componentAnchorMagnitude(r), false, out);
 	};
 
 	// Pure: reads no cached field, so it is meaningful before the first step()
