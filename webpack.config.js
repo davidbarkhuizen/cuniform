@@ -27,14 +27,23 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
   },
   module: {
-        rules: [
-            {
-                test: /\.ts$/,
-                exclude: [/node_modules/],
-                loader: 'ts-loader'
-            }
-        ]
-    },
-    devtool:'source-map',
-    resolve: { extensions: ['.ts'] }
+    rules: [
+      {
+        test: /\.ts$/,
+        exclude: [/node_modules/],
+        loader: 'esbuild-loader',
+        options: {
+          // esbuild only transpiles; it never type-checks. `npm run start`
+          // therefore runs `npm run typecheck` first, which is where type
+          // errors are reported.
+          // esbuild-loader always sets its own target (defaulting to es2015)
+          // rather than reading tsconfig.json, so the tsconfig target is
+          // mirrored here.
+          target: 'es2019',
+        },
+      },
+    ],
+  },
+  devtool: 'source-map',
+  resolve: { extensions: ['.ts'] },
 };
