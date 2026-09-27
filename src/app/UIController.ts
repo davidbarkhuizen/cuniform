@@ -10,6 +10,7 @@ import {
 	sameCameraView,
 } from "../view/Camera";
 import { ContextMenu } from "../ui/ContextMenu";
+import { Emphasis } from "../core/Emphasis";
 import { ForceDirectedGraph } from "../physics/ForceDirectedGraph";
 import { Graph } from "../graph/Graph";
 import { GraphFactory } from "../graph/GraphFactory";
@@ -787,7 +788,8 @@ export class UIController {
 			camera,
 			this.selected,
 			this.width,
-			this.height
+			this.height,
+			Emphasis.nodes
 		);
 
 		// A backend that is not ready yet keeps the frame pending: consuming the
