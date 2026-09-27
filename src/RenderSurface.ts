@@ -27,3 +27,29 @@ export interface RenderSurface {
     fill(): void;
     fillText(text: string, x: number, y: number): void;
 }
+
+/**
+ * Size a surface's backing store in device pixels and re-apply the transform
+ * that keeps drawing in CSS pixels.
+ *
+ * Assigning `width`/`height` resets the context transform, so the transform must
+ * be set afterwards. One home for that ordering rule, so the main thread's
+ * in-process backend and the render worker produce identical pixels for the same
+ * frame at any device-pixel ratio.
+ *
+ * `target` is the writable canvas (or `OffscreenCanvas`); `surface` is the
+ * context drawn through, whose own `canvas` reference is read-only.
+ */
+export function resizeBackingStore(
+    target: { width: number; height: number },
+    surface: RenderSurface,
+    width: number,
+    height: number,
+    dpr: number
+): void {
+
+    target.width = width * dpr;
+    target.height = height * dpr;
+
+    surface.setTransform(dpr, 0, 0, dpr, 0, 0);
+}

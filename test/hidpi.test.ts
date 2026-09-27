@@ -5,6 +5,7 @@ import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { defaultCameraView, Projector } from "../src/Projector";
 import { render } from "../src/Renderer";
+import { resizeBackingStore } from "../src/RenderSurface";
 import { Tag } from "../src/Tag";
 import {
     FakeContext2D,
@@ -21,6 +22,24 @@ function withController<T>(dpr: number | undefined, fn: (ui: UIControllerFixture
         bodyHeight: 750,
     });
 }
+
+test("resizeBackingStore sizes the store in device pixels, then sets the transform", () => {
+    // The ordering is the rule: assigning width/height resets the context
+    // transform, so a transform set first would be discarded.
+    const surface = new FakeContext2D();
+    const target = { width: 0, height: 0 };
+
+    resizeBackingStore(target, surface, 800, 600, 2);
+
+    assert.deepEqual(target, { width: 1600, height: 1200 }, "the store is sized in device pixels");
+    assert.deepEqual(surface.transforms, [[2, 0, 0, 2, 0, 0]], "the dpr transform is applied once");
+
+    // A second call at a different ratio overwrites both, with no drift.
+    resizeBackingStore(target, surface, 400, 300, 1);
+
+    assert.deepEqual(target, { width: 400, height: 300 });
+    assert.deepEqual(surface.transforms, [[2, 0, 0, 2, 0, 0], [1, 0, 0, 1, 0, 0]]);
+});
 
 test("the backing store is scaled by devicePixelRatio while the CSS size stays logical", () => {
     withController(2, ({ canvas, controller }) => {
