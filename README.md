@@ -278,11 +278,13 @@ the same target size at every canvas scale, camera distance and
 A bare projection still reads flat without occlusion cues, so the renderer adds
 three things:
 
-- **Painter's algorithm** — one list of `{ depth, draw }` over edges *and* nodes,
-  sorted farthest-first, so a near node covers the edge behind it. An edge's
-  representative depth is the mean of its endpoints. This replaces the old "all
-  edges, then all nodes" order; at equal depth the stable sort preserves that
-  order, which is why a flat scene is unchanged.
+- **Painter's algorithm** — one list of draw items over edges *and* nodes,
+  sorted farthest-first by an explicit `(depth descending, insertion index
+  ascending)` comparator, so a near node covers the edge behind it. An edge's
+  representative depth is the mean of its endpoints. The explicit tie-break
+  replaces reliance on `Array.prototype.sort` stability but produces the same
+  "all edges, then all nodes" order at equal depth, which is why a flat scene is
+  unchanged.
 - **Perspective node size** — `radiusPx = NODE_RADIUS * focalLength / depth`,
   clamped to `[depthCue.minNodeRadiusPx, depthCue.maxNodeRadiusPx]`. The
   selection ring scales identically.
@@ -292,6 +294,21 @@ three things:
 
 A node at or inside the near plane is not drawn. An edge is skipped if either
 endpoint is culled — there is no true near-plane clipping of edges.
+
+Above the `K.renderer` size thresholds the frame switches to a cheaper, gated
+path:
+
+- **Label culling** — at or above `K.renderer.labelMaxNodes` (150) only the
+  selected node and its incident neighbours are labelled. `fillText` per node
+  dominates the real canvas cost and is unreadable at scale.
+- **Batched edges** — at or above `K.renderer.batchEdgesMinEdges` (2000) edges
+  are grouped by style and depth-fade bucket into one path and one `stroke()`
+  per group, instead of one path per edge. Batch mode draws all edges before the
+  depth-sorted nodes, so edges no longer slip in front of nearer nodes; that
+  divergence is deliberate and applies only above the threshold.
+
+Below every threshold the frame is unchanged, and the whole draw path runs over
+reusable frame scratch, so it allocates nothing in steady state.
 
 ### Constants
 

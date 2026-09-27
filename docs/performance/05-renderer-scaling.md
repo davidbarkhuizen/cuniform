@@ -1,6 +1,6 @@
 # Plan 5 — Renderer scaling
 
-Status: proposed · Depends on: nothing (independent of the solver plans) ·
+Status: implemented · Depends on: nothing (independent of the solver plans) ·
 Blocks: nothing, but required for a usable frame above ~2k nodes
 
 ## Objective
