@@ -1,3 +1,5 @@
+import { Emphasis } from "./Emphasis";
+
 export type QualitySetting = "auto" | "accurate" | "fast";
 
 // The selection highlight, one literal: the selected node's fill and the edges
@@ -117,6 +119,41 @@ export const K = {
         batchEdgesMinEdges: 2000,
         // Depth-fade quantization for the batched edge strokes.
         edgeAlphaBuckets: 8,
+
+        // Display emphasis (docs/model-camera-and-rendering.md), keyed by the
+        // `Emphasis` enum: the frame's two configurations. The panel picks one,
+        // the frame message carries it, and every draw path - per-item, batched
+        // and coarse - resolves the same preset, so a size-gated path cannot
+        // silently keep the other order.
+        //
+        // `paintOrder` is what the two configurations mean; alpha and width are
+        // how strongly each reads. The alpha scale is deliberately one-sided:
+        // measured in WCAG contrast against the canvas, the shipped palette
+        // already gives nodes the advantage (3.78:1 at full opacity), dimming the
+        // edges to 0.55 *raises* near node/edge contrast to 6.75:1, while dimming
+        // the node fills to 0.70 *drops* it to 1.95:1, below the 3:1 UI floor -
+        // edges are already the dimmer element, nodes are the only bright thing
+        // in the frame. So `nodeAlphaScale` stays at 1.0 in both shipped presets:
+        // the field is the seam that makes the mechanism complete and testable in
+        // both directions, and 0.85 is the highest measured value that still
+        // fails the floor, so a future tune does not rediscover this.
+        emphasis: {
+            [Emphasis.nodes]: {
+                // Edges first, nodes on top: the vertices are the subject.
+                edgesOnTop: false,
+                edgeAlphaScale: 0.55,
+                nodeAlphaScale: 1.0,
+                edgeWidthPx: 1.0,
+            },
+            [Emphasis.edges]: {
+                // The mirror: the mesh is the subject, so it is drawn last and
+                // heavier, and nothing fades.
+                edgesOnTop: true,
+                edgeAlphaScale: 1.0,
+                nodeAlphaScale: 1.0,
+                edgeWidthPx: 2.5,
+            },
+        },
 
         // Coarse large-graph preset (see docs/model-camera-and-rendering.md).
         // At or above minNodes the frame switches to a cheaper path: one
