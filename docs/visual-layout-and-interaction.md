@@ -5,13 +5,13 @@
 The canvas fills the viewport: it is stretched over a fixed, full-viewport
 `.canvas-container`, and the backing store is re-sized when the window is
 resized. Everything else lives in a single floating overlay panel in the
-top-left corner, split into three sections:
+top-left corner, split into four sections:
 
-- a **fixed menu** — the `cuniform` title, the current graph, `export` and
-  `reset`;
+- a **fixed menu** — the centred `cuniform` title and the current graph;
 - the **currently selected node** — the selection and its neighbours;
 - the **camera console** — six buttons that rotate the camera about its own
-  axes, and two that dolly it in and out.
+  axes, and two that dolly it in and out;
+- the **actions** — `export` and `reset`, at the foot of the panel.
 
 The panel's current-graph line names the loaded graph technically: the full
 systematic name for a molecule, the node and edge counts for a random graph. It

@@ -48,13 +48,14 @@ test("the panel's fixed menu comes before the selected-node section", () => {
     assert.notEqual(selection, -1, "the panel needs a selectionSection");
     assert.ok(menu < selection, "the fixed menu should come before the selected node");
 
-    for (const id of ["export_canvas_link", "reset_link"]) {
-        const at = panel.indexOf(`id="${id}"`);
-        assert.ok(at > menu && at < selection, `${id} belongs in the menu section`);
-    }
-
     for (const id of ["selectedNodeInfoLabel", "selectedNodeInfoList"]) {
         assert.ok(panel.indexOf(`id="${id}"`) > selection, `${id} belongs in the selection section`);
+    }
+
+    // The actions used to share this section; they now sit at the foot of the
+    // panel, below the camera console.
+    for (const id of ["export_canvas_link", "reset_link"]) {
+        assert.ok(panel.indexOf(`id="${id}"`) > menu, `${id} should no longer sit in the menu section`);
     }
 });
 
@@ -93,6 +94,14 @@ test("the current-graph line is small and wraps a long systematic name", () => {
     assert.match(label, /overflow-wrap\s*:\s*anywhere/, "a long IUPAC name must break rather than overflow");
 });
 
+test("the panel title is horizontally centred", () => {
+    assert.match(
+        cssRule(readWeb("stylez.css"), ".mainLabel"),
+        /text-align\s*:\s*center/,
+        "the cuniform title should be centred in the panel"
+    );
+});
+
 test("the panel's third section is the camera console, after the selected node", () => {
     const panel = panelMarkup(readWeb("index.html"));
 
@@ -103,6 +112,25 @@ test("the panel's third section is the camera console, after the selected node",
     assert.ok(selection < camera, "the camera console should come after the selected node");
 
     assert.ok(panel.includes('id="cameraConsole"'), "the console needs the id the entrypoint resolves");
+});
+
+test("the export and reset actions sit below the camera console", () => {
+    const panel = panelMarkup(readWeb("index.html"));
+
+    const camera = panel.indexOf('class="cameraSection"');
+    const actions = panel.indexOf('class="menuOptions"');
+
+    assert.notEqual(actions, -1, "the panel needs its export/reset actions");
+    assert.ok(camera < actions, "the actions belong below the camera console");
+
+    // The actions are the panel's last section, so each id is found after its
+    // opening tag and before the panel closes.
+    for (const id of ["export_canvas_link", "reset_link"]) {
+        assert.ok(
+            panel.indexOf(`id="${id}"`) > actions,
+            `${id} belongs in the action section at the foot of the panel`
+        );
+    }
 });
 
 test("the camera console has six labelled axis/direction rotate buttons", () => {
