@@ -421,6 +421,14 @@ measurable claims live in `bench/physics.bench.ts`; run `npm run bench` (or
 `./cli bench`) for numbers on the machine at hand. It is not part of `npm test` —
 it takes seconds, not milliseconds, and its numbers are machine-dependent.
 
+`bench/physics.bench.ts` draws into `FakeContext2D`, so its render column is
+JavaScript work only and must not be read as a frame cost.
+`bench/render-frame.html` is the real-canvas counterpart: after `./cli build`,
+serve the repository over HTTP and open it to measure the main thread's per-frame
+draw time (p50/p95), the frames over 16.7 ms and the long tasks, per node count
+and `devicePixelRatio`. Physics is never stepped there, so a long task can only
+be the draw path. See the file's header for the query parameters.
+
 ### Measured profile
 
 Node 25, one thread, sparse graphs (average degree 3), 1280x800 canvas, at the
@@ -453,6 +461,35 @@ size, but the fake context charges nothing for real `arc`/`fill`/`fillText`
 rasterisation, so treat that column as a lower bound and the real canvas as the
 eventual ceiling. Steady-state GC is 0–2% of wall time; the projection loop is
 0.65 ms at N=4096 and has not been a problem at any measured size.
+
+#### Real-canvas frames
+
+The renderer column above is JavaScript work only. `bench/render-frame.html`
+measures the main thread instead: a real canvas at 1280x800, 300 frames per
+case, physics stopped so a long task can only be the draw path, and the camera
+orbiting so every frame is a real redraw. Baseline on Chrome 154 headless on
+this machine, which rasterises canvas 2D on the CPU (no GPU), so the long-task
+column is an upper bound: a GPU browser rasterises off the main thread and
+leaves the `draw` column as the host-thread cost. `draw` is the time the main
+thread spends inside the frame; `>16.7 ms` counts the frames whose draw exceeded
+one 60 Hz budget.
+
+| N | E | dpr | draw p50 ms | draw p95 ms | >16.7 ms | long tasks | worst long task ms |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1024 | 1536 | 1 | 2.8 | 4.6 | 0/300 | 12 | 71.0 |
+| 1024 | 1536 | 2 | 2.7 | 4.3 | 0/300 | 300 | 270.0 |
+| 2048 | 3072 | 1 | 4.6 | 6.6 | 0/300 | 15 | 71.0 |
+| 2048 | 3072 | 2 | 4.7 | 7.1 | 2/300 | 300 | 864.0 |
+| 4096 | 6144 | 1 | 8.8 | 13.2 | 6/300 | 300 | 301.0 |
+| 4096 | 6144 | 2 | 9.5 | 17.5 | 19/300 | 300 | 1766.0 |
+| 8192 | 12288 | 1 | 19.0 | 23.9 | 278/300 | 300 | 616.0 |
+
+The 8192/dpr 2 case is deliberately not in the table: with CPU rasterisation one
+frame there takes seconds, so a 300-frame run does not complete in a useful time
+— which is itself the measurement (the draw path, not the command count, is what
+scales). `performance.memory` stayed flat across every case, so there is no GC
+sawtooth to report at these sizes. The numbers are reproducible within roughly
+±15% run to run on the same machine; the p50 moves least.
 
 ### Scaling and complexity
 

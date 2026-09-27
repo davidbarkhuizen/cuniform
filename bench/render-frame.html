@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<title>cuniform real-canvas frame harness</title>
+	<style>
+		body {
+			margin: 0;
+			background: #10151b;
+			color: #e8f4ff;
+			font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		}
+		canvas {
+			display: block;
+			border-bottom: 1px solid #2a3644;
+		}
+		#report {
+			margin: 0;
+			padding: 12px 16px;
+			white-space: pre-wrap;
+		}
+		.note {
+			padding: 8px 16px 0;
+			color: #93a4b8;
+		}
+	</style>
+</head>
+<body>
+	<!--
+		The measurement target. The harness resizes it per case through the render
+		backend, so this element only ever carries the logical CSS size.
+	-->
+	<canvas id="canvas" width="1280" height="800"></canvas>
+
+	<p class="note">
+		Measures the main thread on a real canvas. Serve this directory over HTTP
+		after <code>./cli build</code>: <code>?n=</code>, <code>?dpr=</code>,
+		<code>?frames=</code> and <code>?render=main|worker</code> pin a case.
+		Results also land in <code>window.__renderFrameReport</code>.
+	</p>
+
+	<pre id="report"></pre>
+
+	<!-- After the elements: the harness reads them as soon as it runs. -->
+	<script src="../dist/render-frame.js"></script>
+</body>
+</html>
