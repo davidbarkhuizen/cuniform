@@ -28,7 +28,7 @@ export const K = {
         // law is evaluated at max(r, minimumInteractionRadius), bounding the r -> 0 blow-up.
         minimumInteractionRadius : 10.0,
 
-        // Barnes-Hut far-field approximation (README, "Performance"). Below
+        // Barnes-Hut far-field approximation (docs/performance.md). Below
         // barnesHutMinNodes the exact pairwise kernel runs, preserving demo-scale
         // behaviour bit-for-bit; above it the octree replaces the O(N^2) pass.
         // The traversal never accepts the cell that contains the body as an
@@ -45,9 +45,9 @@ export const K = {
         // is what keeps the two backends identical. A user-facing control would
         // need a quality field on the worker protocol; that is a separate item.
         quality: "auto" as QualitySetting,
-        // Accurate angle (README profile: 0.3-0.5% mean error).
+        // Accurate angle (docs/performance.md: 0.3-0.5% mean error).
         barnesHutTheta: 0.5,
-        // Fast angle (README profile: 1.8% mean error at 4096, ~3.7x faster).
+        // Fast angle (docs/performance.md: 1.8% mean error at 4096, ~3.7x faster).
         barnesHutFastTheta: 0.9,
         // At or above this order, "auto" uses the fast angle. 2048 is the first
         // measured row where the step no longer fits one 50 ms tick, i.e. where
@@ -57,7 +57,7 @@ export const K = {
         // Bucket near-coincident points instead of recursing forever.
         barnesHutMaxDepth: 28,
 
-        // Simulation cadence (README, "Cadence"). Physics still advances in
+        // Simulation cadence (docs/physics.md). Physics still advances in
         // fixed timerTickPeriodMS steps; the scheduler accumulates real time and
         // runs at most maxStepsPerFrame of them per animation frame, discarding
         // the remainder so a slow frame cannot spiral. Stepping stops once the
@@ -94,9 +94,10 @@ export const K = {
         // Depth-fade quantization for the batched edge strokes.
         edgeAlphaBuckets: 8,
 
-        // Coarse large-graph preset (README, "Depth cue"). At or above
-        // minNodes the frame switches to a cheaper path: one depth-fade bucket,
-        // node fills batched by colour, and no selection-ring stroke. Below it
+        // Coarse large-graph preset (see docs/model-camera-and-rendering.md).
+        // At or above minNodes the frame switches to a cheaper path: one
+        // depth-fade bucket, node fills batched by colour, and no
+        // selection-ring stroke. Below it
         // every frame is byte-for-byte the small-graph one, so only a frame at
         // or above this size can differ. The threshold is on vertices.length and
         // is independent of labelMaxNodes/batchEdgesMinEdges; lining it up with

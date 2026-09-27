@@ -23,7 +23,7 @@ const CHARGE_PRODUCT =
  * returns 0 where `hypot` would return a tiny positive value; every caller has
  * an explicit `r === 0` coincident branch and evaluates the magnitude at
  * `minimumInteractionRadius`, so that lands in a bounded, deterministic case
- * rather than a division by zero. See the README's "Performance" section.
+ * rather than a division by zero. See docs/performance.md.
  */
 export function radius(dx: number, dy: number, dz: number): number {
     return Math.sqrt(dx * dx + dy * dy + dz * dz);
@@ -58,8 +58,8 @@ export function springMagnitude(r: number): number {
  * One damped semi-implicit Euler velocity update, `v' = v*friction + F*timeStep`.
  *
  * `stepPhysics()` and `velocityAtTag()` both call it, so the integration law -
- * the one the README's `timeStep / (1 - friction) ~= 1` stability note is about -
- * has one home.
+ * the one the `timeStep / (1 - friction) ~= 1` stability note in
+ * docs/constants.md is about - has one home.
  */
 export function integrateVelocity(v: number, force: number): number {
     return (v * K.physics.friction) + force * K.physics.timeStep;

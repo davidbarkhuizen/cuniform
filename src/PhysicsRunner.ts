@@ -9,7 +9,7 @@ import { WorkerPort } from "./WorkerChannel";
  * physics worker, behind one interface so nothing above it knows which.
  *
  * Projection, hit-testing, selection and rendering all stay on the main thread;
- * only the force integration moves. See the README's "Cadence" section.
+ * only the force integration moves. See docs/physics.md ("Cadence").
  */
 
 /** The main-thread view of the physics worker. */

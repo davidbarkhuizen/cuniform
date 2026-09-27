@@ -1,4 +1,4 @@
-// The render worker entry (README, "Cadence").
+// The render worker entry (docs/model-camera-and-rendering.md).
 //
 // Deliberately not in PURE_MODULES: this is the one module that touches the
 // worker globals, the `OffscreenCanvas` and `convertToBlob`. The engine and the

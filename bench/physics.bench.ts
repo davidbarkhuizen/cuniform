@@ -8,8 +8,8 @@
 // The renderer section uses FakeContext2D, so it measures the renderer's JS
 // work only. A real canvas is slower; check that in a browser.
 //
-// Read the README's "Performance" section for the current profile this harness
-// produced and the optimizations still open.
+// Read docs/performance.md for the current profile this harness produced and
+// the optimizations still open.
 
 import { PerformanceObserver } from "perf_hooks";
 

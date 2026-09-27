@@ -1,4 +1,4 @@
-// cuniform real-canvas frame harness (README, "Performance").
+// cuniform real-canvas frame harness (docs/performance.md).
 //
 // The committed benchmark (bench/physics.bench.ts) draws into FakeContext2D,
 // which charges nothing for real `arc`/`fill`/`fillText` rasterisation, so its
@@ -198,7 +198,7 @@ function formatRow(row: Measurement): string {
     );
 }
 
-/** The copy-pasteable block for a PR body or the README's measured profile. */
+/** The copy-pasteable block for a PR body or the profile in docs/performance.md. */
 function markdown(rows: Measurement[], frames: number): string {
     const lines = [
         `Real canvas ${CANVAS_W}x${CANVAS_H}, ${frames} frames per case, physics stopped (draw path only).`,

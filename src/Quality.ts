@@ -1,7 +1,7 @@
 import { K, QualitySetting } from "./K";
 
 /**
- * The one place the Barnes-Hut opening angle is chosen (README, "Performance").
+ * The one place the Barnes-Hut opening angle is chosen (docs/performance.md).
  *
  * A larger angle means fewer accepted aggregates and more error, so the policy
  * is size-gated: the eye cannot see the approximation on a large layout, and the

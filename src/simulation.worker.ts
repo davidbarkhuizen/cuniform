@@ -1,4 +1,4 @@
-// The physics worker entry (README, "Cadence").
+// The physics worker entry (docs/physics.md, "Cadence").
 //
 // Deliberately not in PURE_MODULES: this is the one module that touches the
 // worker globals. The physics and the message protocol live in
