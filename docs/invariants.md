@@ -23,9 +23,12 @@ The suite enforces these, so they are the contract rather than suggestions:
    accumulate from the same frozen positions before the velocity pass writes
    anything, and it only reads positions of nodes in one component.
 4. **Deterministic order.** Iteration follows the `vertices`/`edges` insertion
-   order, and the painter sort is an explicit `(depth descending, insertion
-   index ascending)` comparator, so equal depths keep edge-before-node order and
-   a layout is reproducible.
+   order, and the painter sort is an explicit `(emphasis rank, depth descending,
+   insertion index ascending)` comparator with the rank term applied as its own
+   `if` rather than a `||` chain (chained, two items of different ranks would
+   fall through to the depth term, which is not a total order). So equal depths
+   keep insertion order within a class, the frame's display emphasis decides the
+   class order, and a layout is reproducible.
 5. **Pinned-node semantics.** A dragged node keeps the position the pointer
    writes, has its velocity zeroed, is skipped by integration, and still exerts
    forces. Dragging never teleports depth.
@@ -35,7 +38,9 @@ The suite enforces these, so they are the contract rather than suggestions:
 7. **`Tag` owns its points.** The solver never aliases a `Tag.position` into
    scratch state in a way that lets a read observe a half-written step.
 8. **Allocation-free steady state.** A physics step runs over pooled flat
-   buffers and the draw path over reusable frame scratch. Across the render
+   buffers and the draw path over reusable frame scratch; the display emphasis is
+   resolved from `K.renderer.emphasis` into local numbers once per frame, so no
+   config object is built per draw. Across the render
    boundary the main thread fills a pooled position buffer and posts it by
    transfer, and the worker returns that same buffer with the `drawn` ack, so a
    steady-state frame allocates no typed array on the main thread; the depth

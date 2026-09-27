@@ -55,18 +55,19 @@ A bare projection still reads flat without occlusion cues, so the renderer adds
 three things:
 
 - **Painter's algorithm** — one list of draw items over edges *and* nodes,
-  sorted farthest-first by an explicit `(depth descending, insertion index
-  ascending)` comparator, so a near node covers the edge behind it. An edge's
-  representative depth is the mean of its endpoints. The explicit tie-break
-  replaces reliance on `Array.prototype.sort` stability but produces the same
-  "all edges, then all nodes" order at equal depth, which is why a flat scene is
-  unchanged.
+  sorted by the frame's **display emphasis** first and then farthest-first
+  within each class, by an explicit `(emphasis rank, depth descending,
+  insertion index ascending)` comparator. An edge's representative depth is the
+  mean of its endpoints. The explicit tie-break replaces reliance on
+  `Array.prototype.sort` stability but produces the same "all edges, then all
+  nodes" order at equal depth, which is why a flat scene in the default
+  emphasis is unchanged.
 - **Perspective node size** — `radiusPx = NODE_RADIUS * focalLength / depth`,
   clamped to `[depthCue.minNodeRadiusPx, depthCue.maxNodeRadiusPx]`. The
   selection ring scales identically.
 - **Depth fade** — node and edge alpha ramps from `depthCue.maxAlpha` at the
   nearest drawn depth to `depthCue.minAlpha` at the farthest, through
-  `globalAlpha`.
+  `globalAlpha`, multiplied by the emphasis's per-class alpha scale.
 
 A node at or inside the near plane is not drawn. An edge is skipped if either
 endpoint is culled — there is no true near-plane clipping of edges.
@@ -81,6 +82,47 @@ implementation. `Tag.depth` is therefore written by the frame's drawer and is
 what the drag's unprojection and the cull tie-break read; on the worker path
 `Tag.translatedPosition` is stale on the main thread, because only the drawer
 reads it.
+
+### Display emphasis
+
+One frame has one emphasis. [`src/core/Emphasis.ts`](../src/core/Emphasis.ts)
+names the two configurations, `K.renderer.emphasis` holds their values, and
+`State.emphasis` (default `nodes`, not persisted) carries the live choice, which
+rides every frame message:
+
+| | `nodes` (default) | `edges` |
+| --- | --- | --- |
+| paint order | edges first, nodes on top | nodes first, the mesh on top |
+| `edgeAlphaScale` | `0.55` | `1.0` |
+| `nodeAlphaScale` | `1.0` | `1.0` |
+| `edgeWidthPx` | `1.0` | `2.5` |
+
+The emphasis is a **frame** property, not a selection one: it is global (every
+node against every edge), it touches neither the graph, the physics, the camera,
+the selection nor the hit-test, and switching it requests a redraw rather than
+waking a settled simulation. It is deliberately not persisted, so a reload starts
+at `nodes`.
+
+The alpha scale is one-sided, and that is measured rather than chosen. Against
+the canvas, the shipped palette already gives the nodes the contrast advantage
+(3.78:1 at full opacity); scaling the edges to `0.55` raises near node/edge
+contrast to **6.75:1**, while scaling the *node fills* to `0.70` drops it to
+**1.95:1** - below the 3:1 UI floor - because the nodes are the only bright thing
+in the frame. `nodeAlphaScale` therefore exists as the seam that makes the
+mechanism complete in both directions, and both shipped presets leave it at
+`1.0`. The scale applies to node **fills** only: labels keep the full depth ramp,
+because a label at `0.19` alpha is unreadable. The selection ring sets its own
+`lineWidth` per stroke, so an `edges` frame cannot thicken it.
+
+**One policy, three paths.** The per-item, batched and coarse paths are a
+performance ladder, not three renderers, so all three honour the same
+order/alpha/width policy; a configuration that reversed above
+`batchEdgesMinEdges` would be invisible in the eleven-node demo. In `edges` mode
+the batched edge pass runs *after* the node loop (or the colour-batched fills),
+and the coarse path re-draws the selected node's ring and the labels of the
+selection and its incident neighbours after that pass, so a 2.5 px mesh cannot
+bury the one label a user is reading. That pass is bounded by
+`degree(selected) + 1`, not by N.
 
 Above the `K.renderer` size thresholds the frame switches to a cheaper, gated
 path:
@@ -154,7 +196,7 @@ is a graph object or a string. The messages are:
 | Direction | Message | Payload |
 | --- | --- | --- |
 | main → worker | `init` | `labels: string[]`, `edges: Int32Array` (2E), `positions: Float64Array` (3N), `generation` |
-| main → worker | `frame` | camera (13 numbers), `positions` (3N, transferred), `selected` index, `width`/`height`/`dpr`, `generation`, `frameId` |
+| main → worker | `frame` | camera (13 numbers), `positions` (3N, transferred), `selected` index, `emphasis` (its `Emphasis` wire value; unknown decodes to `nodes`), `width`/`height`/`dpr`, `generation`, `frameId` |
 | main → worker | `export` | `requestId` |
 | worker → main | `ready` | — |
 | worker → main | `drawn` | `frameId`, the frame's `positions` buffer returned, `depths: Float64Array` (N, transferred), `generation` |
