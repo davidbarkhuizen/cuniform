@@ -27,7 +27,7 @@
 
 import { Camera } from "../src/Camera";
 import { Graph } from "../src/Graph";
-import { RenderRunner } from "../src/RenderRunner";
+import { RenderMode, RenderRunner, renderModeFromLocation } from "../src/RenderRunner";
 import { sparseGraph } from "../test/support/physics";
 
 const CANVAS_W = 1280;
@@ -37,8 +37,6 @@ const DEFAULT_DPRS = [1, 2];
 const DEFAULT_FRAMES = 300;
 /** A frame over this is a missed 60 Hz frame; the published budget watches it. */
 const FRAME_BUDGET_MS = 16.7;
-
-type RenderMode = "main" | "worker";
 
 interface Params {
     sizes: number[];
@@ -75,7 +73,7 @@ function queryParams(): Params {
         sizes: n !== null ? [Number(n)] : DEFAULT_SIZES,
         dprs: dpr !== null ? [Number(dpr)] : DEFAULT_DPRS,
         frames: frames !== null ? Number(frames) : DEFAULT_FRAMES,
-        mode: query.get("render") === "main" ? "main" : "worker",
+        mode: renderModeFromLocation(),
     };
 }
 

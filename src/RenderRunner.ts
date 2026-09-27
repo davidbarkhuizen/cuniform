@@ -98,7 +98,7 @@ function canUseWorker(canvas: HTMLCanvasElement): boolean {
 }
 
 /** The feature-detectable form of "which realm draws". */
-function renderModeFromLocation(): RenderMode {
+export function renderModeFromLocation(): RenderMode {
 
     if (typeof window === "undefined" || !window.location)
         return "worker";

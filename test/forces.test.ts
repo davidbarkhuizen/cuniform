@@ -16,8 +16,6 @@ import {
 } from "./support/physics";
 
 test("repulsion follows k*q^2 / r^1.9 and pushes away from the other node", () => {
-    const k = K.physics.scalarForceConstant;
-    const q = K.physics.nodeCharge;
     const exponent = K.physics.repulsionExponent;
 
     assert.equal(exponent, 1.9, "the reference exponent is 1.9, not 2");
@@ -26,7 +24,7 @@ test("repulsion follows k*q^2 / r^1.9 and pushes away from the other node", () =
         const { a, fdg } = pairAt(r);
         const f = fdg.netElectrostaticForceAtNode(a);
 
-        const expected = (k * q * q) / Math.pow(r, exponent);
+        const expected = REPULSION_CONSTANT / Math.pow(r, exponent);
         assertClose(
             Math.abs(f.x),
             expected,

@@ -7,7 +7,7 @@ import { CameraView, defaultCameraView } from "../src/Projector";
 import { render } from "../src/Renderer";
 import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
-import { FakeContext2D, withRendererSettings } from "./support/dom";
+import { FakeContext2D, poisonSelection, withRendererSettings } from "./support/dom";
 
 const NODE_DEFAULT = K.colours.nodeDefault;
 const NODE_SELECTED = K.colours.nodeSelected;
@@ -179,9 +179,7 @@ test("render never scans the graph for the selection", () => {
     const { graph, b } = build();
     b.isSelected = true;
 
-    graph.selectedVertex = () => {
-        throw new Error("render() must not scan for the selection");
-    };
+    poisonSelection(graph, "render() must not scan for the selection");
 
     const context = new FakeContext2D();
     context.canvas = { width: 800, height: 600 };

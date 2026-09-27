@@ -98,6 +98,8 @@ test("the range message states the effective bounds", () => {
 });
 
 test("specLabel of a random spec names the order and the branching", () => {
+    // The literal wording is the contract this test pins; callers build their
+    // expectations through specLabel() so this is the one place it lives.
     assert.equal(
         specLabel({ kind: "random", order: 11, branching: 2 }),
         "random graph: 11 nodes, up to 2 new edges per node"

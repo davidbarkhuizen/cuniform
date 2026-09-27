@@ -56,22 +56,42 @@ class FakePhysicsWorker implements PhysicsWorkerPort {
     }
 }
 
-test("the worker and in-process backends produce identical physics", () => {
-    const order = 40;
-    const inProcessGraph = sparseGraph(order, 4242);
-    const workerGraph = sparseGraph(order, 4242);
+/** The two runners under comparison plus the graphs their node state lives on. */
+interface BackendPair {
+    inProcess: PhysicsRunner;
+    worker: PhysicsRunner;
+    inProcessGraph: Graph;
+    workerGraph: Graph;
+    engineGraph: Graph;
+}
+
+/**
+ * Build the same seeded fixture on both sides, drive each runner `steps` steps
+ * with the same pin, and sync the worker's positions back onto its graph.
+ *
+ * The two backends share one seed and one step rule, so their state must be
+ * bit-identical; this is the shared body of every cross-backend comparison.
+ */
+function runBackends(
+    order: number,
+    seed: number,
+    steps: number,
+    pinnedIndex: number,
+    x = 0,
+    y = 0,
+    z = 0
+): BackendPair {
+    const inProcessGraph = sparseGraph(order, seed);
+    const workerGraph = sparseGraph(order, seed);
 
     const inProcess = new PhysicsRunner(new ForceDirectedGraph(inProcessGraph), () => null);
 
     const fake = new FakePhysicsWorker();
     const worker = new PhysicsRunner(new ForceDirectedGraph(workerGraph), () => fake);
 
-    assert.equal(inProcess.usesWorker, false);
-    assert.equal(worker.usesWorker, true);
-
-    for (let step = 0; step < 25; step++) {
-        inProcess.step(-1, 0, 0, 0);
-        worker.step(-1, 0, 0, 0);
+    for (let step = 0; step < steps; step++) {
+        inProcess.step(pinnedIndex, x, y, z);
+        worker.step(pinnedIndex, x, y, z);
     }
 
     worker.sync(workerGraph);
@@ -80,24 +100,47 @@ test("the worker and in-process backends produce identical physics", () => {
 
     assert.ok(engineGraph, "the fake worker must have built its own graph");
 
-    for (let i = 0; i < order; i++) {
-        assert.equal(workerGraph.vertices[i].position.x, inProcessGraph.vertices[i].position.x, `node ${i} x`);
-        assert.equal(workerGraph.vertices[i].position.y, inProcessGraph.vertices[i].position.y, `node ${i} y`);
-        assert.equal(workerGraph.vertices[i].position.z, inProcessGraph.vertices[i].position.z, `node ${i} z`);
+    return { inProcess, worker, inProcessGraph, workerGraph, engineGraph: engineGraph! };
+}
 
-        // Velocity only exists inside the worker; compare it through the engine.
-        assert.equal(engineGraph!.vertices[i].velocity.x, inProcessGraph.vertices[i].velocity.x, `node ${i} vx`);
-        assert.equal(engineGraph!.vertices[i].velocity.y, inProcessGraph.vertices[i].velocity.y, `node ${i} vy`);
-        assert.equal(engineGraph!.vertices[i].velocity.z, inProcessGraph.vertices[i].velocity.z, `node ${i} vz`);
+/** Assert both backends report identical positions on every node. */
+function assertSamePositions(order: number, pair: BackendPair): void {
+    for (let i = 0; i < order; i++) {
+        assert.equal(pair.workerGraph.vertices[i].position.x, pair.inProcessGraph.vertices[i].position.x, `node ${i} x`);
+        assert.equal(pair.workerGraph.vertices[i].position.y, pair.inProcessGraph.vertices[i].position.y, `node ${i} y`);
+        assert.equal(pair.workerGraph.vertices[i].position.z, pair.inProcessGraph.vertices[i].position.z, `node ${i} z`);
     }
+}
+
+/**
+ * Assert both backends agree on every node's position and velocity. Velocity
+ * only exists inside the worker, so it is compared through the engine's graph.
+ */
+function assertBackendsAgree(order: number, seed: number, steps: number): BackendPair {
+    const pair = runBackends(order, seed, steps, -1);
+
+    assertSamePositions(order, pair);
+
+    for (let i = 0; i < order; i++) {
+        assert.equal(pair.engineGraph.vertices[i].velocity.x, pair.inProcessGraph.vertices[i].velocity.x, `node ${i} vx`);
+        assert.equal(pair.engineGraph.vertices[i].velocity.y, pair.inProcessGraph.vertices[i].velocity.y, `node ${i} vy`);
+        assert.equal(pair.engineGraph.vertices[i].velocity.z, pair.inProcessGraph.vertices[i].velocity.z, `node ${i} vz`);
+    }
+
+    return pair;
+}
+
+test("the worker and in-process backends produce identical physics", () => {
+    const pair = assertBackendsAgree(40, 4242, 25);
+
+    assert.equal(pair.inProcess.usesWorker, false);
+    assert.equal(pair.worker.usesWorker, true);
 });
 
 test("the backends stay identical above the fast threshold, where auto picks the fast angle", () => {
     // Same harness, at the size where the size default moves the forces: both
     // realms must read the same compile-time K and stay bit-identical.
     const order = K.physics.barnesHutFastMinNodes;
-    const inProcessGraph = sparseGraph(order, 909);
-    const workerGraph = sparseGraph(order, 909);
 
     assert.equal(
         openingAngleFor(order, K.physics.quality),
@@ -105,80 +148,35 @@ test("the backends stay identical above the fast threshold, where auto picks the
         "this fixture must actually exercise the fast angle"
     );
 
-    const inProcess = new PhysicsRunner(new ForceDirectedGraph(inProcessGraph), () => null);
-
-    const fake = new FakePhysicsWorker();
-    const worker = new PhysicsRunner(new ForceDirectedGraph(workerGraph), () => fake);
-
-    for (let step = 0; step < 2; step++) {
-        inProcess.step(-1, 0, 0, 0);
-        worker.step(-1, 0, 0, 0);
-    }
-
-    worker.sync(workerGraph);
-
-    const engineGraph = fake.engine.graph;
-
-    assert.ok(engineGraph, "the fake worker must have built its own graph");
-
-    for (let i = 0; i < order; i++) {
-        assert.equal(workerGraph.vertices[i].position.x, inProcessGraph.vertices[i].position.x, `node ${i} x`);
-        assert.equal(workerGraph.vertices[i].position.y, inProcessGraph.vertices[i].position.y, `node ${i} y`);
-        assert.equal(workerGraph.vertices[i].position.z, inProcessGraph.vertices[i].position.z, `node ${i} z`);
-
-        assert.equal(engineGraph!.vertices[i].velocity.x, inProcessGraph.vertices[i].velocity.x, `node ${i} vx`);
-        assert.equal(engineGraph!.vertices[i].velocity.y, inProcessGraph.vertices[i].velocity.y, `node ${i} vy`);
-        assert.equal(engineGraph!.vertices[i].velocity.z, inProcessGraph.vertices[i].velocity.z, `node ${i} vz`);
-    }
+    assertBackendsAgree(order, 909, 2);
 });
 
 test("a pinned node behaves identically through both backends", () => {
     const order = 30;
-    const inProcessGraph = sparseGraph(order, 77);
-    const workerGraph = sparseGraph(order, 77);
-
-    const inProcess = new PhysicsRunner(new ForceDirectedGraph(inProcessGraph), () => null);
-
-    const fake = new FakePhysicsWorker();
-    const worker = new PhysicsRunner(new ForceDirectedGraph(workerGraph), () => fake);
-
     const pinned = 7;
     const x = 120;
     const y = -45;
     const z = 15;
 
-    for (let step = 0; step < 8; step++) {
-        inProcess.step(pinned, x, y, z);
-        worker.step(pinned, x, y, z);
-    }
-
-    worker.sync(workerGraph);
+    const pair = runBackends(order, 77, 8, pinned, x, y, z);
 
     assert.deepEqual(
-        { x: inProcessGraph.vertices[pinned].position.x, y: inProcessGraph.vertices[pinned].position.y, z: inProcessGraph.vertices[pinned].position.z },
+        { x: pair.inProcessGraph.vertices[pinned].position.x, y: pair.inProcessGraph.vertices[pinned].position.y, z: pair.inProcessGraph.vertices[pinned].position.z },
         { x, y, z },
         "the pinned node must hold the pointer position"
     );
 
-    const engineGraph = fake.engine.graph;
-
-    assert.ok(engineGraph);
-
     assert.deepEqual(
         {
-            x: engineGraph!.vertices[pinned].velocity.x,
-            y: engineGraph!.vertices[pinned].velocity.y,
-            z: engineGraph!.vertices[pinned].velocity.z,
+            x: pair.engineGraph.vertices[pinned].velocity.x,
+            y: pair.engineGraph.vertices[pinned].velocity.y,
+            z: pair.engineGraph.vertices[pinned].velocity.z,
         },
         { x: 0, y: 0, z: 0 },
         "the pinned node's velocity must be bled off"
     );
 
-    for (let i = 0; i < order; i++) {
-        assert.equal(workerGraph.vertices[i].position.x, inProcessGraph.vertices[i].position.x, `node ${i} x`);
-        assert.equal(workerGraph.vertices[i].position.y, inProcessGraph.vertices[i].position.y, `node ${i} y`);
-        assert.equal(workerGraph.vertices[i].position.z, inProcessGraph.vertices[i].position.z, `node ${i} z`);
-    }
+    assertSamePositions(order, pair);
 });
 
 test("a -1 or out-of-range index steps with nothing pinned", () => {

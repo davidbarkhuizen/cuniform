@@ -10,6 +10,18 @@ function bondBetween(topology: ReturnType<typeof parseSmiles>, a: number, b: num
     );
 }
 
+/** Asserts `input` fails to parse at exactly `position`. */
+function assertSmilesErrorAt(input: string, position: number): void {
+    assert.throws(
+        () => parseSmiles(input),
+        (error: unknown) => {
+            assert.ok(error instanceof SmilesError, `expected a SmilesError, got ${error}`);
+            assert.equal(error.position, position);
+            return true;
+        }
+    );
+}
+
 test("CCO gives three atoms and two bonds, in SMILES order", () => {
     const topology = parseSmiles("CCO");
 
@@ -170,58 +182,23 @@ test(". splits the graph without adding a bond", () => {
 });
 
 test("an unknown character throws with its position", () => {
-    assert.throws(
-        () => parseSmiles("CC$C"),
-        (error: unknown) => {
-            assert.ok(error instanceof SmilesError);
-            assert.equal(error.position, 2);
-            return true;
-        }
-    );
+    assertSmilesErrorAt("CC$C", 2);
 });
 
 test("an unmatched ) throws with its position", () => {
-    assert.throws(
-        () => parseSmiles("C)C"),
-        (error: unknown) => {
-            assert.ok(error instanceof SmilesError);
-            assert.equal(error.position, 1);
-            return true;
-        }
-    );
+    assertSmilesErrorAt("C)C", 1);
 });
 
 test("an unclosed ( throws at the position it was opened", () => {
-    assert.throws(
-        () => parseSmiles("CC(C"),
-        (error: unknown) => {
-            assert.ok(error instanceof SmilesError);
-            assert.equal(error.position, 2);
-            return true;
-        }
-    );
+    assertSmilesErrorAt("CC(C", 2);
 });
 
 test("a ring digit opened but never closed throws at the digit", () => {
-    assert.throws(
-        () => parseSmiles("C1CC"),
-        (error: unknown) => {
-            assert.ok(error instanceof SmilesError);
-            assert.equal(error.position, 1);
-            return true;
-        }
-    );
+    assertSmilesErrorAt("C1CC", 1);
 });
 
 test("a duplicate bond between the same pair of atoms throws", () => {
-    assert.throws(
-        () => parseSmiles("C12CC12"),
-        (error: unknown) => {
-            assert.ok(error instanceof SmilesError);
-            assert.equal(error.position, 6);
-            return true;
-        }
-    );
+    assertSmilesErrorAt("C12CC12", 6);
 });
 
 test("a ring closure onto the atom it opened from throws", () => {

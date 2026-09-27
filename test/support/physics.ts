@@ -136,7 +136,11 @@ export function sparseGraph(order: number, seed: number, averageDegree: number =
 
     for (let i = 0; i < order; i++) {
         const tag = new Tag(
-            { x: random() * 600 - 300, y: random() * 600 - 300, z: random() * 600 - 300 },
+            {
+                x: random() * K.space.W_0 - K.space.W_0 / 2,
+                y: random() * K.space.H_0 - K.space.H_0 / 2,
+                z: random() * K.space.D_0 - K.space.D_0 / 2,
+            },
             `n${i}`
         );
         graph.addNode(tag);

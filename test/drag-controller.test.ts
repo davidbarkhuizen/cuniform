@@ -2,16 +2,27 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { DragController } from "../src/DragController";
-import { FakeElement, pointerEvent } from "./support/dom";
+import { FakeElement, FakeRect, pointerEvent } from "./support/dom";
 
-/** Panel at (150, 100) inside a parent at (50, 30). */
-function panelInParent() {
+// The demo panel's geometry: a 300x400 panel at (150, 100) inside a 1000x800
+// parent at (50, 30). The drag reads both rects.
+const PARENT_RECT: FakeRect = { top: 30, left: 50, right: 1050, bottom: 830, width: 1000, height: 800, x: 50, y: 30 };
+
+/** The shared parent/panel pair, before any controller is built over it. */
+function panelIn(parentRect: FakeRect) {
     const parent = new FakeElement('DIV');
-    parent.rect = { top: 30, left: 50, right: 1050, bottom: 830, width: 1000, height: 800, x: 50, y: 30 };
+    parent.rect = parentRect;
 
     const panel = new FakeElement('DIV');
     panel.parentElement = parent;
     panel.rect = { top: 100, left: 150, right: 450, bottom: 500, width: 300, height: 400, x: 150, y: 100 };
+
+    return { parent, panel };
+}
+
+/** Panel at (150, 100) inside a parent at (50, 30). */
+function panelInParent() {
+    const { parent, panel } = panelIn(PARENT_RECT);
 
     const controller = new DragController(panel as unknown as HTMLElement);
 
@@ -220,12 +231,7 @@ test("a press on the panel itself still drags", () => {
 
 /** The panel plus a grip at its top, built as the demo entrypoint builds it. */
 function panelWithHandle() {
-    const parent = new FakeElement('DIV');
-    parent.rect = { top: 30, left: 50, right: 1050, bottom: 830, width: 1000, height: 800, x: 50, y: 30 };
-
-    const panel = new FakeElement('DIV');
-    panel.parentElement = parent;
-    panel.rect = { top: 100, left: 150, right: 450, bottom: 500, width: 300, height: 400, x: 150, y: 100 };
+    const { panel } = panelIn(PARENT_RECT);
 
     const handle = new FakeElement('DIV');
     handle.parentElement = panel;
