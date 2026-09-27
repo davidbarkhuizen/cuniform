@@ -501,9 +501,11 @@ The suite enforces these, so they are the contract rather than suggestions:
 1. **The pure modules stay DOM-free.** `test/architecture.test.ts` pins
    `PURE_MODULES`, and every DOM-facing module is listed with the marker that
    justifies it (`simulation.worker.ts` for `self`, `PhysicsRunner.ts` for
-   `Worker`, `UIController.ts` for `window`, `Renderer.ts` for the canvas type).
-   A new solver or geometry module joins `PURE_MODULES`; only `Renderer.ts`
-   draws.
+   `Worker`, `UIController.ts` for `window`). The renderer is compiled against
+   `RenderSurface` ([`src/RenderSurface.ts`](src/RenderSurface.ts)), a structural
+   subset of both 2D contexts and of the fake context the tests draw with, so
+   `Renderer.ts` names no canvas type and stays DOM-free. A new solver or
+   geometry module joins `PURE_MODULES`; only `Renderer.ts` draws.
 2. **One projector per tick.** `UIController.onTimerTick()` resolves the
    projector once and passes the same camera to `step()` and `render()`, so the
    renderer's cull boundary sees the depth values cached with that camera.
