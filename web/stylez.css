@@ -423,6 +423,7 @@ body
 }
 
 .wizardValidation,
+.wizardHint,
 .wizardEmpty,
 .wizardCount
 {
@@ -435,4 +436,9 @@ body
 .wizardValidation
 {
 	color			: #fca5a5;
+}
+
+.wizardHint
+{
+	color			: #ffd400;
 }

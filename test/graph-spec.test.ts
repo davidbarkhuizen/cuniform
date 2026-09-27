@@ -48,6 +48,24 @@ test("parseRandomSpec rejects an order outside the chooser's bounds", () => {
     assert.equal(parseRandomSpec(String(K.chooser.maxOrder + 1), "1").ok, false);
 });
 
+test("the raised maxOrder parses and one past it is rejected with the new bound", () => {
+    const accepted = parseRandomSpec(String(K.chooser.maxOrder), "1");
+
+    assert.equal(accepted.ok, true, `${K.chooser.maxOrder} nodes must be accepted`);
+    assert.deepEqual(
+        accepted.ok ? accepted.spec : null,
+        { kind: "random", order: K.chooser.maxOrder, branching: 1 }
+    );
+
+    const rejected = parseRandomSpec(String(K.chooser.maxOrder + 1), "1");
+
+    assert.equal(rejected.ok, false);
+    assert.ok(
+        rejected.ok ? false : rejected.message.includes(String(K.chooser.maxOrder)),
+        `the message must quote the new bound: ${rejected.ok ? "" : rejected.message}`
+    );
+});
+
 test("parseRandomSpec rejects branching below the minimum", () => {
     assert.equal(parseRandomSpec("11", String(K.chooser.minBranching - 1)).ok, false);
 });
