@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { entrypoint, SELECTION_INFO_PANEL_ID, CANVAS_ID, EXPORT_ELEMENT_ID, RESET_ELEMENT_ID } from "../src/app/entrypoint";
+import { defaultGraphSpec } from "../src/graph/GraphSpec";
 import { FakeCanvas, demoElements, newUIController, withFakeDom } from "./support/dom";
 
 const IDS: [string, string, string, string] = [
@@ -39,16 +40,15 @@ test("entrypoint initializes when window.Worker is undefined", () => {
     });
 });
 
-test("entrypoint opens the mandatory first-run chooser and still starts the timer", () => {
+test("entrypoint starts on a random graph without opening the chooser", () => {
     withFakeDom(demoElements(), dom => {
         const result = quietly(() => entrypoint(...IDS));
 
         assert.ok(result, "entrypoint should hand back the controller");
-        assert.ok(result.wizard, "the first run must open the graph chooser");
-        assert.equal(result.wizard!.isOpen, true);
-        assert.equal(result.wizard!.step, "choose");
+        assert.ok(result.wizard === null, "startup must not trigger the reset wizard");
+        assert.deepEqual(result.spec, defaultGraphSpec(), "startup seeds the shipped random default");
+        assert.ok(result.solver.graph.vertices.length > 0, "a random graph is generated and simulated");
         assert.equal(dom.animationFrames.length, 1, "the simulation timer should be running");
-        assert.ok(result.solver.graph.vertices.length > 0, "the chooser needs a placeholder graph behind it");
     });
 });
 
@@ -60,7 +60,7 @@ test("initialize() itself never opens the chooser", () => {
 
         controller.initialize();
 
-        assert.ok(controller.wizard === null, "the chooser is a startup step, not a lifecycle one");
+        assert.ok(controller.wizard === null, "the chooser is opened by reset, never by initialize");
         assert.equal(controller.running, true);
         assert.equal(dom.animationFrames.length, 1);
     });

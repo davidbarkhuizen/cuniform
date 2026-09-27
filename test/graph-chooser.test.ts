@@ -64,18 +64,24 @@ test("onReset suppresses the link's default navigation", () => {
     });
 });
 
-test("the first-run chooser is mandatory and cannot be cancelled", () => {
+test("startup seeds the random default, so the first reset is dismissible", () => {
     withUIController(({ controller }) => {
+        assert.deepEqual(controller.spec, defaultGraphSpec(), "initialize seeds the shipped random default");
+
         controller.onReset();
 
         const wizard = controller.wizard!;
 
-        assert.equal(el(wizard.cancelButton).style.display, "none", "cancel is hidden");
+        assert.notEqual(
+            el(wizard.cancelButton).style.display,
+            "none",
+            "there is a running graph to cancel back to"
+        );
 
         el(wizard.element).dispatch("keydown", keyEvent({ key: "Escape" }));
 
-        assert.equal(wizard.isOpen, true, "Escape is a no-op on the first run");
-        assert.ok(controller.wizard === wizard, "the chooser stays with the controller");
+        assert.equal(wizard.isOpen, false, "Escape dismisses the reset chooser");
+        assert.ok(controller.wizard === null, "the chooser is closed");
     });
 });
 
@@ -154,7 +160,7 @@ test("the panel's graph line names the loaded graph", () => {
         assert.equal(
             elements.currentGraphLabel.innerHTML,
             specLabel(defaultGraphSpec()),
-            "the placeholder's default label is technical"
+            "the startup graph's default label is technical"
         );
 
         controller.onReset();
@@ -185,7 +191,7 @@ test("the panel's graph line names the loaded graph", () => {
 
 test("cancelling leaves the graph, timer, listeners and camera untouched", () => {
     withUIController(({ dom, elements, canvas, controller }) => {
-        // A first choice makes the next chooser dismissible.
+        // Make a choice first, so cancelling below has a definite graph to keep.
         controller.onReset();
         const first = controller.wizard!;
         generateRandom(first, 6, 2);

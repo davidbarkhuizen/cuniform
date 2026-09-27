@@ -67,8 +67,9 @@ panel's drag surface.
 - **Drag the overlay panel** — by mouse or pen, anywhere on the panel; by touch,
   by the grip at its top. The grip is the only touch drag surface, so the panel
   body stays scrollable.
-- **Graph chooser** — opens on first run and on every `reset`, and it is the only
-  way a new graph is created. Step one picks a **random** graph or a
+- **Graph chooser** — opens on every `reset`, and it is the only way a new graph
+  is created. Startup does not open it: the demo begins on the shipped random
+  graph (`K.initialConditions`). Step one picks a **random** graph or a
   **molecule**:
   - *random* — the node count and the maximum new edges per node, validated as
     you type; `generate` is disabled while either field is out of range, and an
@@ -80,10 +81,9 @@ panel's drag surface.
     systematic name, the family, the formula and the flagship note. Typing
     filters by common name, systematic name, parent ring system, family, formula
     or a synonym, and Enter takes the first visible chip.
-  - Escape (or `cancel`) dismisses a reset chooser and leaves the running graph,
-    the timer, the listeners and the camera exactly as they were. The first-run
-    chooser is mandatory: there is no previous graph to keep, so it has no
-    cancel. Tab is trapped inside the dialog.
+  - Escape (or `cancel`) dismisses the chooser and leaves the running graph, the
+    timer, the listeners and the camera exactly as they were, because a graph
+    always exists behind it. Tab is trapped inside the dialog.
 
 A completed chooser **swaps the graph in place**: the timer, the listeners, the
 context menu and the camera are all left alone, so the viewing angle and zoom

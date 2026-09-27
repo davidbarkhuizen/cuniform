@@ -131,8 +131,9 @@ export class UIController {
     // The open graph chooser, or null. Owned so terminate() can close it.
     wizard: GraphWizard | null = null;
 
-    // The last chosen graph description, or null before the first choice; the
-    // graph itself lives in the solver.
+    // The current graph description: the shipped random default set by
+    // initialize(), then whatever the last chooser choice was. The graph itself
+    // lives in the solver.
     spec: GraphSpec | null = null;
 
     // The cached selection: the renderer takes it as an argument instead of
@@ -708,8 +709,9 @@ export class UIController {
 			onComplete: this.applyGraphSpec,
 			onCancel: this.closeGraphWizard,
 			onDismiss: () => this.canvas.focus(),
-			// First run: there is no previous graph to keep, so there is nothing
-			// to cancel back to.
+			// initialize() always seeds a spec, so a reset chooser is
+			// dismissible; the guard only covers a caller that opens the
+			// chooser before any graph exists.
 			dismissible: this.spec !== null,
 			initialSpec: this.spec,
 		});
@@ -1045,8 +1047,14 @@ export class UIController {
 		// handlers holding a reference see the cleared flags.
 		this.state.reset();
 
-		// The default placeholder guarantees a valid graph, so no render path
-		// needs a "no graph" special case; the first-run chooser replaces it.
+		// The startup graph is the shipped random default. The chooser is not
+		// opened automatically, so this spec is what the panel names and what a
+		// later reset can cancel back to; the last choice survives a
+		// re-initialize, and only a controller that has never chosen falls back.
+		this.spec ??= defaultGraphSpec();
+
+		// The default spec guarantees a valid graph, so no render path needs a
+		// "no graph" special case.
 		this.solverRef = new ForceDirectedGraph(this.initialGraph());
 
 		// One drawing owner for this run, built before resizeCanvas() draws

@@ -22,7 +22,7 @@ export interface GraphWizardOptions {
     /** Called once with the chosen spec; the wizard has already closed. */
     onComplete: (spec: GraphSpec) => void;
     onCancel?: () => void;
-    /** False on first run: there is no previous graph to keep. */
+    /** False when there is no previous graph to keep, so the dialog cannot be dismissed. */
     dismissible: boolean;
     /** Returns focus to the canvas. */
     onDismiss?: () => void;
@@ -177,7 +177,7 @@ export class GraphWizard {
         this.cancelButton.innerHTML = "cancel";
         this.cancelButton.addEventListener("click", this.onCancelClick);
 
-        // Nothing to cancel back to on the first run.
+        // Nothing to cancel back to when there is no previous graph.
         if (!options.dismissible)
             this.cancelButton.style.display = "none";
 
@@ -485,8 +485,8 @@ export class GraphWizard {
 
     onKeyDown = (event: KeyboardEvent) => {
 
-        // Escape only cancels a dismissible wizard; it never steps back, so the
-        // mandatory first run cannot be dismissed by reflex.
+        // Escape only cancels a dismissible wizard; it never steps back, so a
+        // chooser with no graph to return to cannot be dismissed by reflex.
         if (event.key === "Escape") {
             this.cancel();
             return;

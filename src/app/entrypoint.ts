@@ -100,8 +100,5 @@ export const entrypoint = (
 
     uiController.initialize();
 
-    // The first-run chooser is a startup step, not a constructor side effect.
-    uiController.openGraphWizard();
-
     return uiController;
 };
