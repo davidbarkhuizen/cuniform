@@ -51,7 +51,7 @@ function alphaAt(depth: number, minDepth: number, maxDepth: number, hasRange: bo
 // alpha outside [0, 1]. One home, so both the per-item and the batched paths
 // clamp identically.
 function scaledAlpha(base: number, scale: number): number {
-	return Math.min(1, Math.max(0, base * scale));
+	return clamp(base * scale, 0, 1);
 }
 
 // The leading sort key: whichever class draws first ends up underneath, so the
@@ -118,9 +118,11 @@ function ensureGroupCapacity(n: number): void {
 	if (n <= groupCount.length)
 		return;
 
-	groupCount = new Int32Array(n);
-	groupStart = new Int32Array(n);
-	groupWrite = new Int32Array(n);
+	const capacity = doublingCapacity(groupCount.length, n);
+
+	groupCount = new Int32Array(capacity);
+	groupStart = new Int32Array(capacity);
+	groupWrite = new Int32Array(capacity);
 }
 
 /**
@@ -521,7 +523,7 @@ function drawBatchedEdges(
 		const bucket = g - (incident ? buckets : 0);
 
 		context.globalAlpha = scaledAlpha(bucketAlpha(bucket, buckets, hasRange, span), alphaScale);
-		context.strokeStyle = incident ? K.colours.edgeIncident : K.colours.edgeDefault;
+		context.strokeStyle = colourFor(incident, K.colours.edgeIncident, K.colours.edgeDefault);
 		context.lineWidth = width;
 
 		context.beginPath();
@@ -573,7 +575,7 @@ function drawBatchedNodeFills(
 		const wantSelected = pass === 1;
 
 		context.globalAlpha = alpha;
-		context.fillStyle = wantSelected ? K.colours.nodeSelected : K.colours.nodeDefault;
+		context.fillStyle = colourFor(wantSelected, K.colours.nodeSelected, K.colours.nodeDefault);
 		context.beginPath();
 
 		let any = false;
@@ -699,7 +701,7 @@ function alphaBucket(
 	const alpha = alphaAt(depth, minDepth, maxDepth, hasRange);
 	const farness = (K.depthCue.maxAlpha - alpha) / span;
 
-	return Math.min(buckets - 1, Math.max(0, Math.floor(farness * buckets)));
+	return clamp(Math.floor(farness * buckets), 0, buckets - 1);
 }
 
 /** The alpha a whole bucket draws at: the midpoint of its slice of the ramp. */

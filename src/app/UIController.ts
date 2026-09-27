@@ -10,6 +10,7 @@ import {
 	sameCameraView,
 } from "../view/Camera";
 import { ContextMenu } from "../ui/ContextMenu";
+import { AncestorNode, attributeOf, firstAncestor } from "../ui/Dom";
 import { Emphasis, emphasisValue, isEmphasisName } from "../core/Emphasis";
 import { ForceDirectedGraph } from "../physics/ForceDirectedGraph";
 import { Graph } from "../graph/Graph";
@@ -392,19 +393,14 @@ export class UIController {
 	// panel around it finds nothing.
 	private consoleButton(target: EventTarget | null): HTMLElement | null {
 
-		let element = target as HTMLElement | null;
+		const element = firstAncestor<AncestorNode>(
+			target,
+			node => attributeOf(node, 'data-axis') !== null ||
+				attributeOf(node, 'data-zoom') !== null,
+			this.cameraConsole
+		);
 
-		while (element && element !== this.cameraConsole) {
-
-			if (typeof element.getAttribute === 'function' &&
-				(element.getAttribute('data-axis') !== null ||
-					element.getAttribute('data-zoom') !== null))
-				return element;
-
-			element = element.parentElement;
-		}
-
-		return null;
+		return element as HTMLElement | null;
 	}
 
 	// One step of a console button: a small rotation, or one dolly notch.
@@ -516,22 +512,19 @@ export class UIController {
 	// attribute can only ever name a configuration that exists.
 	private emphasisButton(target: EventTarget | null): Emphasis | null {
 
-		let element = target as HTMLElement | null;
+		const element = firstAncestor<AncestorNode>(
+			target,
+			node => isEmphasisName(attributeOf(node, 'data-emphasis')),
+			this.emphasisConsole
+		);
 
-		while (element && element !== this.emphasisConsole) {
+		if (element === null)
+			return null;
 
-			if (typeof element.getAttribute === 'function') {
+		// The walk proved this attribute is a name in the panel's vocabulary.
+		const name = attributeOf(element, 'data-emphasis');
 
-				const name = element.getAttribute('data-emphasis');
-
-				if (isEmphasisName(name))
-					return emphasisValue(name);
-			}
-
-			element = element.parentElement;
-		}
-
-		return null;
+		return isEmphasisName(name) ? emphasisValue(name) : null;
 	}
 
 	/**

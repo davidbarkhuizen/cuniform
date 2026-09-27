@@ -18,11 +18,11 @@ import {
     poisonSelection,
     settleFrames,
     settledGraph,
-    withRendererSettings,
     withUIController,
 } from "./support/dom";
 import { pointerEvent } from "./support/dom";
 import { sparseGraph } from "./support/physics";
+import { withRendererSettings } from "./support/settings";
 
 /**
  * The display emphasis: one frame configuration per graph element. The vocabulary

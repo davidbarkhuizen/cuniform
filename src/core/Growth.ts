@@ -1,10 +1,14 @@
 /**
- * The growable-buffer policy for the pooled typed arrays the solver, the octree
- * and the renderer reuse across steps and frames.
+ * The growable-buffer policy for the pooled typed arrays the octree and the
+ * renderer reuse across steps and frames.
+ *
+ * The solver is deliberately not a consumer: it sizes its buffers once per graph
+ * and reallocates them at an exact capacity, because it discards their contents
+ * rather than preserving them (`ForceDirectedGraph.ensureCapacity()`).
  *
  * A buffer only ever grows, and every growth doubles from MIN_BUFFER_CAPACITY, so
  * repeated passes amortise reallocation and a steady-state pass allocates
- * nothing. One home for the policy, so those three consumers cannot tune their
+ * nothing. One home for the policy, so those two consumers cannot tune their
  * growth separately.
  */
 

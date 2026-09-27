@@ -8,7 +8,8 @@ import { CameraView, defaultCameraView } from "../src/view/Projector";
 import { render } from "../src/render/Renderer";
 import { Tag } from "../src/graph/Tag";
 import { assertClose } from "./support/assert";
-import { FakeContext2D, poisonSelection, withRendererSettings } from "./support/dom";
+import { FakeContext2D, poisonSelection } from "./support/dom";
+import { withRendererSettings } from "./support/settings";
 
 const NODE_DEFAULT = K.colours.nodeDefault;
 const NODE_SELECTED = K.colours.nodeSelected;

@@ -25,6 +25,7 @@ import { openingAngleFor } from "../src/physics/Quality";
 import { render } from "../src/render/Renderer";
 import { FakeContext2D } from "../test/support/dom";
 import { disconnectedPaths, seededRandom, sparseGraph } from "../test/support/physics";
+import { withRendererSettings } from "../test/support/settings";
 
 const CANVAS_W = 1280;
 const CANVAS_H = 800;
@@ -364,35 +365,6 @@ function measureRender(graph: Graph, camera: CameraView, reps: number): RenderMe
     return { ms: bestMs, ops, texts };
 }
 
-/** Run `fn` with the renderer thresholds forced, always restoring them. */
-function withRendererThresholds<T>(labelMaxNodes: number, batchEdgesMinEdges: number, fn: () => T): T {
-    const label = K.renderer.labelMaxNodes;
-    const batch = K.renderer.batchEdgesMinEdges;
-
-    K.renderer.labelMaxNodes = labelMaxNodes;
-    K.renderer.batchEdgesMinEdges = batchEdgesMinEdges;
-
-    try {
-        return fn();
-    } finally {
-        K.renderer.labelMaxNodes = label;
-        K.renderer.batchEdgesMinEdges = batch;
-    }
-}
-
-/** Run `fn` with the coarse preset's node threshold forced, always restoring it. */
-function withCoarsePreset<T>(minNodes: number, fn: () => T): T {
-    const original = K.renderer.performance.minNodes;
-
-    K.renderer.performance.minNodes = minNodes;
-
-    try {
-        return fn();
-    } finally {
-        K.renderer.performance.minNodes = original;
-    }
-}
-
 function benchRender(): void {
     console.log(
         `\n== renderer (FakeContext2D: JS overhead only; labels culled above ` +
@@ -416,11 +388,12 @@ function benchRender(): void {
         // 4096+. "coarse" forces the large-graph preset on the same fixture. The ms
         // columns are JS-work proxies only: the fake context charges nothing for
         // real arc/fill rasterisation, so they are not a real frame time.
-        const legacy = withCoarsePreset(Infinity, () =>
-            withRendererThresholds(Infinity, Infinity, () => measureRender(graph, projector.camera, reps))
+        const legacy = withRendererSettings(
+            { minNodes: Infinity, labelMaxNodes: Infinity, batchEdgesMinEdges: Infinity },
+            () => measureRender(graph, projector.camera, reps)
         );
         const scaled = measureRender(graph, projector.camera, reps);
-        const coarse = withCoarsePreset(0, () => measureRender(graph, projector.camera, reps));
+        const coarse = withRendererSettings({ minNodes: 0 }, () => measureRender(graph, projector.camera, reps));
 
         row(
             `${order} / ${graph.edges.length}`,
