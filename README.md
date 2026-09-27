@@ -336,6 +336,14 @@ three things:
 A node at or inside the near plane is not drawn. An edge is skipped if either
 endpoint is culled — there is no true near-plane clipping of edges.
 
+The pass itself is two shared functions: `projectGraph()`
+([`src/Projection.ts`](src/Projection.ts)) caches every node's canvas position
+and view depth under one projector, and `render()`
+([`src/Renderer.ts`](src/Renderer.ts)) consumes that cache. Both run in
+whichever realm draws — the main thread's in-process backend, or the render
+worker — so the depth cue, the painter sort and the cull rule have one
+implementation.
+
 Above the `K.renderer` size thresholds the frame switches to a cheaper, gated
 path:
 
