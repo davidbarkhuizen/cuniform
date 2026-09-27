@@ -475,14 +475,14 @@ test("Escape cancels a dismissible wizard without submitting", () => {
     });
 });
 
-test("Escape is ignored on a mandatory wizard", () => {
+test("Escape is ignored on a non-dismissible wizard", () => {
     withWizard(({ wizard, completed, counts }) => {
         wizard.open();
 
         el(wizard.element).dispatch("keydown", keyEvent({ key: "Escape" }));
 
         assert.equal(counts.cancels, 0);
-        assert.equal(wizard.isOpen, true, "the first run cannot be dismissed");
+        assert.equal(wizard.isOpen, true, "a wizard with no graph to return to cannot be dismissed");
         assert.deepEqual(completed, []);
     }, { dismissible: false });
 });
@@ -654,7 +654,7 @@ test("Tab skips the disabled generate button", () => {
     });
 });
 
-test("Tab skips the hidden cancel button on a mandatory wizard", () => {
+test("Tab skips the hidden cancel button on a non-dismissible wizard", () => {
     withWizard(({ wizard }) => {
         const order = trackFocus([
             ["random", wizard.choiceButtons[0].element],
