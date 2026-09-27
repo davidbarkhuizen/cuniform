@@ -131,7 +131,8 @@ a discriminated value the chooser produces and the controller remembers:
   final degree: the graph is undirected, so a node also collects the edges its
   neighbours start, and its degree can exceed `branching` — a 3-node graph with
   `branching = 1` is often a triangle. `order` is bounded by `K.chooser`
-  (`2..64`: repulsion is `O(N^2)` per tick) and `branching` by
+  (`2..64`: the chooser stays at or below the exact/Barnes-Hut crossover) and
+  `branching` by
   `min(K.chooser.maxBranching, order - 1)` — a node cannot start more than
   `order - 1` distinct edges, so a larger value would silently start fewer edges
   than asked for.
@@ -334,19 +335,25 @@ length), and an underdamped mode decays by `sqrt(friction) ~= 0.9487` per step.
 
 ### Complexity
 
-Repulsion is all-pairs, `O(N^2)`. The spring pass walks each node's incident
-edges from an adjacency list that `Graph` maintains alongside its edge list, so
-it is `O(N + E)` rather than `O(N*E)`. The renderer's depth sort adds
-`O((N + E) log(N + E))` per frame, which is new but negligible at demo scale.
+Repulsion is Barnes-Hut above `K.physics.barnesHutMinNodes` (64) nodes: the
+octree in `src/Octree.ts` approximates the far field with each cell's charge
+total at its centre of mass, `O(N log N)` per step. Below the crossover the
+exact all-pairs kernel still runs, so demo-scale layouts are unchanged, and the
+tree never accepts the cell containing a body as an aggregate, so no opening
+angle can make a node repel itself. `K.physics.barnesHutTheta` (0.5) trades
+force error for speed; the committed benchmark reports the error against the
+exact reference.
 
-`Math.hypot(x, y, z)` is a little slower than the two-argument form; the
-three-argument call is kept because the radius is one call either way and the
-call-count instrumentation test in `test/forces.test.ts` keeps its meaning.
+The radius helper in `src/Kernel.ts` uses `Math.sqrt(dx*dx + dy*dy + dz*dz)`
+rather than `Math.hypot`, which is variadic and rescaled and so cannot compile
+to a square root plus two multiplies.
 
-There is no spatial subdivision and no cut-off radius, so repulsion still
-dominates at scale; this is fine at demo scale (`initialConditions.order` is 11)
-and is the first thing to change for a large graph. The measured baseline and
-the six work plans for supporting larger graphs are in
+The spring pass walks each node's incident edges from an adjacency list that
+`Graph` maintains alongside its edge list, so it is `O(N + E)` rather than
+`O(N*E)`, and a step runs over pooled flat buffers, so it allocates nothing in
+steady state. The renderer's depth sort adds `O((N + E) log(N + E))` per frame.
+
+The measured baseline and the six work plans for supporting larger graphs are in
 [`docs/performance/`](docs/performance/README.md).
 
 ## Known limitations

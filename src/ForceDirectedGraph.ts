@@ -1,15 +1,11 @@
 import { otherEndpoint } from "./Edge";
 import { Graph } from "./Graph";
 import { K } from "./K";
-import { radius } from "./Kernel";
+import { radius, repulsionMagnitude } from "./Kernel";
+import { Octree } from "./Octree";
 import { point3, Point3D, zero3 } from "./Point3D";
 import { ProjectionScratch, Projector } from "./Projector";
 import { Tag } from "./Tag";
-
-// k*q^2, the numerator of the repulsion law. Hoisted because repulsionMagnitude
-// runs once per pair, and the factors are constants.
-const CHARGE_PRODUCT =
-    K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge;
 
 export class ForceDirectedGraph {
 
@@ -30,6 +26,10 @@ export class ForceDirectedGraph {
 
     // Projection destination, reused per node; see Projector.projectInto().
     private readonly projected: ProjectionScratch = { screenX: 0, screenY: 0, depth: 0 };
+
+    // The Barnes-Hut tree, rebuilt from the pre-step positions each step. It owns
+    // its own pooled buffers (Plan 1), so it also allocates nothing steady-state.
+    private readonly octree = new Octree();
 
     constructor(graph: Graph) {
         this.graph = graph;
@@ -72,15 +72,6 @@ export class ForceDirectedGraph {
 		);
 	};
 
-	// Sole home for the magnitude law, so the per-node reference and the paired
-	// accumulation in step() cannot drift apart.
-	private static repulsionMagnitude(r: number): number {
-
-		var r_law = Math.max(r, K.physics.minimumInteractionRadius);
-
-		return CHARGE_PRODUCT / Math.pow(r_law, K.physics.repulsionExponent);
-	};
-
 	netElectrostaticForceAtNode(tagA: Tag): Point3D {
 
 		var F: Point3D = zero3();
@@ -105,7 +96,7 @@ export class ForceDirectedGraph {
 
 			// Only the magnitude is evaluated at a clamped radius, bounding the
 			// r -> 0 singularity; the direction uses the true radius.
-			var scalar_force = ForceDirectedGraph.repulsionMagnitude(r);
+			var scalar_force = repulsionMagnitude(r);
 
 			// Coincident centres have no radial direction and would sit in a
 			// permanent fixed point; tie-break by index, matching the paired pass.
@@ -146,7 +137,7 @@ export class ForceDirectedGraph {
 				const deltaZ = a.position.z - b.position.z;
 				const r = radius(deltaX, deltaY, deltaZ);
 
-				const magnitude = ForceDirectedGraph.repulsionMagnitude(r);
+				const magnitude = repulsionMagnitude(r);
 
 				// Coincident centres have no radial direction; break the tie by
 				// index (earlier node -x) so the pair separates instead of
@@ -172,6 +163,27 @@ export class ForceDirectedGraph {
 				FZ[j] -= scaledZ;
 			}
 		}
+	};
+
+	// The repulsion pass: exact below the crossover, Barnes-Hut above it. The
+	// exact path keeps demo-scale behaviour bit-for-bit; the octree is the only
+	// approximate step, and it is rebuilt from the same frozen pre-step positions.
+	// It adds into the repulsion buffers, so the caller's seed is preserved either
+	// way.
+	private accumulateRepulsionPass(n: number): void {
+
+		if (n < K.physics.barnesHutMinNodes) {
+			this.accumulateRepulsionInto(n);
+			return;
+		}
+
+		this.octree.build(
+			this.graph.vertices,
+			K.physics.barnesHutTheta,
+			K.physics.barnesHutMaxDepth
+		);
+
+		this.octree.accumulateForce(this.repulsionX, this.repulsionY, this.repulsionZ);
 	};
 
 	// The spring sum for one node, written into the spring buffers. The public
@@ -322,7 +334,7 @@ export class ForceDirectedGraph {
 			this.repulsionZ[i] = out[i].z;
 		}
 
-		this.accumulateRepulsionInto(n);
+		this.accumulateRepulsionPass(n);
 
 		for (let i = 0; i < n; i++) {
 			out[i].x = this.repulsionX[i];
@@ -360,7 +372,7 @@ export class ForceDirectedGraph {
 		}
 
 		// Pass 1: repulsion, from the pre-step positions.
-		this.accumulateRepulsionInto(n);
+		this.accumulateRepulsionPass(n);
 
 		// Pass 2: springs, still reading only pre-step positions. The spring sum
 		// is formed separately and then added to the repulsion, preserving the

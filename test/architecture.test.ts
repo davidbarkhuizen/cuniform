@@ -21,6 +21,7 @@ const PURE_MODULES = [
     "GraphFactory.ts",
     "GraphSpec.ts",
     "Kernel.ts",
+    "Octree.ts",
     "Camera.ts",
     "Projector.ts",
     "Mat3.ts",

@@ -109,3 +109,62 @@ export function stddev(xs: number[]): number {
 export function newGraph(order: number = 10, branching: number = 2): Graph {
     return new GraphFactory().generateGraph(order, branching);
 }
+
+/** Deterministic xorshift32 in [0, 1), so a seeded fixture is reproducible. */
+export function seededRandom(seed: number): () => number {
+    let state = seed >>> 0 || 1;
+
+    return () => {
+        state ^= state << 13;
+        state >>>= 0;
+        state ^= state >>> 17;
+        state ^= state << 5;
+        state >>>= 0;
+        return state / 0x100000000;
+    };
+}
+
+/**
+ * A sparse graph built directly rather than through generateGraph: its shape is
+ * a deterministic function of `seed`, and its cost excludes generation, which
+ * matters when the fixture is the input to a timing or error measurement.
+ */
+export function sparseGraph(order: number, seed: number, averageDegree: number = 3): Graph {
+    const random = seededRandom(seed);
+    const graph = new Graph();
+    const tags: Tag[] = [];
+
+    for (let i = 0; i < order; i++) {
+        const tag = new Tag(
+            { x: random() * 600 - 300, y: random() * 600 - 300, z: random() * 600 - 300 },
+            `n${i}`
+        );
+        graph.addNode(tag);
+        tags.push(tag);
+    }
+
+    const target = Math.floor((order * averageDegree) / 2);
+    const seen = new Set<string>();
+
+    let edges = 0;
+    let guard = 0;
+
+    while (edges < target && guard++ < target * 20) {
+        const a = Math.floor(random() * order);
+        const b = Math.floor(random() * order);
+
+        if (a === b)
+            continue;
+
+        const key = a < b ? `${a}:${b}` : `${b}:${a}`;
+
+        if (seen.has(key))
+            continue;
+
+        seen.add(key);
+        graph.addEdge(tags[a], tags[b]);
+        edges++;
+    }
+
+    return graph;
+}
