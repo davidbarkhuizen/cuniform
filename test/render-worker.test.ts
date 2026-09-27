@@ -3,12 +3,17 @@ import assert from "node:assert/strict";
 
 import { Emphasis } from "../src/core/Emphasis";
 import { Graph } from "../src/graph/Graph";
+import { K } from "../src/core/K";
 import { buildMirrorGraph } from "../src/graph/MirrorGraph";
 import { PhysicsWorkerEngine } from "../src/physics/PhysicsProtocol";
 import { projectGraph } from "../src/view/Projection";
-import { defaultCameraView, Projector } from "../src/view/Projector";
+import { CameraView, defaultCameraView, Projector } from "../src/view/Projector";
+import { fromYawPitch } from "../src/view/Mat3";
+import { sameCameraView } from "../src/view/Camera";
 import { render } from "../src/render/Renderer";
 import {
+    CAMERA_VALUES,
+    decodeCamera,
     DrawnResponse,
     encodeCamera,
     FrameRequest,
@@ -96,6 +101,41 @@ function directDraw(
 
     return context;
 }
+
+/**
+ * The frame's camera crosses as 13 positional numbers, and the two ends of that
+ * layout live in one module but are read by two realms. This is the guard for the
+ * split: a codec that dropped, reordered or rescaled a value would make the worker
+ * draw a different picture from the camera the main thread thinks it sent.
+ */
+test("the camera codec carries every value a frame compares", () => {
+
+    // A non-default camera: a real rotation, an off-origin target and a dollied
+    // distance. `focalLength`/`nearPlane` are fixed for a camera's life and are
+    // deliberately not on the wire, so the codec reads them from `K`.
+    const camera: CameraView = {
+        orientation: fromYawPitch(0.6, -0.4),
+        target: { x: 12, y: -7, z: 3 },
+        distance: 800,
+        focalLength: K.camera.focalLength,
+        nearPlane: K.camera.nearPlane,
+    };
+
+    const packed = encodeCamera(camera);
+
+    assert.equal(packed.length, CAMERA_VALUES, "the wire carries the declared number of values");
+
+    const decoded = decodeCamera(packed);
+
+    // `sameCameraView` is the renderer's redraw check, so it is exactly the set
+    // the wire must not lose; the rest are fixed for a camera's life.
+    assert.equal(sameCameraView(decoded, camera), true, "the decoded view must match the live one");
+    assert.deepEqual([...decoded.orientation], [...camera.orientation]);
+    assert.deepEqual(decoded.target, camera.target);
+    assert.equal(decoded.distance, camera.distance);
+    assert.equal(decoded.focalLength, camera.focalLength);
+    assert.equal(decoded.nearPlane, camera.nearPlane);
+});
 
 // A fixture whose four nodes sit at four different depths, so the depth cue, the
 // painter sort, the selection ring and the incident-edge highlight are all live.
