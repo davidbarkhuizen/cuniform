@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { entrypoint } from "../src/entrypoint";
+import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { identity, Mat3, rotX, rotY, rotZ } from "../src/Mat3";
 import { point3 } from "../src/Point3D";
+import { Tag } from "../src/Tag";
 import { assertMatClose } from "./support/assert";
 import {
     CAMERA_CONSOLE_EVENTS,
@@ -36,11 +38,19 @@ interface ConsoleFixture extends UIControllerFixture {
     consoleElement: FakeElement;
 }
 
-function withFixture<T>(fn: (ui: ConsoleFixture) => T): T {
+// One node at the origin feels no force, so the settle detector arms on the
+// first quiet tick; a hold therefore reaches the settled state deterministically.
+function settledGraph(): Graph {
+    const graph = new Graph();
+    graph.addNode(new Tag({ x: 0, y: 0, z: 0 }, "solo"));
+    return graph;
+}
+
+function withFixture<T>(fn: (ui: ConsoleFixture) => T, graph?: Graph): T {
     return withUIController(
         ui => fn({ ...ui, consoleElement: ui.elements.cameraConsole }),
         // 600x600 so a projector can be asked where a model point lands.
-        { width: 600, height: 600 }
+        { width: 600, height: 600, graph }
     );
 }
 
@@ -98,6 +108,73 @@ test("a held button applies one small step per simulation tick", () => {
             "one step on press plus one per tick"
         );
     });
+});
+
+test("a held button keeps rotating after the layout settles", () => {
+    // Regression: the rAF loop stops *stepping* the physics once the layout
+    // settles, and the console rotation rode that same step. A hold therefore
+    // froze ~settleFrames ticks after the press, then stayed frozen.
+    withFixture(({ dom, controller, consoleElement }) => {
+        const period = K.physics.timerTickPeriodMS;
+
+        // The first frame only establishes the clock; no step is due yet.
+        dom.runAnimationFrames(0);
+
+        pressDown(consoleElement, button('y', 'acw'));
+
+        // One step on press, then one per elapsed period, running well past the
+        // settle window so a frozen hold would show up as missing steps.
+        const frames = K.physics.settleFrames + 5;
+
+        for (let frame = 1; frame <= frames; frame++)
+            dom.runAnimationFrames(period * frame);
+
+        assertMatClose(
+            controller.state.camera.orientation,
+            stepFor('y', 'acw', 1 + frames),
+            1e-12,
+            "a held console button must keep stepping after the layout settles"
+        );
+    }, settledGraph());
+});
+
+test("a settled hold turns the camera without re-stepping the layout", () => {
+    // The fix for the freeze above must not undo the settle optimisation: once
+    // the layout is quiet, a hold turns the camera on the clock alone.
+    withFixture(({ dom, controller, consoleElement }) => {
+        const solver = controller.solver;
+        const realStep = solver.stepPhysics.bind(solver);
+
+        let steps = 0;
+
+        solver.stepPhysics = isPinned => {
+            steps++;
+            realStep(isPinned);
+        };
+
+        const period = K.physics.timerTickPeriodMS;
+
+        dom.runAnimationFrames(0);
+        pressDown(consoleElement, button('y', 'acw'));
+
+        // Run the hold through the settle window.
+        for (let frame = 1; frame <= K.physics.settleFrames; frame++)
+            dom.runAnimationFrames(period * frame);
+
+        const stepsAtSettle = steps;
+        const turnedAtSettle = controller.state.camera.orientation;
+
+        // Further frames must keep turning the camera but step the solver no more.
+        dom.runAnimationFrames(period * (K.physics.settleFrames + 1));
+        dom.runAnimationFrames(period * (K.physics.settleFrames + 2));
+
+        assert.equal(steps, stepsAtSettle, "a settled layout must not step while a hold turns the camera");
+        assert.notDeepEqual(
+            controller.state.camera.orientation,
+            turnedAtSettle,
+            "the camera must keep turning after the layout settles"
+        );
+    }, settledGraph());
 });
 
 test("releasing the pointer stops the rotation", () => {
