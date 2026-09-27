@@ -4,7 +4,7 @@ import { radialComponentsInto, radius, repulsionMagnitude } from "./Kernel";
 import { Tag } from "./Tag";
 
 /**
- * Barnes-Hut octree over the model positions (README, "Performance").
+ * Barnes-Hut octree over the model positions (docs/performance.md).
  *
  * The all-pairs repulsion pass is O(N^2) and was 85-98% of a step at N >= 512. The
  * tree replaces the far field with a cell's charge total at its centre of mass,
@@ -21,7 +21,7 @@ import { Tag } from "./Tag";
 const MIN_HALF_EXTENT = 1e-6;
 
 /**
- * The opening-angle ceiling the README's "Performance" section documents,
+ * The opening-angle ceiling docs/performance.md documents,
  * 2/sqrt(3) ~= 1.1547.
  *
  * It is a sanity clamp only: the traversal additionally tracks which cell

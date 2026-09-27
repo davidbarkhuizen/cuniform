@@ -157,7 +157,7 @@ test("a large opening angle still excludes self and stays bounded", () => {
     const order = 512;
     const graph = sparseGraph(order, 6060);
 
-    // 0.9 is the fast opening angle the README's "Performance" section names.
+    // 0.9 is the fast opening angle docs/performance.md names.
     // Above 1/sqrt(3) a theta-only self-exclusion argument would fail, so this
     // exercises the explicit rule.
     const tree = new Octree();
