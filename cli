@@ -7,7 +7,7 @@ set -euo pipefail
 # The node/npm equivalent of the reference project's `cli` script. Run it from
 # the repository root:
 #
-#   ./cli [ build | ci | clean | help | install | run | test | typecheck ]
+#   ./cli [ bench | build | ci | clean | help | install | run | test | typecheck ]
 #
 # With no recognised option it prints usage. Unlike the reference, which falls
 # through to running the program, `run` must be asked for explicitly.
@@ -50,6 +50,11 @@ ci () {
     npm run ci
 }
 
+bench () {
+
+    npm run bench
+}
+
 build () {
 
     echo "building js from typescript ..."
@@ -68,13 +73,17 @@ usage () {
     echo "-----------------------------------------------"
     echo "usage:"
     echo
-    echo "./cli [ build | ci | clean | help | install | run | test | typecheck ]"
+    echo "./cli [ bench | build | ci | clean | help | install | run | test | typecheck ]"
     echo
     echo
     echo "./cli run"
 }
 
 case "$option" in
+
+    bench)
+        bench
+    ;;
 
     build)
         build

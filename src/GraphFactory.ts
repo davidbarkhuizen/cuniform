@@ -20,6 +20,11 @@ function moleculeSeedPositions(n: number): Point3D[] {
     });
 }
 
+// Rejection sampling is O(1) expected on the sparse graphs the chooser builds;
+// this cap bounds the work on a nearly complete graph before the linear
+// fallback runs. See docs/performance/04-graph-generation.md.
+const MAX_REJECTION_ATTEMPTS = 32;
+
 export class GraphFactory {
 
 	build(spec: GraphSpec): Graph {
@@ -99,24 +104,69 @@ export class GraphFactory {
             graph.addNode(tag);
 		}
 
-		for(const tag of graph.vertices) {
+		// Partners are drawn by rejection over vertex indices rather than by filtering
+		// a candidate list: on the sparse graphs the chooser builds, a random draw is
+		// almost always a valid partner, so each edge costs O(1) expected and the pass
+		// is O(V + E) instead of O(V^2 * E).
+		const vertices = graph.vertices;
+
+		for(let i = 0; i < vertices.length; i++) {
+
+			const tag = vertices[i];
 
 			// randint(1, maxNewEdgesPerVertex) inclusive
 			var edgesToAdd = 1 + Math.floor(Math.random() * maxNewEdgesPerVertex);
 
 			for(let j = 0; j < edgesToAdd; j++) {
 
-				var candidates = graph.vertices.filter(
-					v => (v !== tag) && !graph.hasEdge(tag, v)
-				);
+				const partner = this.pickNewNeighbour(graph, vertices, i);
 
-				if (candidates.length === 0)
+				// Every other vertex is already a neighbour: this vertex has started
+				// all the new edges it can, so it stops.
+				if (partner === null)
 					break;
 
-				graph.addEdge(tag, candidates[Math.floor(Math.random() * candidates.length)]);
+				graph.addEdge(tag, partner);
 			}
 		}
 
 		return graph;
+	};
+
+	/**
+	 * A random vertex not already joined to `vertices[self]`, or null when every
+	 * other vertex is a neighbour. Rejection sampling is the fast path; the capped
+	 * attempts plus an insertion-order scan keep a nearly complete graph terminating.
+	 */
+	private pickNewNeighbour(graph: Graph, vertices: Array<Tag>, self: number): Tag | null {
+
+		const selfTag = vertices[self];
+
+		for (let attempt = 0; attempt < MAX_REJECTION_ATTEMPTS; attempt++) {
+
+			const candidate = Math.floor(Math.random() * vertices.length);
+
+			if (candidate === self)
+				continue;
+
+			const tag = vertices[candidate];
+
+			if (!graph.hasEdge(selfTag, tag))
+				return tag;
+		}
+
+		// Dense fallback: insertion order, so a near-complete graph stays deterministic.
+		for (let candidate = 0; candidate < vertices.length; candidate++) {
+
+			if (candidate === self)
+				continue;
+
+			const tag = vertices[candidate];
+
+			if (!graph.hasEdge(selfTag, tag))
+				return tag;
+		}
+
+		return null;
 	};
 };

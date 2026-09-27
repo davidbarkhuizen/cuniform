@@ -7,6 +7,7 @@
     "start": "npx webpack --config webpack.config.js",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "test": "tsc -p tsconfig.test.json && node --test .test-build/test/*.test.js",
+    "bench": "tsc -p tsconfig.test.json && node --expose-gc .test-build/bench/physics.bench.js",
     "ci": "npm run typecheck && npm test",
     "dev": "nodemon --watch src --ext ts --exec \"npm run start\""
   },

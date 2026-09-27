@@ -166,6 +166,87 @@ test("the shipped initial conditions match the reference demo", () => {
     assert.equal(K.initialConditions.branching, 2);
 });
 
+test("hasEdge is an O(1) membership test with the same rules", () => {
+    const graph = new Graph();
+    const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
+    const b = new Tag({ x: 10, y: 0, z: 0 }, "b");
+    const foreign = new Tag({ x: 20, y: 0, z: 0 }, "foreign");
+
+    graph.addNode(a);
+    graph.addNode(b);
+
+    // A vertex with no edges yet, and one that was never added.
+    assert.ok(!graph.hasEdge(a, b), "no edge yet");
+    assert.ok(!graph.hasEdge(a, foreign), "an unknown tag is never a neighbour");
+    assert.ok(!graph.hasEdge(foreign, a), "an unknown tag is never a neighbour");
+
+    graph.addEdge(a, b);
+    graph.addEdge(a, b); // addEdge permits duplicate edges; membership stays idempotent
+    graph.addEdge(a, a); // a self-loop is indexed, but it is not a neighbour relation
+
+    assert.ok(graph.hasEdge(a, b));
+    assert.ok(graph.hasEdge(b, a));
+    assert.ok(!graph.hasEdge(a, a), "a vertex is not its own neighbour");
+});
+
+test("a nearly complete graph terminates and keeps every invariant", () => {
+    // branching = order - 1 lets every vertex try to connect to all the others,
+    // which drives the rejection sampler into its linear fallback.
+    for (const order of [2, 3, 4, 5]) {
+        for (let trial = 0; trial < 20; trial++) {
+            const graph = newGraph(order, order - 1);
+            const pairs = new Set<string>();
+
+            assert.ok(
+                graph.edges.length <= order * (order - 1),
+                `order ${order} trial ${trial}: too many edges`
+            );
+
+            for (const edge of graph.edges) {
+                assert.notEqual(edge.v1, edge.v2, `order ${order} trial ${trial}: self-loop`);
+
+                const i = graph.vertices.indexOf(edge.v1);
+                const j = graph.vertices.indexOf(edge.v2);
+                const key = i < j ? `${i}:${j}` : `${j}:${i}`;
+
+                assert.ok(!pairs.has(key), `order ${order} trial ${trial}: duplicate edge ${key}`);
+                pairs.add(key);
+            }
+        }
+    }
+});
+
+test("generation is deterministic for a fixed random stream", () => {
+    const first = withSeededRandom(() => newGraph(30, 3));
+    const second = withSeededRandom(() => newGraph(30, 3));
+
+    assert.deepEqual(shape(first), shape(second));
+});
+
+test("a larger graph still respects the edge bound and has no duplicates", () => {
+    const order = 500;
+    const branching = 3;
+    const graph = newGraph(order, branching);
+    const pairs = new Set<string>();
+
+    assert.equal(graph.vertices.length, order);
+    assert.ok(
+        graph.edges.length <= order * branching,
+        `${graph.edges.length} edges exceeds ${order * branching}`
+    );
+
+    for (const edge of graph.edges) {
+        assert.notEqual(edge.v1, edge.v2, "self-loop");
+
+        const i = graph.vertices.indexOf(edge.v1);
+        const j = graph.vertices.indexOf(edge.v2);
+        const key = i < j ? `${i}:${j}` : `${j}:${i}`;
+
+        assert.ok(!pairs.has(key), `duplicate edge ${key}`);
+        pairs.add(key);
+    }
+});
+
 // -------------------------------------------------------------- build(spec)
 
 /** Run `fn` with a deterministic Math.random, restoring the real one after. */

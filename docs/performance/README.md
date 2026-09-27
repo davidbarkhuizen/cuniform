@@ -133,8 +133,8 @@ reviewed change to the test:
 ## Cross-cutting prerequisite: a committed benchmark
 
 None of these plans can be accepted on "it feels faster". Before or with the
-first plan, add a committed, runnable benchmark — proposed as
-`bench/physics.bench.js` plus an `npm run bench` script — that:
+first plan, add a committed, runnable benchmark — `bench/physics.bench.ts`, run
+with `npm run bench` (or `./cli bench`) — that:
 
 - builds sparse graphs at a fixed list of orders with a seeded PRNG,
 - times `step()`, `accumulateRepulsion()`/the octree, the projection loop, the
@@ -143,9 +143,10 @@ first plan, add a committed, runnable benchmark — proposed as
   error against the exact kernel,
 - runs with `node --expose-gc` so GC share can be reported.
 
-The numbers on this page came from a throwaway version of exactly that script.
-Committing it makes every later plan's acceptance criteria checkable in CI or
-on demand.
+The baseline numbers on this page came from an early, throwaway version of this
+harness, measured before Plan 4. Plan 4 committed the harness
+(`bench/physics.bench.ts`); re-run `npm run bench` for current figures, and the
+force-error columns arrive with Plan 1.
 
 ## Deferred: raising the cap and large-graph UX
 
