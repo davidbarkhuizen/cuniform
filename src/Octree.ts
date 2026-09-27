@@ -1,3 +1,4 @@
+import { doublingCapacity, growPooledArray } from "./Growth";
 import { K } from "./K";
 import { radialComponentsInto, radius, repulsionMagnitude } from "./Kernel";
 import { Tag } from "./Tag";
@@ -37,28 +38,17 @@ export function clampOpeningAngle(theta: number): number {
     return Math.min(theta, MAX_OPENING_ANGLE);
 }
 
-function growFloat64(old: Float64Array, capacity: number): Float64Array {
-    const next = new Float64Array(capacity);
-    next.set(old);
-    return next;
-}
-
-function growInt32(old: Int32Array, capacity: number): Int32Array {
-    const next = new Int32Array(capacity);
-    next.set(old);
-    return next;
-}
-
-function growInt8(old: Int8Array, capacity: number): Int8Array {
-    const next = new Int8Array(capacity);
-    next.set(old);
-    return next;
-}
-
-function growUint8(old: Uint8Array, capacity: number): Uint8Array {
-    const next = new Uint8Array(capacity);
-    next.set(old);
-    return next;
+/**
+ * Which octant of a cell centred at `(cx, cy, cz)` holds `(x, y, z)`: bit 0 is
+ * +x, bit 1 is +y, bit 2 is +z.
+ *
+ * One home for the predicate, so the partition in `buildCell()` and the
+ * `contains` chain in `accumulateForce()` cannot disagree about which child owns
+ * a body - the disagreement that would let a body accept its own containing cell
+ * as an aggregate.
+ */
+function octantOf(x: number, y: number, z: number, cx: number, cy: number, cz: number): number {
+    return (x >= cx ? 1 : 0) | (y >= cy ? 2 : 0) | (z >= cz ? 4 : 0);
 }
 
 export class Octree {
@@ -298,11 +288,8 @@ export class Octree {
                 }
 
                 // Recurse. The child on body i's side of the split inherits
-                // `contains`; the octant predicate is the one build() used.
-                const octant =
-                    (px >= centerX[cell] ? 1 : 0) |
-                    (py >= centerY[cell] ? 2 : 0) |
-                    (pz >= centerZ[cell] ? 4 : 0);
+                // `contains`, and the octant comes from the one predicate.
+                const octant = octantOf(px, py, pz, centerX[cell], centerY[cell], centerZ[cell]);
 
                 const children = childCount[cell];
 
@@ -349,10 +336,7 @@ export class Octree {
         for (let k = sliceStart; k < sliceStart + sliceCount; k++) {
 
             const body = order[k];
-            const octant =
-                (this.bodyX[body] >= centerX ? 1 : 0) |
-                (this.bodyY[body] >= centerY ? 2 : 0) |
-                (this.bodyZ[body] >= centerZ ? 4 : 0);
+            const octant = octantOf(this.bodyX[body], this.bodyY[body], this.bodyZ[body], centerX, centerY, centerZ);
 
             bodyOctant[body] = octant;
             this.octantCount[octant]++;
@@ -489,62 +473,53 @@ export class Octree {
         if (n <= this.bodyCapacity)
             return;
 
-        let capacity = this.bodyCapacity > 0 ? this.bodyCapacity : 64;
-
-        while (capacity < n)
-            capacity *= 2;
+        const capacity = doublingCapacity(this.bodyCapacity, n);
 
         this.bodyCapacity = capacity;
-        this.bodyX = growFloat64(this.bodyX, capacity);
-        this.bodyY = growFloat64(this.bodyY, capacity);
-        this.bodyZ = growFloat64(this.bodyZ, capacity);
-        this.bodyOrder = growInt32(this.bodyOrder, capacity);
-        this.bodyOctant = growInt8(this.bodyOctant, capacity);
+        this.bodyX = growPooledArray(this.bodyX, capacity);
+        this.bodyY = growPooledArray(this.bodyY, capacity);
+        this.bodyZ = growPooledArray(this.bodyZ, capacity);
+        this.bodyOrder = growPooledArray(this.bodyOrder, capacity);
+        this.bodyOctant = growPooledArray(this.bodyOctant, capacity);
     }
 
     private ensureCellCapacity(n: number): void {
         if (n <= this.cellCapacity)
             return;
 
-        let capacity = this.cellCapacity > 0 ? this.cellCapacity : 64;
-
-        while (capacity < n)
-            capacity *= 2;
+        const capacity = doublingCapacity(this.cellCapacity, n);
 
         this.cellCapacity = capacity;
-        this.cellCenterX = growFloat64(this.cellCenterX, capacity);
-        this.cellCenterY = growFloat64(this.cellCenterY, capacity);
-        this.cellCenterZ = growFloat64(this.cellCenterZ, capacity);
-        this.cellHalf = growFloat64(this.cellHalf, capacity);
-        this.cellMass = growFloat64(this.cellMass, capacity);
-        this.cellCenterOfMassX = growFloat64(this.cellCenterOfMassX, capacity);
-        this.cellCenterOfMassY = growFloat64(this.cellCenterOfMassY, capacity);
-        this.cellCenterOfMassZ = growFloat64(this.cellCenterOfMassZ, capacity);
-        this.cellFirstChild = growInt32(this.cellFirstChild, capacity);
-        this.cellChildCount = growInt32(this.cellChildCount, capacity);
-        this.cellChildOctant = growInt8(this.cellChildOctant, capacity);
-        this.cellStart = growInt32(this.cellStart, capacity);
-        this.cellCount = growInt32(this.cellCount, capacity);
+        this.cellCenterX = growPooledArray(this.cellCenterX, capacity);
+        this.cellCenterY = growPooledArray(this.cellCenterY, capacity);
+        this.cellCenterZ = growPooledArray(this.cellCenterZ, capacity);
+        this.cellHalf = growPooledArray(this.cellHalf, capacity);
+        this.cellMass = growPooledArray(this.cellMass, capacity);
+        this.cellCenterOfMassX = growPooledArray(this.cellCenterOfMassX, capacity);
+        this.cellCenterOfMassY = growPooledArray(this.cellCenterOfMassY, capacity);
+        this.cellCenterOfMassZ = growPooledArray(this.cellCenterOfMassZ, capacity);
+        this.cellFirstChild = growPooledArray(this.cellFirstChild, capacity);
+        this.cellChildCount = growPooledArray(this.cellChildCount, capacity);
+        this.cellChildOctant = growPooledArray(this.cellChildOctant, capacity);
+        this.cellStart = growPooledArray(this.cellStart, capacity);
+        this.cellCount = growPooledArray(this.cellCount, capacity);
     }
 
     private ensurePartitionCapacity(n: number): void {
         if (n <= this.partitionCapacity)
             return;
 
-        let capacity = this.partitionCapacity > 0 ? this.partitionCapacity : 64;
-
-        while (capacity < n)
-            capacity *= 2;
+        const capacity = doublingCapacity(this.partitionCapacity, n);
 
         this.partitionCapacity = capacity;
-        this.partition = growInt32(this.partition, capacity);
+        this.partition = growPooledArray(this.partition, capacity);
     }
 
     private ensureStackCapacity(n: number): void {
         if (n <= this.stackCell.length)
             return;
 
-        this.stackCell = growInt32(this.stackCell, n);
-        this.stackContains = growUint8(this.stackContains, n);
+        this.stackCell = growPooledArray(this.stackCell, n);
+        this.stackContains = growPooledArray(this.stackContains, n);
     }
 }

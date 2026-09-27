@@ -34,6 +34,7 @@ const PURE_MODULES = [
     "Graph.ts",
     "GraphFactory.ts",
     "GraphSpec.ts",
+    "Growth.ts",
     "Kernel.ts",
     "Octree.ts",
     "Quality.ts",

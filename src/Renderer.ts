@@ -1,4 +1,5 @@
 import { otherEndpoint } from "./Edge";
+import { doublingCapacity } from "./Growth";
 import { Graph } from "./Graph";
 import { K } from "./K";
 import { CameraView, isDepthCulled } from "./Projector";
@@ -8,6 +9,9 @@ import { Tag } from "./Tag";
 // Node dot and selection-ring radii, in CSS pixels.
 const NODE_RADIUS = 5;
 const SELECTION_RADIUS = 10;
+
+// The depth-fade range, as one distance: the batched paths split it into buckets.
+const DEPTH_ALPHA_SPAN = K.depthCue.maxAlpha - K.depthCue.minAlpha;
 
 const CIRCLE_START_ANGLE = 0;
 const CIRCLE_END_ANGLE = 2 * Math.PI;
@@ -42,6 +46,12 @@ function radiusAt(depth: number, focalLength: number): number {
 	return Math.min(Math.max(raw, K.depthCue.minNodeRadiusPx), K.depthCue.maxNodeRadiusPx);
 }
 
+// The selection ring keeps the drawn node's proportions, so it scales with the
+// depth-cued radius. One home, so the filled ring and the stroked ring match.
+function ringRadiusFor(radius: number): number {
+	return (SELECTION_RADIUS * radius) / NODE_RADIUS;
+}
+
 // --------------------------------------------------------------- frame scratch
 //
 // Reused across frames so a steady-state draw allocates nothing: the old path
@@ -64,10 +74,7 @@ function ensureItemCapacity(n: number): void {
 	if (n <= itemKind.length)
 		return;
 
-	let capacity = itemKind.length > 0 ? itemKind.length : 64;
-
-	while (capacity < n)
-		capacity *= 2;
+	const capacity = doublingCapacity(itemKind.length, n);
 
 	itemKind = new Uint8Array(capacity);
 	itemIndex = new Int32Array(capacity);
@@ -78,10 +85,7 @@ function ensureBatchCapacity(n: number): void {
 	if (n <= batchOrder.length)
 		return;
 
-	let capacity = batchOrder.length > 0 ? batchOrder.length : 64;
-
-	while (capacity < n)
-		capacity *= 2;
+	const capacity = doublingCapacity(batchOrder.length, n);
 
 	batchOrder = new Int32Array(capacity);
 }
@@ -309,7 +313,7 @@ function drawNode(
 	const x = node.translatedPosition.x;
 	const y = node.translatedPosition.y;
 	const radius = radiusAt(depth, focalLength);
-	const ringRadius = (SELECTION_RADIUS * radius) / NODE_RADIUS;
+	const ringRadius = ringRadiusFor(radius);
 
 	context.globalAlpha = alphaAt(depth, minDepth, maxDepth, hasRange);
 
@@ -359,7 +363,7 @@ function drawBatchedEdges(
 
 	const buckets = Math.max(1, Math.floor(configuredBuckets));
 	const groups = 2 * buckets;
-	const span = K.depthCue.maxAlpha - K.depthCue.minAlpha;
+	const span = DEPTH_ALPHA_SPAN;
 
 	ensureGroupCapacity(groups);
 	ensureBatchCapacity(edgeCount);
@@ -448,7 +452,7 @@ function drawBatchedNodeFills(
 
 	// The depth fade collapsed to one bucket: the midpoint of the whole ramp,
 	// matching what a 1-bucket edge batch draws at.
-	const span = K.depthCue.maxAlpha - K.depthCue.minAlpha;
+	const span = DEPTH_ALPHA_SPAN;
 	const alpha = bucketAlpha(0, 1, hasRange, span);
 
 	// Selected last, matching the per-node path's selected fill over the default.
@@ -551,7 +555,7 @@ function drawCoarseNode(
 	if (ring && K.renderer.performance.selectionRing) {
 		const radius = radiusAt(node.depth, focalLength);
 
-		circlePath(context, x, y, (SELECTION_RADIUS * radius) / NODE_RADIUS);
+		circlePath(context, x, y, ringRadiusFor(radius));
 		context.strokeStyle = K.colours.nodeSelected;
 		context.stroke();
 	}
