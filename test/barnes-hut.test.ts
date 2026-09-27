@@ -5,6 +5,7 @@ import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { Octree } from "../src/Octree";
+import { Projector } from "../src/Projector";
 import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
 import { sparseGraph } from "./support/physics";
@@ -73,6 +74,42 @@ test("below the crossover the repulsion pass is the exact pairwise kernel", () =
         assert.equal(out[i].x, reference.x, `${tag.label}: the exact path must be bit-identical`);
         assert.equal(out[i].y, reference.y, `${tag.label}: the exact path must be bit-identical`);
         assert.equal(out[i].z, reference.z, `${tag.label}: the exact path must be bit-identical`);
+    });
+});
+
+test("below the fast threshold auto and accurate step bit-identically", () => {
+    // The size default only changes forces at or above barnesHutFastMinNodes;
+    // below it "auto" must be exactly the old always-theta-0.5 behaviour.
+    const order = K.physics.barnesHutFastMinNodes - 1;
+    const autoGraph = sparseGraph(order, 31337);
+    const accurateGraph = sparseGraph(order, 31337);
+
+    const auto = new ForceDirectedGraph(autoGraph);
+    const accurate = new ForceDirectedGraph(accurateGraph);
+    const projector = Projector.forCanvas(800, 600);
+
+    const originalQuality = K.physics.quality;
+
+    try {
+        K.physics.quality = "auto";
+        for (let step = 0; step < 3; step++)
+            auto.step(800, 600, () => false, projector);
+
+        K.physics.quality = "accurate";
+        for (let step = 0; step < 3; step++)
+            accurate.step(800, 600, () => false, projector);
+    } finally {
+        K.physics.quality = originalQuality;
+    }
+
+    autoGraph.vertices.forEach((tag, i) => {
+        assert.equal(tag.position.x, accurateGraph.vertices[i].position.x, `${tag.label}: x`);
+        assert.equal(tag.position.y, accurateGraph.vertices[i].position.y, `${tag.label}: y`);
+        assert.equal(tag.position.z, accurateGraph.vertices[i].position.z, `${tag.label}: z`);
+
+        assert.equal(tag.velocity.x, accurateGraph.vertices[i].velocity.x, `${tag.label}: vx`);
+        assert.equal(tag.velocity.y, accurateGraph.vertices[i].velocity.y, `${tag.label}: vy`);
+        assert.equal(tag.velocity.z, accurateGraph.vertices[i].velocity.z, `${tag.label}: vz`);
     });
 });
 

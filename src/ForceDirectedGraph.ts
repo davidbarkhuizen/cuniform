@@ -5,6 +5,7 @@ import { radius, repulsionMagnitude } from "./Kernel";
 import { Octree } from "./Octree";
 import { point3, Point3D, zero3 } from "./Point3D";
 import { ProjectionScratch, Projector } from "./Projector";
+import { openingAngleFor } from "./Quality";
 import { Tag } from "./Tag";
 
 export class ForceDirectedGraph {
@@ -176,7 +177,8 @@ export class ForceDirectedGraph {
 	// exact path keeps demo-scale behaviour bit-for-bit; the octree is the only
 	// approximate step, and it is rebuilt from the same frozen pre-step positions.
 	// It adds into the repulsion buffers, so the caller's seed is preserved either
-	// way.
+	// way. The opening angle comes from Quality.openingAngleFor(), the one place
+	// the size/quality policy is decided; the tree clamps it.
 	private accumulateRepulsionPass(n: number): void {
 
 		if (n < K.physics.barnesHutMinNodes) {
@@ -186,7 +188,7 @@ export class ForceDirectedGraph {
 
 		this.octree.build(
 			this.graph.vertices,
-			K.physics.barnesHutTheta,
+			openingAngleFor(n, K.physics.quality),
 			K.physics.barnesHutMaxDepth
 		);
 
