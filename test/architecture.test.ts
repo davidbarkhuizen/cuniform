@@ -38,6 +38,7 @@ const PURE_MODULES = [
     "core/Point3D.ts",
     "core/WorkerChannel.ts",
     // graph
+    "graph/Components.ts",
     "graph/Edge.ts",
     "graph/Graph.ts",
     "graph/GraphFactory.ts",

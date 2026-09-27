@@ -130,6 +130,12 @@ test("one step visits each edge once per endpoint, not once per node", () => {
     const graph = newGraph(50, 3);
     const fdg = new ForceDirectedGraph(graph);
 
+    // Warm the solver once: the first step labels the connected components, an
+    // O(V + E) walk over the same adjacency, and that one-time cost is not what
+    // this test measures. The labelling is cached (topology is unchanged), so
+    // the instrumented step below runs only the spring pass.
+    fdg.step(CANVAS_W, CANVAS_H);
+
     const realIncidentEdges = graph.incidentEdges.bind(graph);
     let visited = 0;
 

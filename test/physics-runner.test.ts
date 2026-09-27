@@ -8,7 +8,7 @@ import { PhysicsRunner, PhysicsWorkerPort } from "../src/physics/PhysicsRunner";
 import { PhysicsWorkerEngine, PositionsResponse, WorkerRequest } from "../src/physics/PhysicsProtocol";
 import { Projector } from "../src/view/Projector";
 import { openingAngleFor } from "../src/physics/Quality";
-import { CANVAS_H, CANVAS_W, sparseGraph } from "./support/physics";
+import { CANVAS_H, CANVAS_W, disconnectedPaths, sparseGraph } from "./support/physics";
 import { withUIController } from "./support/dom";
 
 /**
@@ -79,10 +79,11 @@ function runBackends(
     pinnedIndex: number,
     x = 0,
     y = 0,
-    z = 0
+    z = 0,
+    build: (order: number, seed: number) => Graph = sparseGraph
 ): BackendPair {
-    const inProcessGraph = sparseGraph(order, seed);
-    const workerGraph = sparseGraph(order, seed);
+    const inProcessGraph = build(order, seed);
+    const workerGraph = build(order, seed);
 
     const inProcess = new PhysicsRunner(new ForceDirectedGraph(inProcessGraph), () => null);
 
@@ -116,8 +117,13 @@ function assertSamePositions(order: number, pair: BackendPair): void {
  * Assert both backends agree on every node's position and velocity. Velocity
  * only exists inside the worker, so it is compared through the engine's graph.
  */
-function assertBackendsAgree(order: number, seed: number, steps: number): BackendPair {
-    const pair = runBackends(order, seed, steps, -1);
+function assertBackendsAgree(
+    order: number,
+    seed: number,
+    steps: number,
+    build: (order: number, seed: number) => Graph = sparseGraph
+): BackendPair {
+    const pair = runBackends(order, seed, steps, -1, 0, 0, 0, build);
 
     assertSamePositions(order, pair);
 
@@ -149,6 +155,27 @@ test("the backends stay identical above the fast threshold, where auto picks the
     );
 
     assertBackendsAgree(order, 909, 2);
+});
+
+test("the worker and in-process backends are identical on a disconnected graph", () => {
+    // The sharpest determinism constraint in the workplan: both realms must label
+    // the components, accumulate each centroid in the same `vertices` order, and
+    // apply the same anchor vector. The fixture is deterministically
+    // disconnected, and its centroids are far outside the dead zone, so the
+    // anchor is active on both sides. Exact equality, not a tolerance.
+    const build = () => disconnectedPaths(500, 6, 2).graph;
+
+    const pair = assertBackendsAgree(12, 0, 40, build);
+
+    assert.equal(pair.inProcess.usesWorker, false);
+    assert.equal(pair.worker.usesWorker, true);
+
+    // And the worker really built a two-component mirror, or this fixture would
+    // not be exercising the anchor at all.
+    const engineGraph = pair.engineGraph;
+
+    assert.equal(engineGraph.vertices.length, 12);
+    assert.equal(engineGraph.edges.length, 10, "two 6-node paths");
 });
 
 test("a pinned node behaves identically through both backends", () => {

@@ -28,6 +28,29 @@ export const K = {
         // law is evaluated at max(r, minimumInteractionRadius), bounding the r -> 0 blow-up.
         minimumInteractionRadius : 10.0,
 
+        // Per-component anchor, not part of the reference model (docs/physics.md).
+        // Disconnected components repel each other with no equilibrium, so nothing
+        // bounds how far a detached fragment drifts. Each connected component's
+        // centroid is pulled toward the model origin with one vector applied to
+        // every node in it, so the force can only translate that component and
+        // never distorts it. The dead zone is on the centroid: a component whose
+        // centroid is inside it is untouched, which is the common case - the
+        // generator seeds inside the cube and measured seed centroids land at
+        // 43-82 units. The pair is a starting point, not a claim: it is tuned
+        // against the demo and the measured hold radius is recorded in
+        // docs/constants.md.
+        // The radius is a literal rather than K.space.W_0 / 4 because containment
+        // and world extent are different decisions that only share a scale today.
+        // W_0 / 4 = 150 is a quarter of the cube: a held fragment's farthest node
+        // is roughly the dead zone plus the component's own radius, so the frame
+        // still contains it. Keep the default clear of any pinned fixture's
+        // centroid rather than sitting on one (pairAt(300) is the closest).
+        componentAnchorRadius: 150.0,
+        // Restoring pull per model unit beyond the dead zone. With timeStep 0.1
+        // and friction 0.9 the terminal displacement under a constant force is
+        // that force, so the pull stays gentle against the pairwise laws.
+        componentAnchorStrength: 0.1,
+
         // Barnes-Hut far-field approximation (docs/performance.md). Below
         // barnesHutMinNodes the exact pairwise kernel runs, preserving demo-scale
         // behaviour bit-for-bit; above it the octree replaces the O(N^2) pass.
