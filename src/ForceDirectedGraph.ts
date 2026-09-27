@@ -1,6 +1,7 @@
 import { otherEndpoint } from "./Edge";
 import { Graph } from "./Graph";
 import { K } from "./K";
+import { radius } from "./Kernel";
 import { point3, Point3D, zero3 } from "./Point3D";
 import { Projector } from "./Projector";
 import { Tag } from "./Tag";
@@ -72,7 +73,7 @@ export class ForceDirectedGraph {
 			var deltaY = tagA.position.y - tagB.position.y;
 			var deltaZ = tagA.position.z - tagB.position.z;
 
-			var r = Math.hypot(deltaX, deltaY, deltaZ);
+			var r = radius(deltaX, deltaY, deltaZ);
 
 			// Only the magnitude is evaluated at a clamped radius, bounding the
 			// r -> 0 singularity; the direction uses the true radius.
@@ -111,7 +112,7 @@ export class ForceDirectedGraph {
 				const deltaX = a.position.x - b.position.x;
 				const deltaY = a.position.y - b.position.y;
 				const deltaZ = a.position.z - b.position.z;
-				const r = Math.hypot(deltaX, deltaY, deltaZ);
+				const r = radius(deltaX, deltaY, deltaZ);
 
 				const magnitude = ForceDirectedGraph.repulsionMagnitude(r);
 
@@ -156,7 +157,7 @@ export class ForceDirectedGraph {
 			var deltaY = other_tag.position.y - tag.position.y;
 			var deltaZ = other_tag.position.z - tag.position.z;
 
-			var r = Math.hypot(deltaX, deltaY, deltaZ);
+			var r = radius(deltaX, deltaY, deltaZ);
 
 			// Hooke's law: positive when stretched pulls toward the neighbour,
 			// negative when compressed pushes away.

@@ -1,6 +1,6 @@
 # Plan 3 — Distance kernel: `Math.sqrt` instead of `Math.hypot`; review `Math.pow`
 
-Status: proposed · Depends on: nothing (pairs with Plan 2) · Blocks: nothing
+Status: implemented · Depends on: nothing (pairs with Plan 2) · Blocks: nothing
 
 ## Objective
 
