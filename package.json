@@ -26,5 +26,8 @@
     "webpack": "^5.4.0",
     "webpack-cli": "^4.2.0"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "allowScripts": {
+    "nodemon@2.0.22": true
+  }
 }
