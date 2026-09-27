@@ -30,8 +30,8 @@
 
 			<!--
 				The single piece of chrome: a floating panel holding the fixed
-				menu (title, export, reset), the currently selected node and the
-				camera console.
+				menu (the title and the current graph), the currently selected
+				node, the camera console, and the export/reset actions.
 			-->
 			<div id="selectionInfoPanel" class="selectionInfoPanel">
 
@@ -54,10 +54,6 @@
 						lose the identity of the graph on screen.
 					-->
 					<div id="currentGraphLabel" class="graphLabel"></div>
-					<div class="menuOptions">
-						<a id="export_canvas_link" class="main_menu_option" href="">export</a>
-						<a id="reset_link" class="main_menu_option" href="">reset</a>
-					</div>
 				</div>
 
 				<div class="selectionSection">
@@ -171,6 +167,17 @@
 							aria-label="zoom in"
 							title="zoom in">+</button>
 					</div>
+				</div>
+
+				<!--
+					The actions, at the foot of the panel: export saves the
+					current view as a PNG, reset reopens the graph chooser.
+					They sit below the camera console, after the identity line
+					and the readings.
+				-->
+				<div class="menuOptions">
+					<a id="export_canvas_link" class="main_menu_option" href="">export</a>
+					<a id="reset_link" class="main_menu_option" href="">reset</a>
 				</div>
 			</div>
 		</div>

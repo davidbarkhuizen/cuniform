@@ -127,7 +127,7 @@ body
 	border-radius		: 999px;
 }
 
-/* the fixed menu: identity and actions, always present */
+/* the fixed menu: the title and the current graph, always present */
 .overlayMenu
 {
 	padding-bottom		: 12px;
@@ -140,6 +140,7 @@ body
 	font-size		: xx-large;
 	font-weight		: bold;
 	letter-spacing		: 0.06em;
+	text-align		: center;
 	color			: var(--fg-bright);
 	text-shadow		: 0 0 14px var(--accent-glow);
 }
@@ -159,11 +160,19 @@ body
 	overflow-wrap		: anywhere;
 }
 
+/*
+ * The export/reset actions, at the foot of the panel. They carry the same top
+ * separator as the camera console above them, so the panel reads top to
+ * bottom as identity, readings, camera, actions.
+ */
 .menuOptions
 {
 	display			: flex;
 	gap			: 8px;
-	margin-top		: 10px;
+
+	padding-top		: 12px;
+	margin-top		: 12px;
+	border-top		: 1px solid var(--accent-soft);
 }
 
 .main_menu_option
