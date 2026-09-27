@@ -1,10 +1,12 @@
 # Workplan — README "Next steps" items 1 through 5
 
-Status: **not started**. Scope: the first five rows of the README's
-[`Performance → Next steps`](../README.md#next-steps) table. Items 6–8 are
-explicitly out of scope: they are larger designs with their own failure modes
-(octree traversal strategy, the worker boundary, and WebGL/OffscreenCanvas or a
-native kernel) and land as separate plans and PRs.
+Status: **not started**. Scope is the first five rows of the README's
+[`Performance → Next steps`](../README.md#next-steps) table; the four scope
+decisions were resolved on 2026-09-27 (see
+[Resolved decisions](#resolved-decisions)). Items 6–8 are explicitly out of
+scope: they are larger designs with their own failure modes (octree traversal
+strategy, the worker boundary, and WebGL/OffscreenCanvas or a native kernel) and
+land as separate plans and PRs.
 
 This is one plan, executed as **five focused PRs**. Each item below is
 independently landable and independently revertible; the sequencing section at
@@ -111,14 +113,16 @@ largest measured node count where the solver is still usable (input stays alive
 in the worker while the layout advances at ~10 Hz). 8192 has no measured step
 time and a 265 ms repulsion pass, so it is the wrong ceiling to advertise.
 
-**Recommendation:** `K.chooser.maxOrder = 4096`. If the reviewer prefers the
-"interactive" bar, use `2048` (38 ms ≤ the 50 ms tick); the plan and the tests
-are identical either way, only the constant and the README row change.
+**Decided:** `K.chooser.maxOrder = 4096`, with `chooser.interactiveOrder = 1024`
+driving the hint. The "interactive" alternative (2048, at 38 ms ≤ the 50 ms
+tick) was considered and set aside: the worker keeps input alive while the layout
+advances, so the usable ceiling is the honest cap to advertise and the hint marks
+where the 20 Hz tick budget stops being met.
 
 ### Change
 
 1. `src/K.ts`
-   - `chooser.maxOrder: 4096` (or 2048, per the decision above).
+   - `chooser.maxOrder: 4096` (decided; see [Resolved decisions](#resolved-decisions)).
    - Add `chooser.interactiveOrder: 1024` — the largest measured size that steps
      within a single tick; the threshold for the chooser hint below.
    - Rewrite the comment: it is now a measured usability cap, tied to
@@ -245,19 +249,21 @@ and the small-graph golden tests are untouched.
      (when `selectionRing` is true) and the labels (selection + incident
      neighbours, because `labelAll` is false above `labelMaxNodes`). This loop is
      bounded by `degree(selected) + 1`, not by N.
-   - Optional edge thinning, only when `thinEdgesMinDegree > 0`: compute each
-     node's degree once per coarse frame from `graph.incidentEdges(node).length`
-     into a pooled `Int32Array`, and skip an edge when **both** endpoints exceed
-     the threshold. Apply the same filter in the counting pass and the fill pass
-     of `drawBatchedEdges` so the batch layout cannot drift. Leave it **off by
-     default** and land it only with a real-canvas measurement (the fake context
-     cannot show the benefit).
+   - Edge thinning is **off by default** (`thinEdgesMinDegree: 0`) — a resolved
+     decision, not a hedge. When enabled it computes each node's degree once per
+     coarse frame from `graph.incidentEdges(node).length` into a pooled
+     `Int32Array`, and skips an edge when **both** endpoints exceed the
+     threshold. Apply the same filter in the counting pass and the fill pass of
+     `drawBatchedEdges` so the batch layout cannot drift. It lands only as a
+     follow-up with a real-browser measurement, because the fake context cannot
+     show the benefit; the preset's measurable win is the batched node fills.
 
 **Spec corrections to record in the README when this lands:**
 
 - "skip the selection ring on hover" → **skip the selection-ring stroke** in
-  coarse mode; the selected node still gets the selected fill colour. If hover
-  is ever added, it must force a redraw (item 3's trigger list).
+  coarse mode (resolved: no hover feature is added); the selected node still gets
+  the selected fill colour. If hover is ever added later, it must force a redraw
+  (item 3's trigger list).
 - Batching node fills changes compositing: overlapping opaque nodes of one colour
   union into one fill instead of compositing per node. Only above `minNodes`, and
   only for the same colour; document it with the existing batched-edge
@@ -492,13 +498,14 @@ the error whenever the timing is reported."
    direct `K.physics.barnesHutTheta` read with
    `openingAngleFor(n, K.physics.quality)`. Keep the exact path below
    `barnesHutMinNodes` untouched, so demo-scale forces stay bit-identical.
-4. **No protocol or UI change.** The README row names only `src/K.ts` and
-   `src/ForceDirectedGraph.ts`, and a K-level setting is read identically in both
-   realms, so the worker stays deterministic with no message change. Record the
-   constraint: `K.physics.quality` is a compile-time default and **must not be
-   mutated at runtime**; a future user-facing control would need to cross the
-   worker boundary (a `quality` field on `InitRequest` plus a live-change
-   message and a `PhysicsRunner` setter) and is deliberately deferred.
+4. **No protocol or UI change** (resolved: the quality setting stays a K-level
+   enum). The README row names only `src/K.ts` and `src/ForceDirectedGraph.ts`,
+   and a K-level setting is read identically in both realms, so the worker stays
+   deterministic with no message change. Record the constraint:
+   `K.physics.quality` is a compile-time default and **must not be mutated at
+   runtime**; a future user-facing control would need to cross the worker
+   boundary (a `quality` field on `InitRequest` plus a live-change message and a
+   `PhysicsRunner` setter) and is deliberately deferred to its own item.
 
 ### Reporting the error
 
@@ -686,19 +693,29 @@ After all five land, the README's "Next steps" table starts at the current row 6
 (cheaper octree traversal), which is the first item explicitly reserved for its
 own design and PR.
 
-## Decisions to confirm before starting
+## Resolved decisions
 
-1. **`K.chooser.maxOrder`**: 4096 (usable, measured) vs 2048 (interactive,
-   within the 50 ms tick). The plan recommends 4096 with the `interactiveOrder`
-   hint; the change is one constant either way.
-2. **Item 2 "hover"**: there is no hover feature today, so the plan interprets
-   the row as "skip the selection-ring stroke in coarse mode". Confirm that no
-   hover feature is intended as part of this item.
-3. **Item 4 "expose a quality setting"**: the plan exposes it as the coarse
-   `K.physics.quality` enum decided in `Quality.ts`/the solver (matching the
-   row's listed files and "decide it in one place … rather than exposing theta as
-   a raw knob"), not as a UI control. A UI control implies worker-protocol work
-   and should be a separate item.
-4. **Item 2 edge thinning**: default off pending a real-canvas measurement;
-   confirm that shipping the preset without thinning if it cannot be justified is
-   acceptable.
+All four scope decisions were settled on 2026-09-27; the item bodies above encode
+them. No open questions remain before starting the sequence.
+
+| # | Decision | Resolution | Consequence for the plan |
+| ---: | --- | --- | --- |
+| 1 | Chooser cap | `K.chooser.maxOrder = 4096`, `chooser.interactiveOrder = 1024` | Item 1 ships the usable ceiling with a non-blocking hint above 1024. The 2048 "interactive" alternative is not used. |
+| 2 | Item 2 "hover" | Skip the selection-ring stroke only; no hover feature is added | The README row is reworded as a spec correction when item 2 lands; the ring-skip is the whole of that clause. |
+| 3 | Item 4 "quality setting" | K-level enum (auto / accurate / fast) decided in one pure function; no UI control | No worker-protocol or UI change in item 4. A UI control, if ever wanted, is a separate item with its own `InitRequest`/live-change design. |
+| 4 | Item 2 edge thinning | Off by default; a follow-up only with real-canvas evidence | The preset lands without thinning; the degree filter is specified but gated. |
+
+Rationale, briefly:
+
+- **4096** is the largest measured node count where the solver is still usable
+  (one step per ~2 ticks, ~10 Hz) and the worker keeps input alive; the missing
+  8192 step measurement and its 265 ms repulsion pass rule 8192 out.
+- **No hover** keeps item 2 inside the README's "small, local" band and avoids
+  inventing a redraw trigger (item 3) for a feature nothing uses today.
+- **K-level quality** matches the row's named files and its explicit instruction
+  to decide the policy in one place rather than expose theta as a knob; both the
+  main-thread solver and the worker read the same compile-time `K`, so the
+  backends stay identical with no message change.
+- **Default-off thinning** keeps `FakeContext2D` ops as the acceptance metric the
+  item can actually move; edge thinning's benefit is real-canvas-only and must be
+  measured there before it is enabled.
