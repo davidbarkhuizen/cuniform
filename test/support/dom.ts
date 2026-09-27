@@ -2,6 +2,7 @@
 // physics solver is DOM-free and needs none of this.
 
 import { Graph } from "../../src/Graph";
+import { K } from "../../src/K";
 import { CameraView } from "../../src/Projector";
 import { RenderRequest, RenderResponse, RenderWorkerEngine } from "../../src/RenderProtocol";
 import { RenderBackend, RenderWorkerFactory, RenderWorkerPort } from "../../src/RenderRunner";
@@ -858,5 +859,102 @@ export function keyEvent(props: Partial<FakeKeyboardEvent> = {}): KeyboardEvent 
     };
 
     return event as unknown as KeyboardEvent;
+}
+
+// ------------------------------------------------------------- cadence fixtures
+
+/**
+ * One node at the origin feels no force, so its travel is exactly zero and the
+ * settle detector arms deterministically. The shared arming fixture for any test
+ * that needs a settled layout.
+ */
+export function settledGraph(): Graph {
+    const graph = new Graph();
+    graph.addNode(new Tag({ x: 0, y: 0, z: 0 }, "solo"));
+    return graph;
+}
+
+/**
+ * Drive the first frame plus `settleFrames` stepping frames, leaving the layout
+ * settled with an empty accumulator. Returns the timestamp of the last frame, so
+ * a caller can run another frame at the same instant and be sure no step is due.
+ *
+ * This encodes the animation-frame cadence protocol (frame 0 establishes the
+ * clock, then one step per tick period), so it has one home.
+ */
+export function settleFrames(ui: UIControllerFixture): number {
+
+    const period = K.physics.timerTickPeriodMS;
+
+    ui.dom.runAnimationFrames(0);
+
+    let timestamp = 0;
+
+    for (let frame = 1; frame <= K.physics.settleFrames; frame++) {
+        timestamp = period * frame;
+        ui.dom.runAnimationFrames(timestamp);
+    }
+
+    return timestamp;
+}
+
+/** Count physics steps by wrapping the controller's solver. */
+export function countSteps(controller: UIController): () => number {
+
+    const solver = controller.solver;
+    const realStep = solver.stepPhysics.bind(solver);
+
+    let steps = 0;
+
+    solver.stepPhysics = isPinned => {
+        steps++;
+        realStep(isPinned);
+    };
+
+    return () => steps;
+}
+
+// ------------------------------------------------------ renderer size overrides
+
+/** The `K.renderer` thresholds a test may need to move for one scope. */
+export interface RendererSettings {
+    labelMaxNodes?: number;
+    batchEdgesMinEdges?: number;
+    minNodes?: number;
+}
+
+/**
+ * Run `fn` with the given `K.renderer` thresholds overridden, always restoring
+ * every one of them.
+ *
+ * `K` must not be mutated at runtime, so a test that needs a size-gated path
+ * takes the override for exactly its own scope. One helper for all three keys, so
+ * a new overridable key cannot be covered by one suite and silently missed by
+ * another.
+ */
+export function withRendererSettings<T>(settings: RendererSettings, fn: () => T): T {
+
+    const saved = {
+        labelMaxNodes: K.renderer.labelMaxNodes,
+        batchEdgesMinEdges: K.renderer.batchEdgesMinEdges,
+        minNodes: K.renderer.performance.minNodes,
+    };
+
+    if (settings.labelMaxNodes !== undefined)
+        K.renderer.labelMaxNodes = settings.labelMaxNodes;
+
+    if (settings.batchEdgesMinEdges !== undefined)
+        K.renderer.batchEdgesMinEdges = settings.batchEdgesMinEdges;
+
+    if (settings.minNodes !== undefined)
+        K.renderer.performance.minNodes = settings.minNodes;
+
+    try {
+        return fn();
+    } finally {
+        K.renderer.labelMaxNodes = saved.labelMaxNodes;
+        K.renderer.batchEdgesMinEdges = saved.batchEdgesMinEdges;
+        K.renderer.performance.minNodes = saved.minNodes;
+    }
 }
 

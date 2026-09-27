@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
-import { K } from "../src/K";
 import { buildMirrorGraph } from "../src/MirrorGraph";
 import { PhysicsWorkerEngine } from "../src/PhysicsProtocol";
 import { projectGraph } from "../src/Projection";
@@ -16,7 +15,7 @@ import {
     RenderWorkerEngine,
 } from "../src/RenderProtocol";
 import { Tag } from "../src/Tag";
-import { DrawOp, FakeContext2D } from "./support/dom";
+import { DrawOp, FakeContext2D, RendererSettings, withRendererSettings } from "./support/dom";
 import { sparseGraph } from "./support/physics";
 
 /**
@@ -27,37 +26,6 @@ import { sparseGraph } from "./support/physics";
  * `OffscreenCanvas`.
  */
 
-interface Settings {
-    labelMaxNodes?: number;
-    batchEdgesMinEdges?: number;
-    minNodes?: number;
-}
-
-/** Run `fn` with renderer thresholds forced, always restoring them. */
-function withSettings<T>(settings: Settings, fn: () => T): T {
-    const saved = {
-        labelMaxNodes: K.renderer.labelMaxNodes,
-        batchEdgesMinEdges: K.renderer.batchEdgesMinEdges,
-        minNodes: K.renderer.performance.minNodes,
-    };
-
-    if (settings.labelMaxNodes !== undefined)
-        K.renderer.labelMaxNodes = settings.labelMaxNodes;
-
-    if (settings.batchEdgesMinEdges !== undefined)
-        K.renderer.batchEdgesMinEdges = settings.batchEdgesMinEdges;
-
-    if (settings.minNodes !== undefined)
-        K.renderer.performance.minNodes = settings.minNodes;
-
-    try {
-        return fn();
-    } finally {
-        K.renderer.labelMaxNodes = saved.labelMaxNodes;
-        K.renderer.batchEdgesMinEdges = saved.batchEdgesMinEdges;
-        K.renderer.performance.minNodes = saved.minNodes;
-    }
-}
 
 /** Attach a fake surface and build the engine's mirror from `graph`. */
 function attached(graph: Graph, generation: number = 0): { engine: RenderWorkerEngine; context: FakeContext2D } {
@@ -147,7 +115,7 @@ interface Case {
     name: string;
     graph: Graph;
     selected: number;
-    settings: Settings;
+    settings: RendererSettings;
 }
 
 const IDENTITY_CASES: Case[] = [
@@ -165,7 +133,7 @@ test("the engine's draw calls are identical to the direct renderer at every thre
 
     for (const testCase of IDENTITY_CASES) {
 
-        const ops = withSettings(testCase.settings, (): { engine: DrawOp[]; direct: DrawOp[]; engineTexts: number; directTexts: number } => {
+        const ops = withRendererSettings(testCase.settings, (): { engine: DrawOp[]; direct: DrawOp[]; engineTexts: number; directTexts: number } => {
 
             const { engine, context } = attached(testCase.graph);
 

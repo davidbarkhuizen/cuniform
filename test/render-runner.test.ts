@@ -6,12 +6,12 @@ import { K } from "../src/K";
 import { defaultCameraView } from "../src/Projector";
 import { FrameRequest } from "../src/RenderProtocol";
 import { RenderRunner, RenderRunnerOptions } from "../src/RenderRunner";
-import { Tag } from "../src/Tag";
 import {
     FakeCanvas,
     FakeRenderBackend,
     FakeRenderWorker,
-    UIControllerFixture,
+    settleFrames,
+    settledGraph,
     withUIController,
     withUIControllerAsync,
 } from "./support/dom";
@@ -25,28 +25,6 @@ import { sparseGraph } from "./support/physics";
 
 const PERIOD = K.physics.timerTickPeriodMS;
 
-// One node at the origin feels no force, so the settle detector arms
-// deterministically and the idle-frame skip is reachable.
-function settledGraph(): Graph {
-    const graph = new Graph();
-    graph.addNode(new Tag({ x: 0, y: 0, z: 0 }, "solo"));
-    return graph;
-}
-
-/** Drive the first frame plus `settleFrames` stepping frames; return the last timestamp. */
-function settle(ui: UIControllerFixture): number {
-    ui.dom.runAnimationFrames(0);
-
-    let timestamp = 0;
-
-    for (let frame = 1; frame <= K.physics.settleFrames; frame++) {
-        timestamp = PERIOD * frame;
-        ui.dom.runAnimationFrames(timestamp);
-    }
-
-    return timestamp;
-}
-
 test("the controller draws once per drawn frame and not at all when settled", () => {
     const backend = new FakeRenderBackend();
 
@@ -54,7 +32,7 @@ test("the controller draws once per drawn frame and not at all when settled", ()
         ui.dom.runAnimationFrames(0);
         assert.equal(backend.draws.length, 1, "the first frame draws once");
 
-        const timestamp = settle(ui);
+        const timestamp = settleFrames(ui);
 
         assert.equal(
             backend.draws.length,
@@ -145,7 +123,7 @@ test("a backend that becomes ready later asks for a redraw", () => {
     const backend = new FakeRenderBackend();
 
     withUIController(ui => {
-        const timestamp = settle(ui);
+        const timestamp = settleFrames(ui);
         const before = backend.draws.length;
 
         // The runner forwards onReady to the controller's requestRedraw().

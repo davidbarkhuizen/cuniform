@@ -1,54 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Graph } from "../src/Graph";
 import { K } from "../src/K";
-import { Tag } from "../src/Tag";
-import { UIController } from "../src/UIController";
-import { FakeRenderWorker, mouseEvent, UIControllerFixture, wheelEvent, withUIController } from "./support/dom";
+import {
+    FakeRenderWorker,
+    countSteps,
+    mouseEvent,
+    settleFrames,
+    settledGraph,
+    wheelEvent,
+    withUIController,
+} from "./support/dom";
 
 const PERIOD = K.physics.timerTickPeriodMS;
-
-// One node at the origin feels no force, so its travel is exactly zero and the
-// settle detector arms deterministically.
-function settledGraph(): Graph {
-    const graph = new Graph();
-    graph.addNode(new Tag({ x: 0, y: 0, z: 0 }, "solo"));
-    return graph;
-}
-
-/**
- * Drive the first frame plus `settleFrames` stepping frames, leaving the layout
- * settled with an empty accumulator. Returns the timestamp of the last frame, so
- * a caller can run another frame at the same instant and be sure no step is due.
- */
-function settle(ui: UIControllerFixture): number {
-    ui.dom.runAnimationFrames(0);
-
-    let timestamp = 0;
-
-    for (let frame = 1; frame <= K.physics.settleFrames; frame++) {
-        timestamp = PERIOD * frame;
-        ui.dom.runAnimationFrames(timestamp);
-    }
-
-    return timestamp;
-}
-
-/** Count physics steps by wrapping the controller's solver. */
-function countSteps(controller: UIController): () => number {
-    const solver = controller.solver;
-    const realStep = solver.stepPhysics.bind(solver);
-
-    let steps = 0;
-
-    solver.stepPhysics = isPinned => {
-        steps++;
-        realStep(isPinned);
-    };
-
-    return () => steps;
-}
 
 test("the animation loop runs one fixed step per elapsed tick and draws once per frame", () => {
     withUIController(ui => {
@@ -167,7 +131,7 @@ test("the setInterval fallback still ticks when rAF is unavailable", () => {
 
 test("a settled, untouched scene issues no further clears", () => {
     withUIController(ui => {
-        const timestamp = settle(ui);
+        const timestamp = settleFrames(ui);
         const clears = ui.canvas.context.clears.length;
 
         // Two more frames with no step due, no camera change and no interaction.
@@ -184,7 +148,7 @@ test("a settled, untouched scene issues no further clears", () => {
 
 test("a camera dolly redraws even when no step is due", () => {
     withUIController(ui => {
-        const timestamp = settle(ui);
+        const timestamp = settleFrames(ui);
         const clears = ui.canvas.context.clears.length;
 
         ui.elements.canvas.dispatch("wheel", wheelEvent({ deltaY: 1 }));
@@ -198,7 +162,7 @@ test("a camera dolly redraws even when no step is due", () => {
 
 test("a selection click redraws even when no step is due", () => {
     withUIController(ui => {
-        const timestamp = settle(ui);
+        const timestamp = settleFrames(ui);
         const clears = ui.canvas.context.clears.length;
 
         // The solo node sits at the model origin: canvas (400, 300) on 800x600.
@@ -212,7 +176,7 @@ test("a selection click redraws even when no step is due", () => {
 
 test("a position-writing drag redraws even when no step is due", () => {
     withUIController(ui => {
-        const timestamp = settle(ui);
+        const timestamp = settleFrames(ui);
 
         // Select the node; onMouseDown leaves the left button held.
         ui.controller.onMouseDown(mouseEvent({ button: 0, clientX: 400, clientY: 300 }));
@@ -229,7 +193,7 @@ test("a position-writing drag redraws even when no step is due", () => {
 
 test("a resize redraws even when no step is due", () => {
     withUIController(ui => {
-        const timestamp = settle(ui);
+        const timestamp = settleFrames(ui);
         const clears = ui.canvas.context.clears.length;
 
         const listeners = ui.dom.windowListeners.get("resize") ?? [];
@@ -270,12 +234,7 @@ test("the worker path posts one frame per drawn frame and none while settled", (
         ui.dom.runAnimationFrames(0);
         assert.equal(posts(), 1, "the first frame posts once");
 
-        let timestamp = 0;
-
-        for (let frame = 1; frame <= K.physics.settleFrames; frame++) {
-            timestamp = PERIOD * frame;
-            ui.dom.runAnimationFrames(timestamp);
-        }
+        const timestamp = settleFrames(ui);
 
         assert.equal(posts(), 1 + K.physics.settleFrames, "one post per drawn frame");
 

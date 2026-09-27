@@ -6,7 +6,6 @@ import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { identity, Mat3, rotX, rotY, rotZ } from "../src/Mat3";
 import { point3 } from "../src/Point3D";
-import { Tag } from "../src/Tag";
 import { assertMatClose } from "./support/assert";
 import {
     CAMERA_CONSOLE_EVENTS,
@@ -14,10 +13,12 @@ import {
     FakeDom,
     FakeElement,
     UIControllerFixture,
+    countSteps,
     demoElements,
     keyEvent,
     mouseEvent,
     pointerEvent,
+    settledGraph,
     withFakeDom,
     withUIController,
 } from "./support/dom";
@@ -36,14 +37,6 @@ function stepFor(axis: string, direction: string, ticks: number): Mat3 {
 
 interface ConsoleFixture extends UIControllerFixture {
     consoleElement: FakeElement;
-}
-
-// One node at the origin feels no force, so the settle detector arms on the
-// first quiet tick; a hold therefore reaches the settled state deterministically.
-function settledGraph(): Graph {
-    const graph = new Graph();
-    graph.addNode(new Tag({ x: 0, y: 0, z: 0 }, "solo"));
-    return graph;
 }
 
 function withFixture<T>(fn: (ui: ConsoleFixture) => T, graph?: Graph): T {
@@ -142,15 +135,7 @@ test("a settled hold turns the camera without re-stepping the layout", () => {
     // The fix for the freeze above must not undo the settle optimisation: once
     // the layout is quiet, a hold turns the camera on the clock alone.
     withFixture(({ dom, controller, consoleElement }) => {
-        const solver = controller.solver;
-        const realStep = solver.stepPhysics.bind(solver);
-
-        let steps = 0;
-
-        solver.stepPhysics = isPinned => {
-            steps++;
-            realStep(isPinned);
-        };
+        const steps = countSteps(controller);
 
         const period = K.physics.timerTickPeriodMS;
 
@@ -161,14 +146,14 @@ test("a settled hold turns the camera without re-stepping the layout", () => {
         for (let frame = 1; frame <= K.physics.settleFrames; frame++)
             dom.runAnimationFrames(period * frame);
 
-        const stepsAtSettle = steps;
+        const stepsAtSettle = steps();
         const turnedAtSettle = controller.state.camera.orientation;
 
         // Further frames must keep turning the camera but step the solver no more.
         dom.runAnimationFrames(period * (K.physics.settleFrames + 1));
         dom.runAnimationFrames(period * (K.physics.settleFrames + 2));
 
-        assert.equal(steps, stepsAtSettle, "a settled layout must not step while a hold turns the camera");
+        assert.equal(steps(), stepsAtSettle, "a settled layout must not step while a hold turns the camera");
         assert.notDeepEqual(
             controller.state.camera.orientation,
             turnedAtSettle,
