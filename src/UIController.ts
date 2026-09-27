@@ -8,7 +8,7 @@ import { GraphWizard } from "./GraphWizard";
 import { K } from "./K";
 import { point, Point2D } from "./Point2D";
 import { point3 } from "./Point3D";
-import { Projector } from "./Projector";
+import { CameraView, Projector } from "./Projector";
 import { render } from "./Renderer";
 import { handleNodeSelectionAttempt } from "./Selection";
 import { State } from "./State";
@@ -47,7 +47,31 @@ function pngBlob(canvas: HTMLCanvasElement): Blob {
 
 export class UIController {
 
+    /**
+     * The setInterval handle when the fallback scheduler is in use, else null.
+     * Plan 6 drives the simulation from requestAnimationFrame where it exists.
+     */
     timer: ReturnType<typeof setInterval> | null = null;
+
+    /** The pending requestAnimationFrame handle, else null. */
+    private frameHandle: number | null = null;
+
+    /** Real time accumulated since the last fixed physics step, milliseconds. */
+    private accumulator = 0;
+
+    /** Timestamp of the previous frame; null before the first frame or after a wake. */
+    private lastFrameTime: number | null = null;
+
+    /** Consecutive steps whose largest travel was below the settle epsilon. */
+    private quietSteps = 0;
+
+    /** True once the layout has settled and stepping has stopped. */
+    private settled = false;
+
+    /** True while the simulation loop is scheduled, by either scheduler. */
+    get running(): boolean {
+        return this.frameHandle !== null || this.timer !== null;
+    }
 
     readonly state: State = new State();
 
@@ -138,6 +162,10 @@ export class UIController {
 
 	onMouseMove = (event: MouseEvent) => {
 
+		// A drag or an orbit is interaction, so a settled layout starts moving again.
+		if (this.state.b0Down || this.state.b1Down)
+			this.wake();
+
 		if (this.state.b0Down) {
 
 			// Left-drag: each selected node follows the cursor in the view
@@ -221,8 +249,12 @@ export class UIController {
 
 		const notches = event.deltaY > 0 ? 1 : event.deltaY < 0 ? -1 : 0;
 
-		if (notches !== 0)
+		if (notches !== 0) {
 			this.state.camera.dolly(notches);
+
+			// A dolly is interaction, so a settled layout starts moving again.
+			this.wake();
+		}
 
 		// The canvas fills the viewport; the wheel must not scroll the page.
 		event.preventDefault();
@@ -274,6 +306,9 @@ export class UIController {
 
 		this.heldRotation = button;
 		this.rotateBy(button);
+
+		// A console rotation is interaction, so a settled layout starts moving again.
+		this.wake();
 	}
 
 	/** Stop any held rotation. Safe when nothing is held. */
@@ -352,6 +387,9 @@ export class UIController {
 	onMouseDown = (event: MouseEvent) => {
 
 		this.hideContextMenu();
+
+		// Any press is interaction, so a settled layout starts moving again.
+		this.wake();
 
 		var mxy = this.getMousePos(
 			this.canvas, 
@@ -503,6 +541,9 @@ export class UIController {
 		// A swap happens between gestures, so no button may still be held.
 		this.state.reset();
 
+		// A fresh graph must never inherit the previous layout's settled state.
+		this.wake();
+
 		this.updateSelectionInfo();
 	};
 
@@ -553,13 +594,19 @@ export class UIController {
 		this.updateSelectionInfo();
 	};
 
+	// One fixed tick, drawing included: the meaning tests and the setInterval
+	// fallback depend on, so it never consults the settle state.
 	onTimerTick = () => {
-		// A held console button turns the camera first, so the projection and
-		// the draw below both use the new view.
+		this.renderFrame(this.advanceOneTick());
+	};
+
+	// Physics for one fixed tick, without drawing. Returns the camera the step
+	// projected with, so the draw can use the depths that were cached with it
+	// (invariant 2). A held console button turns the camera first.
+	private advanceOneTick(): CameraView {
+
 		this.onCameraRotateTick();
 
-		// One projector for both the step and the draw, so the renderer's cull
-		// boundary and depth cue see the camera that produced each cached depth.
 		const projector = this.projector();
 
 		// The solver receives the pinned-node predicate as a value, so it never
@@ -570,8 +617,37 @@ export class UIController {
 			tag => tag.isSelected && this.state.b0Down,
 			projector
 		);
-		render(this.context2D, this.solver.graph, projector.camera);
-	};
+
+		this.trackSettle();
+
+		return projector.camera;
+	}
+
+	private renderFrame(camera: CameraView = this.state.camera): void {
+		render(this.context2D, this.solver.graph, camera);
+	}
+
+	// Stop stepping once the layout has been quiet for settleFrames steps. Any
+	// interaction calls wake() to start it again.
+	private trackSettle(): void {
+
+		if (this.solver.lastMaxDisplacement < K.physics.settleEpsilon) {
+			this.quietSteps++;
+
+			if (this.quietSteps >= K.physics.settleFrames)
+				this.settled = true;
+		}
+		else {
+			this.quietSteps = 0;
+			this.settled = false;
+		}
+	}
+
+	/** Resume stepping after a settle. */
+	private wake(): void {
+		this.settled = false;
+		this.quietSteps = 0;
+	}
 	
 	// Attach or detach the whole listener set from one list, so the two
 	// directions cannot drift; a listener added later cannot survive reset().
@@ -688,7 +764,63 @@ export class UIController {
 
 	onResize = () => {
 		this.resizeCanvas();
+
+		// A resize is interaction, so a settled layout starts moving again.
+		this.wake();
 	};
+
+	// The browser loop: requestAnimationFrame where it exists, else the original
+	// fixed interval. The fallback keeps the pre-Plan-6 behaviour exactly.
+	private startSimulationLoop(): void {
+
+		if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+			this.lastFrameTime = null;
+			this.accumulator = 0;
+			this.wake();
+			this.frameHandle = window.requestAnimationFrame(this.onAnimationFrame);
+			return;
+		}
+
+		this.timer = setInterval(this.onTimerTick, K.physics.timerTickPeriodMS);
+	}
+
+	// One animation frame: run the fixed steps the accumulator says are due, up to
+	// the per-frame cap, then draw exactly once whatever happened.
+	onAnimationFrame = (timestamp: number): void => {
+
+		this.frameHandle = null;
+
+		// The first frame establishes the clock; there is no elapsed time yet.
+		const elapsed = this.lastFrameTime === null ? 0 : timestamp - this.lastFrameTime;
+		this.lastFrameTime = timestamp;
+
+		// A backwards or non-numeric clock must not run the simulation.
+		this.accumulator += elapsed > 0 ? elapsed : 0;
+
+		const period = K.physics.timerTickPeriodMS;
+		let steps = 0;
+
+		while (this.accumulator >= period && steps < K.physics.maxStepsPerFrame) {
+
+			// Nothing to advance, so drop the backlog rather than run it.
+			if (this.settled) {
+				this.accumulator = 0;
+				break;
+			}
+
+			this.accumulator -= period;
+			steps++;
+
+			this.advanceOneTick();
+		}
+
+		// A slow frame must not leave a backlog that turns into a death spiral.
+		if (this.accumulator >= period)
+			this.accumulator = 0;
+
+		this.renderFrame();
+		this.frameHandle = window.requestAnimationFrame(this.onAnimationFrame);
+	}
 
 	initialize = () => {
 
@@ -711,7 +843,7 @@ export class UIController {
 
 		this.toggleEventListeners(true);
 	
-		this.timer = setInterval(this.onTimerTick, K.physics.timerTickPeriodMS);
+		this.startSimulationLoop();
 	
 		this.updateSelectionInfo();
 	}
@@ -720,6 +852,13 @@ export class UIController {
 		if (this.timer != null) {
 			clearInterval(this.timer);
 			this.timer = null;
+		}
+
+		if (this.frameHandle !== null) {
+			if (typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function")
+				window.cancelAnimationFrame(this.frameHandle);
+
+			this.frameHandle = null;
 		}
 
 		// A button held across a reset must not keep turning the new graph.

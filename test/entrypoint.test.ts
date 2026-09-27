@@ -30,9 +30,9 @@ test("entrypoint initializes when window.Worker is undefined", () => {
         const result = quietly(() => entrypoint(...IDS));
 
         assert.ok(result, "entrypoint should hand back the controller");
-        assert.notEqual(result.timer, null, "the simulation timer should be running");
+        assert.equal(result.running, true, "the simulation loop should be running");
         assert.ok(result.solver.graph.vertices.length > 0, "the controller should own a live graph");
-        assert.equal(dom.intervals.length, 1, "the simulation timer should be running");
+        assert.equal(dom.animationFrames.length, 1, "the simulation timer should be running");
         // The fake body is 800x600, and the canvas fills it (dpr 1).
         assert.equal((dom.elements.canvas as FakeCanvas).width, 800);
         assert.equal((dom.elements.canvas as FakeCanvas).height, 600);
@@ -47,7 +47,7 @@ test("entrypoint opens the mandatory first-run chooser and still starts the time
         assert.ok(result.wizard, "the first run must open the graph chooser");
         assert.equal(result.wizard!.isOpen, true);
         assert.equal(result.wizard!.step, "choose");
-        assert.equal(dom.intervals.length, 1, "the simulation timer should be running");
+        assert.equal(dom.animationFrames.length, 1, "the simulation timer should be running");
         assert.ok(result.solver.graph.vertices.length > 0, "the chooser needs a placeholder graph behind it");
     });
 });
@@ -61,8 +61,8 @@ test("initialize() itself never opens the chooser", () => {
         controller.initialize();
 
         assert.ok(controller.wizard === null, "the chooser is a startup step, not a lifecycle one");
-        assert.notEqual(controller.timer, null);
-        assert.equal(dom.intervals.length, 1);
+        assert.equal(controller.running, true);
+        assert.equal(dom.animationFrames.length, 1);
     });
 });
 
@@ -71,7 +71,7 @@ test("entrypoint reports failure when the canvas element is missing", () => {
         const result = quietly(() => entrypoint(...IDS));
 
         assert.equal(result, null);
-        assert.equal(dom.intervals.length, 0, "nothing should be scheduled on failure");
+        assert.equal(dom.animationFrames.length, 0, "nothing should be scheduled on failure");
     });
 });
 
@@ -84,7 +84,7 @@ test("entrypoint reports failure when getContext('2d') returns null", () => {
         const result = quietly(() => entrypoint(...IDS));
 
         assert.equal(result, null);
-        assert.equal(dom.intervals.length, 0, "nothing should be scheduled on failure");
+        assert.equal(dom.animationFrames.length, 0, "nothing should be scheduled on failure");
     });
 });
 
@@ -93,7 +93,7 @@ test("entrypoint still initializes when the optional drag panel is missing", () 
         const result = quietly(() => entrypoint(...IDS));
 
         assert.ok(result);
-        assert.equal(dom.intervals.length, 1);
+        assert.equal(dom.animationFrames.length, 1);
     });
 });
 
@@ -129,7 +129,7 @@ test("entrypoint reports failure when any required element is missing", () => {
             const result = quietly(() => entrypoint(...IDS));
 
             assert.equal(result, null, `missing ${missing} should fail startup`);
-            assert.equal(dom.intervals.length, 0, "nothing should be scheduled on failure");
+            assert.equal(dom.animationFrames.length, 0, "nothing should be scheduled on failure");
         });
     }
 });

@@ -269,6 +269,10 @@ export interface FakeDom {
     window: any;
     elements: Record<string, FakeElement>;
     intervals: Array<{ id: number; fn: (...args: any[]) => void }>;
+    /** Animation frames scheduled with requestAnimationFrame and not yet run. */
+    animationFrames: Array<{ id: number; callback: (timestamp: number) => void }>;
+    /** Run every pending frame once at `timestamp`; callbacks may reschedule. */
+    runAnimationFrames: (timestamp: number) => void;
     windowListeners: Map<string, Listener[]>;
     createdElements: FakeElement[];
     /** Object-URL traffic, so a blob: export can be observed. */
@@ -276,9 +280,19 @@ export interface FakeDom {
     restore: () => void;
 }
 
+/** FakeDom options; `animationFrame: false` exercises the setInterval fallback. */
+export interface FakeDomOptions {
+    animationFrame?: boolean;
+}
+
 // Install DOM/timer stubs on globalThis, returning a restore handle.
-// setInterval is stubbed so an initialized UIController cannot keep node alive.
-export function installFakeDom(elements: Record<string, FakeElement> = {}): FakeDom {
+// setInterval is stubbed so an initialized UIController cannot keep node alive,
+// and requestAnimationFrame is stubbed so the Plan 6 scheduler can be driven by
+// hand instead of by the host's frame clock.
+export function installFakeDom(
+    elements: Record<string, FakeElement> = {},
+    options: FakeDomOptions = {}
+): FakeDom {
 
     const global = globalThis as any;
 
@@ -290,11 +304,16 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
         window: global.window,
         setInterval: global.setInterval,
         clearInterval: global.clearInterval,
+        requestAnimationFrame: global.requestAnimationFrame,
+        cancelAnimationFrame: global.cancelAnimationFrame,
         confirm: global.confirm,
         URL: global.URL,
     };
 
     const intervals: Array<{ id: number; fn: (...args: any[]) => void }> = [];
+    const animationFrames: Array<{ id: number; callback: (timestamp: number) => void }> = [];
+
+    let nextFrameId = 1;
 
     const createdElements: FakeElement[] = [];
 
@@ -323,7 +342,20 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
 
     const windowListeners: Map<string, Listener[]> = new Map();
 
-    const windowStub = {
+    const requestAnimationFrame = (callback: (timestamp: number) => void): number => {
+        const id = nextFrameId++;
+        animationFrames.push({ id, callback });
+        return id;
+    };
+
+    const cancelAnimationFrame = (id: number): void => {
+        const idx = animationFrames.findIndex(frame => frame.id === id);
+        if (idx !== -1) {
+            animationFrames.splice(idx, 1);
+        }
+    };
+
+    const windowStub: Record<string, unknown> = {
         devicePixelRatio: 1,
         // The viewport the context menu clamps against.
         innerWidth: 1024,
@@ -339,6 +371,12 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
             windowListeners.set(type, list.filter(f => f !== fn));
         },
     };
+
+    // The fallback path is what "rAF is unavailable" means, so leave it undefined.
+    if (options.animationFrame ?? true) {
+        windowStub.requestAnimationFrame = requestAnimationFrame;
+        windowStub.cancelAnimationFrame = cancelAnimationFrame;
+    }
 
     global.document = documentStub;
     global.window = windowStub;
@@ -356,11 +394,24 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
         }
     };
 
+    if (options.animationFrame ?? true) {
+        global.requestAnimationFrame = requestAnimationFrame;
+        global.cancelAnimationFrame = cancelAnimationFrame;
+    }
+
     return {
         document: documentStub,
         window: windowStub,
         elements,
         intervals,
+        animationFrames,
+        runAnimationFrames: (timestamp: number) => {
+            // Splice first: a callback reschedules for the next frame.
+            const pending = animationFrames.splice(0, animationFrames.length);
+
+            for (const frame of pending)
+                frame.callback(timestamp);
+        },
         windowListeners,
         createdElements,
         objectUrls,
@@ -369,6 +420,8 @@ export function installFakeDom(elements: Record<string, FakeElement> = {}): Fake
             global.window = previous.window;
             global.setInterval = previous.setInterval;
             global.clearInterval = previous.clearInterval;
+            global.requestAnimationFrame = previous.requestAnimationFrame;
+            global.cancelAnimationFrame = previous.cancelAnimationFrame;
             global.confirm = previous.confirm;
             global.URL = previous.URL;
         },
@@ -403,9 +456,10 @@ export function demoElements(omit: string[] = []): Record<string, FakeElement> {
 /** Install the fake DOM, run `fn` against it, always restore afterwards. */
 export function withFakeDom<T>(
     elements: Record<string, FakeElement>,
-    fn: (dom: FakeDom) => T
+    fn: (dom: FakeDom) => T,
+    options: FakeDomOptions = {}
 ): T {
-    const dom = installFakeDom(elements);
+    const dom = installFakeDom(elements, options);
 
     try {
         return fn(dom);
@@ -481,6 +535,8 @@ export interface UIControllerOptions {
     graph?: Graph;
     /** Run initialize() first. Defaults to true: most fixtures want the listeners. */
     initialize?: boolean;
+    /** False exercises the setInterval fallback instead of the rAF scheduler. */
+    animationFrame?: boolean;
 }
 
 function uiFixture(
@@ -522,7 +578,7 @@ export function withUIController<T>(
     options: UIControllerOptions = {}
 ): T {
     const elements = preparedElements(options);
-    const dom = installFakeDom(elements);
+    const dom = installFakeDom(elements, { animationFrame: options.animationFrame });
 
     try {
         return fn(uiFixture(dom, elements, options));
@@ -538,7 +594,7 @@ export async function withUIControllerAsync<T>(
     options: UIControllerOptions = {}
 ): Promise<T> {
     const elements = preparedElements(options);
-    const dom = installFakeDom(elements);
+    const dom = installFakeDom(elements, { animationFrame: options.animationFrame });
 
     try {
         return await fn(uiFixture(dom, elements, options));

@@ -429,7 +429,7 @@ test("initialize is idempotent: a second call doubles nothing", () => {
         // withController already initialized once; initialize again without terminating.
         controller.initialize();
 
-        assert.equal(dom.intervals.length, 1, "one simulation timer after two initializes");
+        assert.equal(dom.animationFrames.length, 1, "one animation frame after two initializes");
         assert.equal(elements.body.children.length, 1, "one context menu after two initializes");
 
         for (const type of CANVAS_EVENTS)
