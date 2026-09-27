@@ -22,6 +22,51 @@ export interface CameraViewState {
 }
 
 /**
+ * The writable twin of a camera view: the scratch a caller keeps and overwrites
+ * in place, so recording the frame it drew allocates nothing.
+ */
+export interface MutableCameraView {
+    orientation: number[];
+    target: Point3D;
+    distance: number;
+    focalLength: number;
+    nearPlane: number;
+}
+
+/**
+ * A fresh scratch camera view, seeded from `view` (the default camera by
+ * default). The one definition of "the default camera" stays
+ * `defaultCameraView()`; this only adds the writable copy around it.
+ */
+export function cameraScratch(view: CameraView = defaultCameraView()): MutableCameraView {
+    return {
+        orientation: [...view.orientation],
+        target: point3(view.target.x, view.target.y, view.target.z),
+        distance: view.distance,
+        focalLength: view.focalLength,
+        nearPlane: view.nearPlane,
+    };
+}
+
+/**
+ * Overwrite `out` with `view`'s values, in place. Paired with `cameraScratch()`
+ * so the fields a camera view carries are listed once rather than in a literal, a
+ * copy and a comparison separately.
+ */
+export function copyCameraView(view: CameraViewState, out: MutableCameraView): void {
+
+    for (let i = 0; i < 9; i++)
+        out.orientation[i] = view.orientation[i];
+
+    out.target.x = view.target.x;
+    out.target.y = view.target.y;
+    out.target.z = view.target.z;
+    out.distance = view.distance;
+    out.focalLength = view.focalLength;
+    out.nearPlane = view.nearPlane;
+}
+
+/**
  * True when two camera views frame the same picture: the 9 orientation entries,
  * the target and the distance. This is a fail-safe O(13) comparison rather than
  * a revision counter, so it catches every mutation path (`orbit`, `rotateLocal`,
