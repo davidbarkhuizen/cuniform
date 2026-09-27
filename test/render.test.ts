@@ -54,7 +54,9 @@ function withDepths(depths: number[], labels: string[] = []) {
 function drawWith(graph: Graph, camera: CameraView): FakeContext2D {
     const context = new FakeContext2D();
     context.canvas = { width: 800, height: 600 };
-    render(context as unknown as CanvasRenderingContext2D, graph, camera);
+    // Tests resolve the selection once per fixture draw, as the controller does;
+    // production passes its cache and the renderer never scans.
+    render(context as unknown as CanvasRenderingContext2D, graph, camera, graph.selectedVertex());
     return context;
 }
 
@@ -159,15 +161,37 @@ test("render reproduces the pre-refactor draw sequence exactly", () => {
     );
 });
 
-test("render takes the context, the graph and the camera, and no label-spacing parameter", () => {
+test("render takes the context, the graph, the camera and the selection, and no label-spacing parameter", () => {
     // Regression for 5.4: the unused label-spacing parameter was removed;
-    // spacing lives in K.label and the camera keeps cull/focal in step.
+    // spacing lives in K.label and the camera keeps cull/focal in step. The
+    // selection is now the caller's argument, so the renderer never scans.
     const { graph } = build();
 
-    assert.equal(render.length, 3);
+    assert.equal(render.length, 4);
     assert.equal(K.label.horizontalSpacing, 5);
     assert.equal(K.label.verticalSpacing, 5);
     assert.doesNotThrow(() => draw(graph));
+});
+
+test("render never scans the graph for the selection", () => {
+    // The frame takes the selection; an O(N) walk per frame is exactly what this
+    // signature removes. A throwing stub fails loudly if it comes back.
+    const { graph, b } = build();
+    b.isSelected = true;
+
+    graph.selectedVertex = () => {
+        throw new Error("render() must not scan for the selection");
+    };
+
+    const context = new FakeContext2D();
+    context.canvas = { width: 800, height: 600 };
+
+    assert.doesNotThrow(() =>
+        render(context as unknown as CanvasRenderingContext2D, graph, defaultCameraView(), b)
+    );
+
+    assert.deepEqual(context.fills, [NODE_DEFAULT, NODE_SELECTED, NODE_DEFAULT, NODE_DEFAULT]);
+    assert.ok(context.strokes.includes(EDGE_INCIDENT), `strokes were ${context.strokes}`);
 });
 
 // ------------------------------------------------------------- depth ordering

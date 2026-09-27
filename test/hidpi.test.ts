@@ -137,7 +137,7 @@ test("render clears the whole backing store in device space", () => {
     const context = new FakeContext2D();
     context.canvas = { width: 1200, height: 900 };
 
-    render(context as unknown as CanvasRenderingContext2D, graph, defaultCameraView());
+    render(context as unknown as CanvasRenderingContext2D, graph, defaultCameraView(), graph.selectedVertex());
 
     assert.deepEqual(context.transforms[0], [1, 0, 0, 1, 0, 0]);
     assert.deepEqual(context.clears[0], [0, 0, 1200, 900]);
