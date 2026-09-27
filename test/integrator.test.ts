@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { K } from "../src/K";
 import { assertClose } from "./support/assert";
-import { CANVAS_H, CANVAS_W, singleNode } from "./support/physics";
+import { CANVAS_H, CANVAS_W, pairAt, singleNode } from "./support/physics";
 
 test("the integrator keeps timeStep/(1-friction) at the reference value of 1", () => {
     const gain = K.physics.timeStep / (1 - K.physics.friction);
@@ -58,4 +58,18 @@ test("position advances by the velocity on each unpinned step", () => {
     // Velocity is overwritten first (0.9 * v for a lone node), then position advances by it.
     assertClose(a.position.x, 3 * K.physics.friction, 1e-9);
     assertClose(a.position.y, -4 * K.physics.friction, 1e-9);
+});
+
+test("the step path applies the same integrator as velocityAtTag", () => {
+    // The reference update and the in-place step update share one law, so a
+    // change to either cannot leave the other behind.
+    const { a, fdg } = pairAt(40);
+
+    const expected = fdg.velocityAtTag(a, fdg.netForceAtNode(a));
+
+    fdg.step(CANVAS_W, CANVAS_H);
+
+    assertClose(a.velocity.x, expected.x, 1e-12, "step velocity x");
+    assertClose(a.velocity.y, expected.y, 1e-12, "step velocity y");
+    assertClose(a.velocity.z, expected.z, 1e-12, "step velocity z");
 });
