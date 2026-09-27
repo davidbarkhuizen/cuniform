@@ -1,7 +1,18 @@
 # Workplan — Rendering on a dedicated thread
 
-Status: **proposed**, not started. This document is a forward plan; nothing in it
-is implemented. It covers the OffscreenCanvas half of the README's
+Status: **implemented**, 2026-09-27. All five items landed — Item 1 in
+[#114](https://github.com/davidbarkhuizen/cuniform/pull/114), Item 2 in
+[#115](https://github.com/davidbarkhuizen/cuniform/pull/115), Item 3 in
+[#116](https://github.com/davidbarkhuizen/cuniform/pull/116), Item 4 in
+[#117](https://github.com/davidbarkhuizen/cuniform/pull/117) and Item 5 in
+[#118](https://github.com/davidbarkhuizen/cuniform/pull/118) — and this document
+is kept as the design record rather than updated in place, so it still reads as
+the plan it was. The one deviation is recorded in the code and the README:
+`UIController` owns the render runner's lifecycle (it is built in
+`initialize()` and disposed by `terminate()`), rather than entrypoint handing the
+controller an already-built backend, because `initialize()` is idempotent and a
+terminated worker-backed runner cannot be reused. It covers the OffscreenCanvas
+half of the README's
 [`Performance → Next steps`](../README.md#next-steps) row 3 ("Rendering or
 physics beyond canvas 2D") and the rendering half of row 2 ("Revisit the worker
 boundary"). WebGL, GPU forces, WASM kernels and the octree work are out of scope.
