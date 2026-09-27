@@ -28,13 +28,14 @@ launched.
 
 `web/` holds the hand-maintained shell (`index.html`, `stylez.css`); it loads
 the generated `dist/main.js`. `dist/` is build output only and is ignored by
-git.
+git. Webpack emits a second entry, `dist/simulation.worker.js`, which the app
+constructs as the physics worker (see [Cadence](#cadence)).
 
-The simulation is deliberately decoupled from the browser: `ForceDirectedGraph.step()`
+The simulation is deliberately decoupled from the browser: `ForceDirectedGraph.stepPhysics()`
 is pure physics and touches neither `window` nor the canvas, so the whole model can
 be exercised headlessly in `test/`. The projection is split out the same way:
 `Projector` is pure math too, so the solver can use it without importing a canvas
-type.
+type. `step()` is `stepPhysics()` plus that projection.
 
 ## Layout
 
@@ -241,6 +242,19 @@ draw. A drag, orbit, dolly, console rotation, resize or graph swap starts it
 again. Without `requestAnimationFrame` the controller falls back to the original
 fixed-interval tick; `onTimerTick()` still means exactly one tick plus one draw,
 which is what the tests and the fallback use.
+
+Where the browser has a `Worker`, the force integration runs in
+`dist/simulation.worker.js`, owned by `PhysicsRunner`; projection, hit-testing
+and rendering stay on the main thread, which is cheap and needs the live camera.
+Positions cross the boundary as a transferable `Float64Array`, and the runner
+posts at most one step at a time, so a slow worker cannot queue a backlog. If
+`Worker` is missing, construction throws, or the worker script fails to load,
+the runner falls back to the in-process solver and the main thread steps it. A
+graph swap re-initialises the worker and bumps a generation counter, so a
+response computed for the replaced graph is dropped. (`./cli run` opens
+`web/index.html` over `file://`, where browsers refuse to start a worker, so the
+fallback is what runs there; serve the directory over HTTP to exercise the
+worker.)
 
 ### Model, camera and canvas space
 

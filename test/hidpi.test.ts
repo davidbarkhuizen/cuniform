@@ -94,18 +94,20 @@ test("terminate removes the resize listener", () => {
 
 test("physics is stepped with the logical size, not the scaled backing store", () => {
     withController(2, ({ controller }) => {
-        const calls: number[][] = [];
+        const viewports: number[][] = [];
         const fdg = controller.solver;
 
-        const realStep = fdg.step.bind(fdg);
-        fdg.step = (w: number, h: number, pinned: any) => {
-            calls.push([w, h]);
-            return realStep(w, h, pinned);
+        // Physics no longer takes a canvas size; the logical size reaches the
+        // frame through the projector, which is what caches the view.
+        const realProject = fdg.project.bind(fdg);
+        fdg.project = (projector: any) => {
+            viewports.push([projector.viewport.w1, projector.viewport.h1]);
+            return realProject(projector);
         };
 
         controller.onTimerTick();
 
-        assert.deepEqual(calls, [[750, 750]]);
+        assert.deepEqual(viewports, [[750, 750]]);
     });
 });
 
