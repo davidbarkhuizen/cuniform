@@ -2,8 +2,9 @@
 
 | | |
 | --- | --- |
-| **Status** | Planned |
-| **Area** | new `src/graph/Components.ts`, `src/physics/Kernel.ts`, `src/physics/ForceDirectedGraph.ts`, `src/core/K.ts`, `test/architecture.test.ts`, `test/components.test.ts` (new), `test/anchor.test.ts` (new), `test/support/physics.ts`, `test/physics-runner.test.ts`, `docs/physics.md`, `docs/constants.md`, `docs/invariants.md`, `docs/known-limitations.md`, `docs/next-steps.md` |
+| **Status** | Implemented |
+| **Landed** | PR 1 ([#142](https://github.com/davidbarkhuizen/cuniform/pull/142), force, labelling and tests) and PR 2 (docs and tuning). The measurements below are the design evidence; the shipped constants and their measured hold radius and settle time are recorded in [`docs/constants.md`](../constants.md#component-anchor). |
+| **Area** | new `src/graph/Components.ts`, `src/physics/Kernel.ts`, `src/physics/ForceDirectedGraph.ts`, `src/core/K.ts`, `bench/physics.bench.ts`, `test/architecture.test.ts`, `test/components.test.ts` (new), `test/anchor.test.ts` (new), `test/support/physics.ts`, `test/physics-runner.test.ts`, `test/adjacency.test.ts`, `test/transform.test.ts`, `docs/physics.md`, `docs/constants.md`, `docs/invariants.md`, `docs/known-limitations.md`, `docs/next-steps.md` |
 | **Depends on** | nothing outstanding — `main` is green at d9c9c1d |
 | **Blocks** | nothing; component packing (§8) would build on it |
 | **Evidence** | headless experiment on `main`: two 6-node components at x = ±250 separate 500 → 2005 model units in 10 000 steps while the whole-graph centroid stays exactly at the origin; a global per-node pull strong enough to contain them shrinks a connected 30-node path's mean edge length from 92.3 to 51.2 (**−45%**) |
@@ -25,7 +26,7 @@ layout the suite pins — is preserved bit-for-bit, not approximately.
 The anchor is also **structurally a no-op** whenever every component centroid is
 inside the dead zone, which is the common case: the generator seeds every node
 inside the cube, and the whole-graph centroid measured 43–82 model units over
-200-trial samples. It engages only where the model has no other answer — a
+200-trial samples (a wider re-measurement after landing is in §11). It engages only where the model has no other answer — a
 component whose centroid has been pushed past the dead zone by inter-component
 repulsion and has nothing to pull it back.
 
@@ -353,7 +354,8 @@ Two entries in `K.physics`, in the file's explanatory style:
 Why `150`: the visible half-extent at the identity camera is `W_0 / 2 = 300`,
 and a held component's farthest node is roughly `R0` plus the component's own
 radius, so a dead zone at a quarter of the cube keeps a small fragment inside
-the frame while still being far outside the seed centroid range (43–82). The
+the frame while still being outside the common seed centroid range (a wider
+re-measurement after landing is in §11). The
 pair is a **starting point, not a claim**: PR 2 tunes it against the demo and
 records the measured hold radius, settle time and step cost beside the values,
 the way `docs/performance.md` records the other tuned numbers.
@@ -527,3 +529,44 @@ silently re-baselined.
 - **Naming.** `componentAnchorRadius` / `componentAnchorStrength` /
   `componentAnchorMagnitude` / `labelComponents` are the proposed names; the
   `anchor` prefix keeps them greppable and distinct from the pairwise kernels.
+
+## 11. Post-implementation notes
+
+Recorded after both PRs landed, so the plan and the code do not drift.
+
+- **The anchor pass runs after the springs, and that is the order
+  `netForceAtNode()` sums in.** §4.3 put the pass "after the springs are folded
+  into the force buffers and before the velocity pass", and the pass does run
+  there, but the first cut folded the anchor into the repulsion *before* the
+  springs — `(e + a) + s` — while `netForceAtNode()` sums `(e + s) + a`. The two
+  differ in the last bits once the pairwise forces are large, which is the one
+  way `velocityAtTag()`'s default force could disagree with the velocity the
+  step writes. The step now folds springs first and the anchor adds on top, so
+  both paths use one order. `test/anchor.test.ts` pins it with an `assert.equal`
+  on a fixture whose pairwise forces dominate.
+- **The anchor has its own benchmark.** §5's file list predates
+  `bench/physics.bench.ts`'s anchor section. The default bench fixtures never
+  engage the anchor (their centroids are inside the dead zone), so "confirm the
+  step cost is flat" had nothing to measure until the bench timed the same
+  topology with the gate skipped against the same component shifted outside the
+  dead zone. The delta sits inside the run-to-run spread: `-0.07` ms at 1024
+  nodes, `+0.06` ms at 4096, spreads `0.3`-`1.8` ms.
+- **The generated-graph centroid band is wider than 43-82.** Re-measured over
+  200 draws per cell with the shipped `componentAnchorMagnitude` in place:
+  order 11 / branching 2 spans 17.5-186.0 (p50 85.3), order 20 / branching 1
+  spans 13.8-159.2, order 40 / branching 1 spans 9.4-95.1. So a minority of
+  generated draws do put a connected graph's single centroid past `R0 = 150`,
+  and the anchor then translates that whole graph by a few units. That is the
+  force working as designed — it is a translation, so the layout is unchanged —
+  but "the anchor never engages on a generated graph" is a claim the data does
+  not support and `docs/physics.md` does not make. The generator also is not
+  seeded, so no run reproduces another's band exactly.
+- **The hold radius is a function of component size.** Measured for the shipped
+  constants in `docs/constants.md#component-anchor`: 262 units for the
+  two-6-node fixture, 925 for two 20-node components, 2071 for two 40-node ones.
+  §7's "components overlap inside the dead zone" risk is unchanged, and a large
+  detached fragment is a dolly case rather than an anchor one.
+- **`anchorForceInto()` is total.** A tag that is not in the graph now returns a
+  zero anchor rather than reading a label out of range and turning the whole net
+  force into `NaN`, matching the pairwise references' behaviour for a foreign
+  tag.

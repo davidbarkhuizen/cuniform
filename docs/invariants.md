@@ -19,7 +19,9 @@ The suite enforces these, so they are the contract rather than suggestions:
    never resolve a projector of their own.
 3. **Frozen pre-step snapshot.** Every force in a step is computed from
    positions as they were at the start of the step, so no node sees a
-   half-updated neighbour.
+   half-updated neighbour. That includes the component anchor: its centroids
+   accumulate from the same frozen positions before the velocity pass writes
+   anything, and it only reads positions of nodes in one component.
 4. **Deterministic order.** Iteration follows the `vertices`/`edges` insertion
    order, and the painter sort is an explicit `(depth descending, insertion
    index ascending)` comparator, so equal depths keep edge-before-node order and

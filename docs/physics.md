@@ -20,8 +20,27 @@ relaxation, not an energy minimisation:
       F = k*(r - l)
 
   directed from the node toward its neighbour. `r > l` pulls, `r < l` pushes.
-- **Net force** is the plain sum of the two. There is no mass, no gravity, no
-  cooling schedule and no boundary.
+- **Net force** is the plain sum of the two reference kernels, plus the
+  component anchor below. There is no mass, no gravity and no cooling schedule.
+- **Component anchor** — a detached component has no equilibrium: the only force
+  between two components that share no edge is repulsion, so they separate
+  without bound. Each connected component therefore also feels one force vector,
+
+      R       = the component centroid's distance from the model origin
+      F       = k * max(0, R - R0)  directed from the centroid toward the origin
+
+  where `R0` is `componentAnchorRadius` (a dead zone) and the constant `k` is
+  `componentAnchorStrength`. The vector is computed once per component and applied
+  **identically to every node in it**, so it can only translate the component; it
+  adds no differential force and no pairwise distance inside a component changes.
+  A component whose centroid is inside the dead zone feels nothing, and the step
+  leaves the force buffers untouched, so a graph anchored only by a dead-zone-hit
+  centroid steps exactly as it did before this force existed. `R0` is measured on
+  the centroid, not on each node, which is what separates it from a global
+  per-node leash: a large connected layout is a single component with a centroid
+  near the origin, so it is untouched however large it grows. Like
+  `minimumInteractionRadius`, this is a **documented non-reference extension**,
+  and it is the only force here that is not a pairwise kernel.
 - **Singularity guard** — repulsion is singular as `r -> 0`, so the power law is
   evaluated at `max(r, minimumInteractionRadius)`. That bounds the force for
   every small `r` while leaving every `r >= minimumInteractionRadius` untouched,
@@ -48,9 +67,12 @@ relaxation, not an energy minimisation:
   zeroes its velocity, so releasing the mouse does not fling it. The rest of the
   graph still feels its forces while it is held.
 
-Each step runs in fixed passes — all repulsion, all springs, all velocities, then
-all positions — so every node sees the same frozen snapshot of positions and the
-result is independent of iteration order.
+Each step runs in fixed passes — all repulsion, all springs, the per-component
+anchor, all velocities, then all positions — so every node sees the same frozen
+snapshot of positions and the result is independent of iteration order. The
+anchor's centroids are accumulated from the same pre-step positions and in
+`vertices` order, so the main thread's solver and the worker realm compute the
+same doubles and stay bit-identical.
 
 ## Cadence
 
@@ -66,8 +88,11 @@ work at all and leaves the previous frame on the canvas.
 
 Once the largest node travel stays below `settleEpsilon` for `settleFrames`
 consecutive steps the layout is settled and stepping stops, leaving only the
-change check above. A drag, orbit, dolly, console rotation or zoom, resize or
-graph swap starts it again. Without `requestAnimationFrame` the controller falls
+change check above. The anchor settles with everything else: past the dead zone
+it is a proportional restoring force, so it has a root rather than a constant
+magnitude, and a lone node comes to rest around the dead zone instead of
+crossing the origin for ever. A drag, orbit, dolly, console rotation or zoom,
+resize or graph swap starts it again. Without `requestAnimationFrame` the controller falls
 back to the original fixed-interval tick; `onTimerTick()` still means exactly one
 tick plus one draw, deliberately bypassing the idle-frame skip, which is what the
 tests and the fallback use.
