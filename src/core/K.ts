@@ -35,10 +35,11 @@ export const K = {
         // every node in it, so the force can only translate that component and
         // never distorts it. The dead zone is on the centroid: a component whose
         // centroid is inside it is untouched, which is the common case - the
-        // generator seeds inside the cube and measured seed centroids land at
-        // 43-82 units. The pair is a starting point, not a claim: it is tuned
-        // against the demo and the measured hold radius is recorded in
-        // docs/constants.md.
+        // generator seeds inside the cube and measured single-component centroids
+        // land at 17-186 units (p50 85) over 200 draws, so a minority of generated
+        // graphs do cross the dead zone and feel a small translation. The pair is a
+        // starting point, not a claim: it is tuned against the demo and the measured
+        // hold radius and settle time are recorded in docs/constants.md.
         // The radius is a literal rather than K.space.W_0 / 4 because containment
         // and world extent are different decisions that only share a scale today.
         // W_0 / 4 = 150 is a quarter of the cube: a held fragment's farthest node

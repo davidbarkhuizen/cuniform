@@ -11,6 +11,8 @@ All tuning lives in [`src/core/K.ts`](../src/core/K.ts):
 | `scalarForceConstant` | `100.0` | Coulomb `k`; `k*q^2 = 10000` |
 | `repulsionExponent` | `1.9` | repulsion falls off as `r^-1.9` |
 | `minimumInteractionRadius` | `10.0` | repulsion is evaluated at `max(r, this)`, bounding the `r -> 0` singularity |
+| `componentAnchorRadius` | `150` | dead zone on a component **centroid**, model units; `W_0 / 4` |
+| `componentAnchorStrength` | `0.1` | restoring pull per model unit beyond the dead zone |
 | `physics.quality` | `"auto"` | opening-angle policy: `"auto"` picks by graph size, or `"accurate"` / `"fast"` |
 | `barnesHutTheta` / `barnesHutFastTheta` / `barnesHutFastMinNodes` | `0.5` / `0.9` / `2048` | accurate / fast opening angles, and the size `physics.quality` = `"auto"` switches at |
 | `timeStep` | `0.1` | integration gain, **not** seconds |
@@ -46,3 +48,62 @@ displacement under a constant force, and it is a real stability constraint, not 
 style note. With the defaults the gain is exactly `1`, a single edge settles at
 `r ~= 65.46` model units (not at `l = 30` — repulsion pushes past the rest
 length), and an underdamped mode decays by `sqrt(friction) ~= 0.9487` per step.
+
+## Component anchor
+
+`componentAnchorRadius` and `componentAnchorStrength` are the two tunables of the
+[component anchor](physics.md), the one force that is not a pairwise kernel. They
+are a translation, so they cannot change any layout's shape; they trade how
+tightly a detached fragment is held against how long the layout takes to settle.
+
+Measured headlessly on two 6-node paths seeded 500 model units apart (the
+workplan's drift fixture, `test/support/physics.ts`'s `disconnectedPaths(500, 6,
+2)`, via `stepPhysics()`), at 20 steps/s:
+
+| `componentAnchorRadius` | `componentAnchorStrength` | farthest node | settle steps |
+| ---: | ---: | ---: | ---: |
+| `150` (shipped) | `0.1` (shipped) | 261 | 168 |
+| `100` | `0.1` | 260 | 161 |
+| `200` | `0.1` | 290 | 149 |
+| `300` | `0.1` | 359 | 223 |
+| `150` | `0.05` | 277 | 168 |
+| `150` | `0.2` | 260 | 167 |
+| `150` | `0.5` | 257 | 194 |
+
+Both shipped values hold: `R0 = 150` is a quarter of the cube, and the frame at
+the identity camera half-extent `W_0 / 2 = 300` still contains a fragment held at
+a centroid of 150 plus the component's own radius. Strength above `0.1` buys a
+few units of containment and costs settle time, so `0.1` stays.
+
+The hold radius grows with the **component**, because the repulsion across a
+disconnected boundary scales with the number of nodes on each side while the
+centroid pull does not. Same fixture, `componentSpacing` chosen so the pieces
+start apart, 20 000-step budget:
+
+| components x nodes | farthest node | settle steps | nodes in the 800x600 frame |
+| --- | ---: | ---: | ---: |
+| 4 x 2 | 388 | 147 | — |
+| 2 x 6 | 262 | 159 | 12 of 12 |
+| 2 x 10 | 413 | 213 | 12 of 20 |
+| 2 x 20 | 925 | 932 | 12 of 40 |
+| 2 x 40 | 2071 | 3423 | 12 of 80 |
+
+The last column projects the settled layout through the demo's default identity
+camera onto an 800x600 canvas: the two 6-node components that the workplan's
+drift fixture is built from are held entirely inside the frame, and larger
+fragments are not. So the anchor bounds drift — it is what stops the unbounded
+separation — but a very large detached fragment is still wider than the frame.
+That is the dolly case, not an anchor one; see
+[Known limitations](known-limitations.md).
+
+The pass itself costs no measurable time: `npm run bench` times the same
+topology with the dead zone hit (the pass skipped) against the same component
+shifted outside it (the pass run), and the gap sits inside the run-to-run spread.
+Across runs the deltas were `-0.07` / `+0.06`, `-0.19` / `-0.07` and
+`-0.32` / `-0.28` ms at 1024 / 4096 nodes, against per-run spreads of `0.1`-`5.4`
+ms; the sign is not stable, which is what "inside the noise" looks like. The pass
+is `O(N + C)` over pooled buffers and allocates nothing, so the step cost stays
+flat and the GC count stays at zero.
+
+`R0` is a literal rather than `K.space.W_0 / 4`: containment and world extent are
+different decisions that only happen to share a scale today.

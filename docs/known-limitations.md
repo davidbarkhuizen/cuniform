@@ -1,9 +1,17 @@
 # Known limitations
 
-- Unconnected nodes and detached components drift away indefinitely: nothing is
-  centripetal, matching the reference. A centring force would keep them in view,
-  but none is implemented. In 3D they can drift in depth, which is an amplified
-  version of the same limitation rather than a new one.
+- Detached components no longer drift away indefinitely: the
+  [component anchor](physics.md) bounds each component's centroid. It is a pure
+  translation, so it bounds drift without reshaping a layout. What it does not
+  do is keep a large detached fragment inside the frame — the hold radius grows
+  with the component, because repulsion across a disconnected boundary scales
+  with node count while the centroid pull does not (measured: 262 units for two
+  6-node components, 2071 for two 40-node ones). That is the same dolly problem a
+  large connected graph has, not a second kind of unbounded growth.
+- Components anchored inside the dead zone can overlap each other. Repulsion
+  spreads them, but nothing packs them into a non-overlapping arrangement; a
+  component-packing pass is a separate design and would build on the same
+  labelling.
 - No cooling schedule and no velocity clamp. The `r -> 0` repulsion singularity
   is bounded by `minimumInteractionRadius`, but that still permits a single
   bounded step of up to `k*q^2 / minimumInteractionRadius^1.9` model units when
@@ -21,6 +29,6 @@
   dropped whole rather than clipped at the near plane.
 
 These are deliberate divergences from the reference model rather than defects.
-The `r -> 0` singularity guard, the coincident-centre tie-break and the
-near-plane guard described above are the non-reference behaviour implemented so
-far.
+The `r -> 0` singularity guard, the coincident-centre tie-break, the
+[component anchor](physics.md) and the near-plane guard described above are the
+non-reference behaviour implemented so far.
