@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Graph } from "../src/Graph";
-import { GraphFactory } from "../src/GraphFactory";
-import { specLabel } from "../src/GraphSpec";
-import { K } from "../src/K";
-import { CATALOG } from "../src/Molecules";
-import { Tag } from "../src/Tag";
+import { Graph } from "../src/graph/Graph";
+import { GraphFactory } from "../src/graph/GraphFactory";
+import { specLabel } from "../src/graph/GraphSpec";
+import { K } from "../src/core/K";
+import { CATALOG } from "../src/graph/Molecules";
+import { Tag } from "../src/graph/Tag";
 import { catalogEntry } from "./support/catalog";
 import { newGraph } from "./support/physics";
 

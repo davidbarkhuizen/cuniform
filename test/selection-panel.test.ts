@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Graph } from "../src/Graph";
-import { Tag } from "../src/Tag";
+import { Graph } from "../src/graph/Graph";
+import { Tag } from "../src/graph/Tag";
 import {
     FakeElement,
     UIControllerFixture,

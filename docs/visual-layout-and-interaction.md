@@ -18,7 +18,7 @@ systematic name for a molecule, the node and edge counts for a random graph. It
 is small and wraps, because a systematic name is long.
 
 The graph **chooser** is not part of the panel: it is a modal dialog built in
-`src/GraphWizard.ts` and appended to the body, layered above both the floating
+`src/ui/GraphWizard.ts` and appended to the body, layered above both the floating
 panel and the context menu. The two overlays can never be open at once.
 
 The panel is opaque and high-contrast so it stays readable over the graph, and

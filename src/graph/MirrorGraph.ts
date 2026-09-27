@@ -1,5 +1,5 @@
 import { Graph } from "./Graph";
-import { point3 } from "./Point3D";
+import { point3 } from "../core/Point3D";
 import { Tag } from "./Tag";
 
 /**

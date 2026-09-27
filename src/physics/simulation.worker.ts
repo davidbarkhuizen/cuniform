@@ -5,7 +5,7 @@
 // PhysicsProtocol.ts, which stays pure and is driven here.
 
 import { PhysicsWorkerEngine, WorkerRequest } from "./PhysicsProtocol";
-import { WorkerScope } from "./WorkerChannel";
+import { WorkerScope } from "../core/WorkerChannel";
 
 const scope = self as unknown as WorkerScope<WorkerRequest>;
 const engine = new PhysicsWorkerEngine();

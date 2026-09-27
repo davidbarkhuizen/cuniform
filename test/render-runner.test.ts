@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Graph } from "../src/Graph";
-import { K } from "../src/K";
-import { defaultCameraView } from "../src/Projector";
-import { FrameRequest } from "../src/RenderProtocol";
-import { RenderRunner, RenderRunnerOptions } from "../src/RenderRunner";
+import { Graph } from "../src/graph/Graph";
+import { K } from "../src/core/K";
+import { defaultCameraView } from "../src/view/Projector";
+import { FrameRequest } from "../src/render/RenderProtocol";
+import { RenderRunner, RenderRunnerOptions } from "../src/render/RenderRunner";
 import {
     FakeCanvas,
     FakeRenderBackend,

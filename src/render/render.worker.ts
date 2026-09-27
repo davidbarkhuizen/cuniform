@@ -7,7 +7,7 @@
 
 import { ExportRequest, FrameRequest, InitRequest, RenderWorkerEngine } from "./RenderProtocol";
 import { RenderSurface } from "./RenderSurface";
-import { WorkerScope } from "./WorkerChannel";
+import { WorkerScope } from "../core/WorkerChannel";
 
 /**
  * The `OffscreenCanvas` subset this entry uses. Typed locally because the

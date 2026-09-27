@@ -13,15 +13,15 @@
 
 import { PerformanceObserver } from "perf_hooks";
 
-import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
-import { Graph } from "../src/Graph";
-import { GraphFactory } from "../src/GraphFactory";
-import { K, QualitySetting } from "../src/K";
-import { radius } from "../src/Kernel";
-import { projectGraph } from "../src/Projection";
-import { CameraView, Projector } from "../src/Projector";
-import { openingAngleFor } from "../src/Quality";
-import { render } from "../src/Renderer";
+import { ForceDirectedGraph } from "../src/physics/ForceDirectedGraph";
+import { Graph } from "../src/graph/Graph";
+import { GraphFactory } from "../src/graph/GraphFactory";
+import { K, QualitySetting } from "../src/core/K";
+import { radius } from "../src/physics/Kernel";
+import { projectGraph } from "../src/view/Projection";
+import { CameraView, Projector } from "../src/view/Projector";
+import { openingAngleFor } from "../src/physics/Quality";
+import { render } from "../src/render/Renderer";
 import { FakeContext2D } from "../test/support/dom";
 import { seededRandom, sparseGraph } from "../test/support/physics";
 

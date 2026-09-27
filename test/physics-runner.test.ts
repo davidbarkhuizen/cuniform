@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
-import { Graph } from "../src/Graph";
-import { K } from "../src/K";
-import { PhysicsRunner, PhysicsWorkerPort } from "../src/PhysicsRunner";
-import { PhysicsWorkerEngine, PositionsResponse, WorkerRequest } from "../src/PhysicsProtocol";
-import { Projector } from "../src/Projector";
-import { openingAngleFor } from "../src/Quality";
+import { ForceDirectedGraph } from "../src/physics/ForceDirectedGraph";
+import { Graph } from "../src/graph/Graph";
+import { K } from "../src/core/K";
+import { PhysicsRunner, PhysicsWorkerPort } from "../src/physics/PhysicsRunner";
+import { PhysicsWorkerEngine, PositionsResponse, WorkerRequest } from "../src/physics/PhysicsProtocol";
+import { Projector } from "../src/view/Projector";
+import { openingAngleFor } from "../src/physics/Quality";
 import { CANVAS_H, CANVAS_W, sparseGraph } from "./support/physics";
 import { withUIController } from "./support/dom";
 

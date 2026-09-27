@@ -1,7 +1,7 @@
-import { K } from "./K";
+import { K } from "../core/K";
 import { axisAngle, Mat3, multiply, rotX, rotY, rotZ } from "./Mat3";
-import { clamp } from "./Numeric";
-import { point3, Point3D } from "./Point3D";
+import { clamp } from "../core/Numeric";
+import { point3, Point3D } from "../core/Point3D";
 import { CameraView, defaultCameraView } from "./Projector";
 
 /**

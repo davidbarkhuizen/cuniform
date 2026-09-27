@@ -1,8 +1,8 @@
-import { Graph } from "./Graph";
-import { K } from "./K";
-import { readPositions } from "./MirrorGraph";
-import { projectGraph } from "./Projection";
-import { CameraView, Projector } from "./Projector";
+import { Graph } from "../graph/Graph";
+import { K } from "../core/K";
+import { readPositions } from "../graph/MirrorGraph";
+import { projectGraph } from "../view/Projection";
+import { CameraView, Projector } from "../view/Projector";
 import { render } from "./Renderer";
 import {
     CAMERA_VALUES,
@@ -13,8 +13,8 @@ import {
     RenderResponse,
 } from "./RenderProtocol";
 import { RenderSurface, resizeBackingStore } from "./RenderSurface";
-import { Tag } from "./Tag";
-import { WorkerPort } from "./WorkerChannel";
+import { Tag } from "../graph/Tag";
+import { WorkerPort } from "../core/WorkerChannel";
 
 /**
  * The main-thread owner of the drawing, mirroring `PhysicsRunner`: the canvas's

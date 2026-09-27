@@ -1,8 +1,8 @@
-import { Graph } from "./Graph";
-import { K } from "./K";
-import { Point2D } from "./Point2D";
-import { Projector } from "./Projector";
-import { Tag } from "./Tag";
+import { Graph } from "../graph/Graph";
+import { K } from "../core/K";
+import { Point2D } from "../core/Point2D";
+import { Projector } from "../view/Projector";
+import { Tag } from "../graph/Tag";
 
 /**
  * Nearest node within the screen-space hit radius, or a clear on a miss; a

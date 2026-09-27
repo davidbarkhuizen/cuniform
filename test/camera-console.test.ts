@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { entrypoint } from "../src/entrypoint";
-import { Graph } from "../src/Graph";
-import { K } from "../src/K";
-import { identity, Mat3, rotX, rotY, rotZ } from "../src/Mat3";
-import { point3 } from "../src/Point3D";
+import { entrypoint } from "../src/app/entrypoint";
+import { Graph } from "../src/graph/Graph";
+import { K } from "../src/core/K";
+import { identity, Mat3, rotX, rotY, rotZ } from "../src/view/Mat3";
+import { point3 } from "../src/core/Point3D";
 import { assertClose, assertMatClose } from "./support/assert";
 import {
     CAMERA_CONSOLE_EVENTS,

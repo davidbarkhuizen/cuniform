@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { GraphFactory } from "../src/GraphFactory";
-import { defaultGraphSpec, specLabel } from "../src/GraphSpec";
-import { UIController } from "../src/UIController";
-import { moleculeById } from "../src/Molecules";
+import { GraphFactory } from "../src/graph/GraphFactory";
+import { defaultGraphSpec, specLabel } from "../src/graph/GraphSpec";
+import { UIController } from "../src/app/UIController";
+import { moleculeById } from "../src/graph/Molecules";
 import { catalogEntry } from "./support/catalog";
 import {
     CANVAS_EVENTS,

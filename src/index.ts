@@ -1,4 +1,4 @@
-import { entrypoint } from './entrypoint';
+import { entrypoint } from './app/entrypoint';
 
 document.addEventListener("DOMContentLoaded", function() {
 

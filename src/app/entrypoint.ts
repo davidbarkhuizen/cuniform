@@ -1,5 +1,5 @@
-import { DragController } from "./DragController";
-import { RenderRunner } from "./RenderRunner";
+import { DragController } from "../ui/DragController";
+import { RenderRunner } from "../render/RenderRunner";
 import { UIController } from "./UIController";
 
 /**

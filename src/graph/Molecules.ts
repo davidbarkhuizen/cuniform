@@ -1,4 +1,4 @@
-import { K } from "./K";
+import { K } from "../core/K";
 import { MoleculeTopology, parseSmiles } from "./Smiles";
 
 // The molecule catalog: one flagship example per indole-alkaloid family, each

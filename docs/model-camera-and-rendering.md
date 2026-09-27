@@ -8,7 +8,7 @@ so coordinates run roughly `-300..+300` on every axis (`K.space.W_0`,
 space; keeping the two types distinct is the enforcement mechanism, so a model
 point can only reach the canvas through the projector.
 
-The view is a **perspective camera** ([`src/Projector.ts`](../src/Projector.ts)),
+The view is a **perspective camera** ([`src/view/Projector.ts`](../src/view/Projector.ts)),
 pure math and DOM-free:
 
     model (Point3D) --Projector--> projected plane (Point2D + depth) --Viewport--> canvas
@@ -37,7 +37,7 @@ Two properties make the change reviewable:
   documented, bounded, non-reference extension in the same spirit as the
   repulsion guard.
 
-`Viewport` ([`src/Viewport.ts`](../src/Viewport.ts)) remains the final 2D linear
+`Viewport` ([`src/view/Viewport.ts`](../src/view/Viewport.ts)) remains the final 2D linear
 map: `toCanvas()` and `toModel()` convert projected-plane coordinates to canvas
 coordinates with one uniform scale, `min(canvasW/W_0, canvasH/H_0)`, and the y
 axis is flipped so increasing projected `y` moves up the screen. The scale is
@@ -72,9 +72,9 @@ A node at or inside the near plane is not drawn. An edge is skipped if either
 endpoint is culled — there is no true near-plane clipping of edges.
 
 The pass itself is two shared functions: `projectGraph()`
-([`src/Projection.ts`](../src/Projection.ts)) caches every node's canvas position
+([`src/view/Projection.ts`](../src/view/Projection.ts)) caches every node's canvas position
 and view depth under one projector, and `render()`
-([`src/Renderer.ts`](../src/Renderer.ts)) consumes that cache. Both run in
+([`src/render/Renderer.ts`](../src/render/Renderer.ts)) consumes that cache. Both run in
 whichever realm draws — the main thread's in-process backend, or the render
 worker — so the depth cue, the painter sort and the cull rule have one
 implementation. `Tag.depth` is therefore written by the frame's drawer and is
@@ -162,7 +162,7 @@ is a graph object or a string. The messages are:
 
 At 4096 that is about 98 KB in and 33 KB out per frame, all by pointer move.
 Both workers rebuild the same `Tag` graph from flat arrays through one
-`buildMirrorGraph()` ([`src/MirrorGraph.ts`](../src/MirrorGraph.ts)), so the
+`buildMirrorGraph()` ([`src/graph/MirrorGraph.ts`](../src/graph/MirrorGraph.ts)), so the
 physics and render mirrors cannot drift and node insertion order is the index
 space both directions agree on.
 

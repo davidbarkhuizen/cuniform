@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Graph } from "../src/Graph";
-import { K } from "../src/K";
-import { CameraView, defaultCameraView } from "../src/Projector";
-import { render } from "../src/Renderer";
-import { Tag } from "../src/Tag";
+import { Graph } from "../src/graph/Graph";
+import { K } from "../src/core/K";
+import { CameraView, defaultCameraView } from "../src/view/Projector";
+import { render } from "../src/render/Renderer";
+import { Tag } from "../src/graph/Tag";
 import { assertClose } from "./support/assert";
 import { FakeContext2D, poisonSelection, withRendererSettings } from "./support/dom";
 

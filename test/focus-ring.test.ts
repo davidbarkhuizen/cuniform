@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { advanceIndex } from "../src/FocusRing";
+import { advanceIndex } from "../src/ui/FocusRing";
 
 /**
  * The roving-focus ring shared by the context menu and the graph wizard. Its

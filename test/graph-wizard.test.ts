@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { GraphWizard, GraphWizardOptions } from "../src/GraphWizard";
-import { GraphSpec } from "../src/GraphSpec";
-import { K } from "../src/K";
-import { CATALOG, moleculeTooltip } from "../src/Molecules";
+import { GraphWizard, GraphWizardOptions } from "../src/ui/GraphWizard";
+import { GraphSpec } from "../src/graph/GraphSpec";
+import { K } from "../src/core/K";
+import { CATALOG, moleculeTooltip } from "../src/graph/Molecules";
 import {
     FakeElement,
     demoElements,

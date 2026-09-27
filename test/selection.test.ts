@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Graph } from "../src/Graph";
-import { K } from "../src/K";
-import { Projector } from "../src/Projector";
-import { Tag } from "../src/Tag";
-import { handleNodeSelectionAttempt } from "../src/Selection";
+import { Graph } from "../src/graph/Graph";
+import { K } from "../src/core/K";
+import { Projector } from "../src/view/Projector";
+import { Tag } from "../src/graph/Tag";
+import { handleNodeSelectionAttempt } from "../src/ui/Selection";
 import { singleNode } from "./support/physics";
 
 const W = 600;

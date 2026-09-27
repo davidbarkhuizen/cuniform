@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
-import { Graph } from "../src/Graph";
-import { K } from "../src/K";
-import { Octree } from "../src/Octree";
-import { Projector } from "../src/Projector";
-import { Tag } from "../src/Tag";
+import { ForceDirectedGraph } from "../src/physics/ForceDirectedGraph";
+import { Graph } from "../src/graph/Graph";
+import { K } from "../src/core/K";
+import { Octree } from "../src/physics/Octree";
+import { Projector } from "../src/view/Projector";
+import { Tag } from "../src/graph/Tag";
 import { assertClose } from "./support/assert";
 import { sparseGraph } from "./support/physics";
 

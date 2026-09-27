@@ -1,8 +1,8 @@
-import { Graph } from "./Graph";
-import { K } from "./K";
-import { buildMirrorGraph, packMirror, writePositions } from "./MirrorGraph";
-import { projectGraph } from "./Projection";
-import { CameraView, Projector } from "./Projector";
+import { Graph } from "../graph/Graph";
+import { K } from "../core/K";
+import { buildMirrorGraph, packMirror, writePositions } from "../graph/MirrorGraph";
+import { projectGraph } from "../view/Projection";
+import { CameraView, Projector } from "../view/Projector";
 import { render } from "./Renderer";
 import { RenderSurface, resizeBackingStore } from "./RenderSurface";
 

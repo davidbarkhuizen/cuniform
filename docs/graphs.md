@@ -1,7 +1,7 @@
 # Graphs
 
 A graph is described by a `GraphSpec`
-([`src/GraphSpec.ts`](../src/GraphSpec.ts)), a discriminated value the chooser
+([`src/graph/GraphSpec.ts`](../src/graph/GraphSpec.ts)), a discriminated value the chooser
 produces and the controller remembers:
 
 - `{ kind: "random", order, branching }` —
@@ -21,7 +21,7 @@ produces and the controller remembers:
 
 ## The molecule catalog
 
-[`src/Molecules.ts`](../src/Molecules.ts) holds twenty-three molecules: twenty
+[`src/graph/Molecules.ts`](../src/graph/Molecules.ts) holds twenty-three molecules: twenty
 indole alkaloids, one flagship example per structural family, plus three outside
 the class — chlorophylls a and b, the two compounds of the chlorin family, and
 heme b, the iron porphyrin at haemoglobin's core. The families run tryptamine,
@@ -37,7 +37,7 @@ their chelated metals as separate ionic components.
 
 The SMILES string is the artifact that can be checked at the source, so the
 catalog stores it rather than a hand-copied adjacency list.
-[`src/Smiles.ts`](../src/Smiles.ts) reads the subset the catalog needs — the
+[`src/graph/Smiles.ts`](../src/graph/Smiles.ts) reads the subset the catalog needs — the
 organic and aromatic subsets, bracket atoms, branches, ring closures, explicit
 and directional bonds, disconnection — and rejects malformed notation with a
 position-carrying `SmilesError`. A test parses all twenty-three entries and

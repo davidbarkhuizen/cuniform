@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Graph } from "../src/Graph";
-import { K } from "../src/K";
-import { Tag } from "../src/Tag";
+import { Graph } from "../src/graph/Graph";
+import { K } from "../src/core/K";
+import { Tag } from "../src/graph/Tag";
 import { mouseEvent, poisonSelection, withUIController } from "./support/dom";
 
 const NODE_DEFAULT = K.colours.nodeDefault;

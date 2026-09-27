@@ -1,13 +1,13 @@
 import { advanceIndex } from "./FocusRing";
-import { K } from "./K";
-import { BRANCHING_FIELD, GraphSpec, ORDER_FIELD, parseRandomSpec } from "./GraphSpec";
+import { K } from "../core/K";
+import { BRANCHING_FIELD, GraphSpec, ORDER_FIELD, parseRandomSpec } from "../graph/GraphSpec";
 import {
     CATALOG,
     CatalogEntry,
     filterCatalog,
     moleculeTooltip,
     sortCatalog,
-} from "./Molecules";
+} from "../graph/Molecules";
 
 export type WizardStep = "choose" | "random" | "molecules";
 

@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
-import { defaultCameraView, Projector } from "../src/Projector";
-import { projectGraph } from "../src/Projection";
+import { ForceDirectedGraph } from "../src/physics/ForceDirectedGraph";
+import { defaultCameraView, Projector } from "../src/view/Projector";
+import { projectGraph } from "../src/view/Projection";
 import { sparseGraph } from "./support/physics";
 
 /**

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { parseSmiles, SmilesError } from "../src/Smiles";
+import { parseSmiles, SmilesError } from "../src/graph/Smiles";
 
 /** The bond joining `a` and `b`, in either direction, or undefined. */
 function bondBetween(topology: ReturnType<typeof parseSmiles>, a: number, b: number) {

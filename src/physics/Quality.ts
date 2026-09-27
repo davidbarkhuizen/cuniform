@@ -1,4 +1,4 @@
-import { K, QualitySetting } from "./K";
+import { K, QualitySetting } from "../core/K";
 
 /**
  * The one place the Barnes-Hut opening angle is chosen (docs/performance.md).

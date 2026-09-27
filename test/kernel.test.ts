@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
-import { Graph } from "../src/Graph";
-import { K } from "../src/K";
-import { radialComponentsInto, radius, springMagnitude } from "../src/Kernel";
-import { Tag } from "../src/Tag";
+import { ForceDirectedGraph } from "../src/physics/ForceDirectedGraph";
+import { Graph } from "../src/graph/Graph";
+import { K } from "../src/core/K";
+import { radialComponentsInto, radius, springMagnitude } from "../src/physics/Kernel";
+import { Tag } from "../src/graph/Tag";
 import { assertClose } from "./support/assert";
 import { CANVAS_H, CANVAS_W } from "./support/physics";
 

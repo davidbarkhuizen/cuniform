@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { posix } from "node:path";
 
 import { readAllSources } from "./support/files";
 
@@ -17,9 +18,9 @@ const sources = readAllSources();
 
 /**
  * Source with comments removed, so the purity rules below are about code rather
- * than prose. `RenderSurface.ts` legitimately names both real context types in
- * its documentation; the boundary the test enforces is that a pure module never
- * *uses* one.
+ * than prose. `render/RenderSurface.ts` legitimately names both real context
+ * types in its documentation; the boundary the test enforces is that a pure
+ * module never *uses* one.
  */
 function code(source: string): string {
     return source
@@ -29,36 +30,43 @@ function code(source: string): string {
 
 /** The DOM-free half: the solver, the projection and the catalog data. */
 const PURE_MODULES = [
-    "ForceDirectedGraph.ts",
-    "FocusRing.ts",
-    "Graph.ts",
-    "GraphFactory.ts",
-    "GraphSpec.ts",
-    "Growth.ts",
-    "Kernel.ts",
-    "Octree.ts",
-    "Quality.ts",
-    "PhysicsProtocol.ts",
-    "Projection.ts",
-    "MirrorGraph.ts",
-    "Numeric.ts",
-    "RenderProtocol.ts",
-    "Camera.ts",
-    "Projector.ts",
-    "Renderer.ts",
-    "RenderSurface.ts",
-    "Mat3.ts",
-    "Viewport.ts",
-    "Point2D.ts",
-    "Point3D.ts",
-    "Tag.ts",
-    "Edge.ts",
-    "Selection.ts",
-    "State.ts",
-    "Smiles.ts",
-    "Molecules.ts",
-    "WorkerChannel.ts",
-    "K.ts",
+    // core
+    "core/Growth.ts",
+    "core/K.ts",
+    "core/Numeric.ts",
+    "core/Point2D.ts",
+    "core/Point3D.ts",
+    "core/WorkerChannel.ts",
+    // graph
+    "graph/Edge.ts",
+    "graph/Graph.ts",
+    "graph/GraphFactory.ts",
+    "graph/GraphSpec.ts",
+    "graph/MirrorGraph.ts",
+    "graph/Molecules.ts",
+    "graph/Smiles.ts",
+    "graph/Tag.ts",
+    // view
+    "view/Camera.ts",
+    "view/Mat3.ts",
+    "view/Projection.ts",
+    "view/Projector.ts",
+    "view/Viewport.ts",
+    // physics
+    "physics/ForceDirectedGraph.ts",
+    "physics/Kernel.ts",
+    "physics/Octree.ts",
+    "physics/PhysicsProtocol.ts",
+    "physics/Quality.ts",
+    // render
+    "render/RenderProtocol.ts",
+    "render/RenderSurface.ts",
+    "render/Renderer.ts",
+    // ui
+    "ui/FocusRing.ts",
+    "ui/Selection.ts",
+    // app
+    "app/State.ts",
 ];
 
 /**
@@ -67,11 +75,11 @@ const PURE_MODULES = [
  * in the solver cannot hide by being "not in PURE_MODULES".
  */
 const DOM_MODULES: Array<[string, RegExp]> = [
-    ["simulation.worker.ts", /\bself\b/],
-    ["render.worker.ts", /\bself\b/],
-    ["PhysicsRunner.ts", /new Worker\b/],
-    ["RenderRunner.ts", /getContext\b/],
-    ["UIController.ts", /\bwindow\b/],
+    ["physics/simulation.worker.ts", /\bself\b/],
+    ["render/render.worker.ts", /\bself\b/],
+    ["physics/PhysicsRunner.ts", /new Worker\b/],
+    ["render/RenderRunner.ts", /getContext\b/],
+    ["app/UIController.ts", /\bwindow\b/],
 ];
 
 test("the solver, projection and data stay free of browser globals", () => {
@@ -103,7 +111,7 @@ test("the renderer is the only module that draws", () => {
 
     const drawers = Object.keys(sources).filter(name => drawingCall.test(sources[name]));
 
-    assert.deepEqual(drawers, ["Renderer.ts"], "drawing must live behind the Renderer module");
+    assert.deepEqual(drawers, ["render/Renderer.ts"], "drawing must live behind the Renderer module");
 });
 
 test("no module reaches for shared state through window", () => {
@@ -113,7 +121,70 @@ test("no module reaches for shared state through window", () => {
     }
 
     assert.ok(
-        !/declare global/.test(sources["UIController.ts"] ?? ""),
-        "the Window augmentation should be gone from UIController.ts"
+        !/declare global/.test(sources["app/UIController.ts"] ?? ""),
+        "the Window augmentation should be gone from app/UIController.ts"
     );
+});
+
+/**
+ * The package boundaries, read off the import graph rather than the docs: each
+ * package may import only the packages below it.
+ *
+ * `core` is the vocabulary every other package speaks and has no project
+ * imports of its own; `graph` is the data model built on it; `view` turns model
+ * space into canvas space. Physics, rendering and the UI are peers above those
+ * and none imports another; `app` is the composition root, and the bundle entry
+ * (`index.ts`, package `.`) sits on top of it.
+ */
+const PACKAGE_DEPENDENCIES: Record<string, string[]> = {
+    ".": ["app"],
+    "core": [],
+    "graph": ["core"],
+    "view": ["core", "graph"],
+    "physics": ["core", "graph", "view"],
+    "render": ["core", "graph", "view"],
+    "ui": ["core", "graph", "view"],
+    "app": ["core", "graph", "view", "physics", "render", "ui"],
+};
+
+/** `core/K.ts` -> `core`; the bundle entry `index.ts` -> `.`. */
+function packageOf(path: string): string {
+    const slash = path.indexOf("/");
+
+    return slash === -1 ? "." : path.slice(0, slash);
+}
+
+/** The `src/`-relative module path an import specifier names. */
+function resolveImport(from: string, specifier: string): string {
+    const resolved = posix.normalize(posix.join(posix.dirname(from), specifier));
+
+    return resolved.endsWith(".ts") ? resolved : `${resolved}.ts`;
+}
+
+test("packages depend only on the layers below them", () => {
+    const importStatement = /from\s+["']([^"']+)["']/g;
+
+    for (const [path, source] of Object.entries(sources)) {
+        const from = packageOf(path);
+
+        assert.ok(from in PACKAGE_DEPENDENCIES, `${path} is not in a known package`);
+
+        for (const [, imported] of code(source).matchAll(importStatement)) {
+            // The project uses no path aliases, so only a relative specifier
+            // can reach another source module.
+            if (!imported.startsWith("."))
+                continue;
+
+            const target = resolveImport(path, imported);
+            const to = packageOf(target);
+
+            if (to === from)
+                continue;
+
+            assert.ok(
+                PACKAGE_DEPENDENCIES[from].includes(to),
+                `${path} imports ${target}, so ${from} must not depend on ${to}`
+            );
+        }
+    }
 });

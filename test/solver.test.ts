@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
-import { Graph } from "../src/Graph";
-import { Tag } from "../src/Tag";
+import { ForceDirectedGraph } from "../src/physics/ForceDirectedGraph";
+import { Graph } from "../src/graph/Graph";
+import { Tag } from "../src/graph/Tag";
 import { CANVAS_H, CANVAS_W, edgeBetween, newGraph, singleNode } from "./support/physics";
 
 // A small, deterministic graph: positions and edges are explicit, so two builds

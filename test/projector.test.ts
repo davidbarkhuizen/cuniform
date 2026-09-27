@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { K } from "../src/K";
-import { fromYawPitch, identity, multiply, rotZ } from "../src/Mat3";
-import { point3, Point3D } from "../src/Point3D";
-import { CameraView, defaultCameraView, Projector } from "../src/Projector";
-import { Viewport } from "../src/Viewport";
+import { K } from "../src/core/K";
+import { fromYawPitch, identity, multiply, rotZ } from "../src/view/Mat3";
+import { point3, Point3D } from "../src/core/Point3D";
+import { CameraView, defaultCameraView, Projector } from "../src/view/Projector";
+import { Viewport } from "../src/view/Viewport";
 import { assertClose } from "./support/assert";
 
 function camera(overrides: Partial<CameraView> = {}): CameraView {

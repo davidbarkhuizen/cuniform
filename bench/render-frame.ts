@@ -24,9 +24,9 @@
 // graph is a seeded sparse graph, so a run is reproducible. This is a manual
 // instrument, not part of `npm test` or `npm run bench`.
 
-import { Camera } from "../src/Camera";
-import { Graph } from "../src/Graph";
-import { RenderMode, RenderRunner, renderModeFromLocation } from "../src/RenderRunner";
+import { Camera } from "../src/view/Camera";
+import { Graph } from "../src/graph/Graph";
+import { RenderMode, RenderRunner, renderModeFromLocation } from "../src/render/RenderRunner";
 import { sparseGraph } from "../test/support/physics";
 
 const CANVAS_W = 1280;

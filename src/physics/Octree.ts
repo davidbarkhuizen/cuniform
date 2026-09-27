@@ -1,7 +1,7 @@
-import { doublingCapacity, growPooledArray } from "./Growth";
-import { K } from "./K";
+import { doublingCapacity, growPooledArray } from "../core/Growth";
+import { K } from "../core/K";
 import { radialComponentsInto, radius, repulsionMagnitude } from "./Kernel";
-import { Tag } from "./Tag";
+import { Tag } from "../graph/Tag";
 
 /**
  * Barnes-Hut octree over the model positions (docs/performance.md).

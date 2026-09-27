@@ -7,7 +7,7 @@ The suite enforces these, so they are the contract rather than suggestions:
    justifies it (`simulation.worker.ts` and `render.worker.ts` for `self`,
    `PhysicsRunner.ts` for `Worker`, `RenderRunner.ts` for `getContext`,
    `UIController.ts` for `window`). The renderer is compiled against
-   `RenderSurface` ([`src/RenderSurface.ts`](../src/RenderSurface.ts)), a
+   `RenderSurface` ([`src/render/RenderSurface.ts`](../src/render/RenderSurface.ts)), a
    structural subset of both 2D contexts and of the fake context the tests draw
    with, so `Renderer.ts` names no canvas type and stays DOM-free. A new solver
    or geometry module joins `PURE_MODULES`; only `Renderer.ts` draws.

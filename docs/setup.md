@@ -40,3 +40,33 @@ the real-canvas frame harness (`dist/render-frame.js`, see
 Tests never construct a real `Worker` or `OffscreenCanvas`: both cross the seams
 as injected ports ([`test/support/dom.ts`](../test/support/dom.ts)), so the
 worker paths run under `node --test` with in-memory fakes.
+
+## Source layout
+
+`src/` is split into packages along its import graph, and each package may
+import only the packages below it. `test/architecture.test.ts` reads the imports
+back and enforces that direction, so a new cross-package edge fails the suite
+rather than eroding the layering.
+
+- `core/` — the vocabulary every other package speaks: the tuning constants
+  (`K`), the geometry primitives (`Point2D`, `Point3D`), `Numeric`, the
+  buffer-growth policy (`Growth`) and the worker-port types. It imports no other
+  project package.
+- `graph/` — the graph data model and its builders: `Tag`, `Edge`, `Graph`,
+  `GraphSpec`, `GraphFactory`, the worker mirror (`MirrorGraph`), and the SMILES
+  reader (`Smiles`) with the molecule catalog (`Molecules`).
+- `view/` — the model-to-canvas transform: `Mat3`, `Viewport`, the perspective
+  `Projector`, the `Projection` pass and the orbit `Camera`. Pure math, so the
+  solver can project without naming a canvas type.
+- `physics/` — the solver and its worker: the force `Kernel`, the Barnes-Hut
+  `Octree`, the opening-angle policy (`Quality`), `ForceDirectedGraph`, and the
+  physics worker's protocol, runner and entry.
+- `render/` — the drawing and its worker: `RenderSurface`, `Renderer`, and the
+  render worker's protocol, runner and entry.
+- `ui/` — the interaction widgets: `ContextMenu`, `GraphWizard`,
+  `DragController`, `FocusRing` and node hit-testing (`Selection`).
+- `app/` — the composition root: `State`, `UIController` and the demo
+  `entrypoint`. `src/index.ts` is the webpack entry that boots it.
+
+Physics, rendering and the UI are peers and none imports another; `app` composes
+all three, and the entry sits above `app`.

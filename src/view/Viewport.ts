@@ -1,5 +1,5 @@
-import { K } from "./K";
-import { point, Point2D } from "./Point2D";
+import { K } from "../core/K";
+import { point, Point2D } from "../core/Point2D";
 
 /**
  * Projected-plane <-> canvas mapping. Its input is the projector's output: model

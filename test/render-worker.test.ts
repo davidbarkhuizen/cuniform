@@ -1,20 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Graph } from "../src/Graph";
-import { buildMirrorGraph } from "../src/MirrorGraph";
-import { PhysicsWorkerEngine } from "../src/PhysicsProtocol";
-import { projectGraph } from "../src/Projection";
-import { defaultCameraView, Projector } from "../src/Projector";
-import { render } from "../src/Renderer";
+import { Graph } from "../src/graph/Graph";
+import { buildMirrorGraph } from "../src/graph/MirrorGraph";
+import { PhysicsWorkerEngine } from "../src/physics/PhysicsProtocol";
+import { projectGraph } from "../src/view/Projection";
+import { defaultCameraView, Projector } from "../src/view/Projector";
+import { render } from "../src/render/Renderer";
 import {
     DrawnResponse,
     encodeCamera,
     FrameRequest,
     initRequest,
     RenderWorkerEngine,
-} from "../src/RenderProtocol";
-import { Tag } from "../src/Tag";
+} from "../src/render/RenderProtocol";
+import { Tag } from "../src/graph/Tag";
 import { DrawOp, FakeContext2D, RendererSettings, withRendererSettings } from "./support/dom";
 import { sparseGraph } from "./support/physics";
 

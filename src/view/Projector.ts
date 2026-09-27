@@ -1,7 +1,7 @@
-import { K } from "./K";
+import { K } from "../core/K";
 import { apply, applyTranspose, identity, Mat3 } from "./Mat3";
-import { point, Point2D } from "./Point2D";
-import { point3, Point3D } from "./Point3D";
+import { point, Point2D } from "../core/Point2D";
+import { point3, Point3D } from "../core/Point3D";
 import { Viewport } from "./Viewport";
 
 /**

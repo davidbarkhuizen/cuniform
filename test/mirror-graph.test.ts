@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Graph } from "../src/Graph";
-import { buildMirrorGraph, packMirror } from "../src/MirrorGraph";
-import { Tag } from "../src/Tag";
+import { Graph } from "../src/graph/Graph";
+import { buildMirrorGraph, packMirror } from "../src/graph/MirrorGraph";
+import { Tag } from "../src/graph/Tag";
 
 /**
  * `packMirror` and `buildMirrorGraph` are the two directions of one wire format,

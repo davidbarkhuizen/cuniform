@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { K } from "../src/K";
-import { clampOpeningAngle, MAX_OPENING_ANGLE, Octree } from "../src/Octree";
+import { K } from "../src/core/K";
+import { clampOpeningAngle, MAX_OPENING_ANGLE, Octree } from "../src/physics/Octree";
 import { assertClose } from "./support/assert";
 import { sparseGraph } from "./support/physics";
 
