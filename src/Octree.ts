@@ -21,7 +21,8 @@ import { Tag } from "./Tag";
 const MIN_HALF_EXTENT = 1e-6;
 
 /**
- * The opening-angle ceiling the plan documents, 2/sqrt(3) ~= 1.1547.
+ * The opening-angle ceiling the README's "Performance" section documents,
+ * 2/sqrt(3) ~= 1.1547.
  *
  * It is a sanity clamp only: the traversal additionally tracks which cell
  * contains the body being evaluated and never accepts that cell as an aggregate,

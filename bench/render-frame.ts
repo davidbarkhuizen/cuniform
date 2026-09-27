@@ -1,4 +1,4 @@
-// cuniform real-canvas frame harness (workplan Item 3).
+// cuniform real-canvas frame harness (README, "Performance").
 //
 // The committed benchmark (bench/physics.bench.ts) draws into FakeContext2D,
 // which charges nothing for real `arc`/`fill`/`fillText` rasterisation, so its
@@ -18,8 +18,7 @@
 //   ?n=4096          pin one node count (default: 1024, 2048, 4096, 8192)
 //   ?dpr=2           pin one device pixel ratio (default: 1, then 2)
 //   ?frames=300      frames measured per case
-//   ?render=main     force the in-process backend; the default is `worker`,
-//                    which draws in-process until Item 5 wires the render worker
+//   ?render=main     force the in-process backend; the default is `worker`
 //
 // Physics is never stepped here, so a long task can only be the draw path; the
 // graph is a seeded sparse graph, so a run is reproducible. This is a manual

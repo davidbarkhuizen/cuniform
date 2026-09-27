@@ -6,9 +6,9 @@ import { ProjectionScratch, Projector } from "./Projector";
  * view depth under one projector.
  *
  * Split out of `ForceDirectedGraph.project()` so a projection pass can run
- * without the solver: the render worker (see the render-worker workplan) draws
- * with this, and bundling the octree and the force kernel to project a graph
- * would be waste. The loop is moved, not rewritten — same order, same
+ * without the solver: the render worker (see the README's "Cadence" section)
+ * draws with this, and bundling the octree and the force kernel to project a
+ * graph would be waste. The loop is moved, not rewritten — same order, same
  * `projectInto`/`toCanvasInto` calls — so its output is bit-identical to the
  * solver's own pass.
  *

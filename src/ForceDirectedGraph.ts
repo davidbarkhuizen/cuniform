@@ -401,7 +401,7 @@ export class ForceDirectedGraph {
 		projectGraph(this.graph, projector);
 	};
 
-	/** One full step: physics then projection, as every pre-Plan-6 caller expects. */
+	/** One full step: physics then projection, as the legacy tick caller expects. */
 	step(
 		canvasWidth: number,
 		canvasHeight: number,

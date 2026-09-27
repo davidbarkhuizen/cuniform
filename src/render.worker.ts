@@ -1,4 +1,4 @@
-// The render worker entry (workplan Items 4-5).
+// The render worker entry (README, "Cadence").
 //
 // Deliberately not in PURE_MODULES: this is the one module that touches the
 // worker globals, the `OffscreenCanvas` and `convertToBlob`. The engine and the
