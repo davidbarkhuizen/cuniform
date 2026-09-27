@@ -2,6 +2,9 @@
 // physics solver is DOM-free and needs none of this.
 
 import { Graph } from "../../src/Graph";
+import { CameraView } from "../../src/Projector";
+import { RenderBackend } from "../../src/RenderRunner";
+import { Tag } from "../../src/Tag";
 import { UIController } from "../../src/UIController";
 
 type Listener = (event: any) => void;
@@ -266,6 +269,59 @@ export class FakeCanvas extends FakeElement {
     }
 }
 
+/** One recorded frame, so the controller's draw path can be asserted on. */
+export interface RecordedDraw {
+    graph: Graph;
+    camera: CameraView;
+    selected: Tag | null;
+    width: number;
+    height: number;
+}
+
+/**
+ * A recording stand-in for a render backend: the seam `newUIController` injects
+ * so the draw path can be observed without a real context, and so the
+ * "not ready yet" and "became ready later" branches can be driven by hand.
+ */
+export class FakeRenderBackend implements RenderBackend {
+
+    usesWorker = false;
+    ready = true;
+    onReady: (() => void) | null = null;
+
+    readonly draws: RecordedDraw[] = [];
+    readonly resizes: number[][] = [];
+    exports = 0;
+    terminated = false;
+
+    /** When false, draw() reports "not ready" and the controller keeps the frame pending. */
+    drawable = true;
+
+    draw(graph: Graph, camera: CameraView, selected: Tag | null, width: number, height: number): boolean {
+        this.draws.push({ graph, camera, selected, width, height });
+        return this.drawable;
+    }
+
+    resize(width: number, height: number, dpr: number): void {
+        this.resizes.push([width, height, dpr]);
+    }
+
+    exportPng(): Promise<Blob> {
+        this.exports++;
+        return Promise.resolve(new Blob());
+    }
+
+    terminate(): void {
+        this.terminated = true;
+    }
+
+    /** Simulate a backend that becomes usable after a handshake. */
+    becomeReady(): void {
+        this.ready = true;
+        this.onReady?.();
+    }
+}
+
 export interface FakeDom {
     document: any;
     window: any;
@@ -472,10 +528,11 @@ export function withFakeDom<T>(
 
 // Build a UIController over the `demoElements()` map. `width`/`height` pin the
 // logical size for fixtures that bypass resizeCanvas(); `graph` is wrapped by
-// the controller's solver, as initialize() would have done.
+// the controller's solver, as initialize() would have done. `backend` replaces
+// the runner's in-process backend with a recording fake.
 export function newUIController(
     elements: Record<string, FakeElement>,
-    opts: { width?: number; height?: number; graph?: Graph } = {}
+    opts: { width?: number; height?: number; graph?: Graph; backend?: RenderBackend } = {}
 ): UIController {
     const canvas = elements.canvas as FakeCanvas;
     const suppliedGraph = opts.graph;
@@ -483,14 +540,14 @@ export function newUIController(
     const controller = new UIController(
         elements.body as unknown as HTMLElement,
         canvas as unknown as HTMLCanvasElement,
-        canvas.context as unknown as CanvasRenderingContext2D,
         elements.export_canvas_link as unknown as HTMLElement,
         elements.reset_link as unknown as HTMLElement,
         elements.selectedNodeInfoLabel as unknown as HTMLElement,
         elements.selectedNodeInfoList as unknown as HTMLElement,
         elements.currentGraphLabel as unknown as HTMLElement,
         elements.cameraConsole as unknown as HTMLElement,
-        suppliedGraph ? () => suppliedGraph : undefined
+        suppliedGraph ? () => suppliedGraph : undefined,
+        opts.backend ?? null
     );
 
     if (opts.width !== undefined)
@@ -539,6 +596,8 @@ export interface UIControllerOptions {
     initialize?: boolean;
     /** False exercises the setInterval fallback instead of the rAF scheduler. */
     animationFrame?: boolean;
+    /** The render backend to inject, so the draw path is observable. */
+    backend?: RenderBackend;
 }
 
 function uiFixture(
@@ -554,6 +613,7 @@ function uiFixture(
         width: options.width,
         height: options.height,
         graph: options.graph,
+        backend: options.backend,
     });
 
     if (options.initialize ?? true)

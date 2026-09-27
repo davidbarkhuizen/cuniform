@@ -27,7 +27,9 @@ export const entrypoint = (
         return null;
     }
 
-    // getContext('2d') returns null rather than throwing, so the result is checked directly.
+    // getContext('2d') returns null rather than throwing, so the result is
+    // checked directly. It is the in-process render backend's requirement; the
+    // controller builds the backend over the canvas itself.
     const context2d = canvas.getContext('2d');
 
     if (context2d == null) {
@@ -74,7 +76,6 @@ export const entrypoint = (
     const uiController = new UIController(
         body,
         canvas,
-        context2d,
         exportElement,
         resetElement,
         selectionInfoLabel,

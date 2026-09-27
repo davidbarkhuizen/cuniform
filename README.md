@@ -248,8 +248,13 @@ one draw, deliberately bypassing the idle-frame skip, which is what the tests an
 the fallback use.
 
 Where the browser has a `Worker`, the force integration runs in
-`dist/simulation.worker.js`, owned by `PhysicsRunner`; projection, hit-testing
-and rendering stay on the main thread, which is cheap and needs the live camera.
+`dist/simulation.worker.js`, owned by `PhysicsRunner`; hit-testing, camera state
+and drawing stay on the main thread, which is cheap and needs the live camera.
+Drawing goes through a render backend (`RenderRunner`), which resolves the
+projector, projects the graph and draws the frame — in-process on the canvas's
+own 2D context today, with a dedicated render worker planned behind the same
+interface. A backend that cannot draw yet returns `false` from `draw()`, and the
+frame stays pending rather than being recorded as drawn.
 Positions cross the boundary as a transferable `Float64Array`, and the runner
 posts at most one step at a time, so a slow worker cannot queue a backlog. If
 `Worker` is missing, construction throws, or the worker script fails to load,
@@ -506,9 +511,11 @@ The suite enforces these, so they are the contract rather than suggestions:
    subset of both 2D contexts and of the fake context the tests draw with, so
    `Renderer.ts` names no canvas type and stays DOM-free. A new solver or
    geometry module joins `PURE_MODULES`; only `Renderer.ts` draws.
-2. **One projector per tick.** `UIController.onTimerTick()` resolves the
-   projector once and passes the same camera to `step()` and `render()`, so the
-   renderer's cull boundary sees the depth values cached with that camera.
+2. **One projector per frame.** Whichever backend draws resolves one projector,
+   projects the graph with it and draws with the same camera, so the renderer's
+   cull boundary sees the depth values cached with that camera. In-process that
+   happens on the canvas's own context; once the render worker lands it happens
+   in the worker. Physics steps never resolve a projector of their own.
 3. **Frozen pre-step snapshot.** Every force in a step is computed from
    positions as they were at the start of the step, so no node sees a
    half-updated neighbour.
