@@ -175,6 +175,46 @@ test("unproject from a canvas point matches the projected-plane inverse", () => 
     assertClose(back.z, p.z, 1e-9);
 });
 
+// ------------------------------------------------- projectInto / toCanvasInto
+
+test("the allocation-free projection forms are bit-identical to the allocating ones", () => {
+    const rnd = makeRandom(2468);
+
+    const cameras = [
+        camera(),
+        camera({ orientation: fromYawPitch(0.6, 0.3) }),
+        camera({
+            orientation: multiply(rotZ(0.5), fromYawPitch(-0.7, 0.4)),
+            target: point3(11, -22, 33),
+            distance: 700,
+        }),
+    ];
+
+    for (const cam of cameras) {
+        const projector = new Projector(cam, Viewport.forCanvas(1024, 768));
+
+        const scratch = { screenX: 0, screenY: 0, depth: 0 };
+        const canvas = { x: 0, y: 0 };
+
+        for (let i = 0; i < 50; i++) {
+            const p = point3(rnd() * 300, rnd() * 300, rnd() * 300);
+
+            const allocated = projector.project(p);
+            const reused = projector.projectInto(p, scratch);
+
+            // Exact equality, not a tolerance: project() delegates to projectInto().
+            assert.equal(reused.screenX, allocated.screen.x, `screen x for ${p.x},${p.y},${p.z}`);
+            assert.equal(reused.screenY, allocated.screen.y, `screen y for ${p.x},${p.y},${p.z}`);
+            assert.equal(reused.depth, allocated.depth, `depth for ${p.x},${p.y},${p.z}`);
+
+            assert.deepEqual(
+                projector.viewport.toCanvasInto(reused.screenX, reused.screenY, canvas),
+                projector.viewport.toCanvas(allocated.screen)
+            );
+        }
+    }
+});
+
 // ---------------------------------------------------------------- perspective
 
 test("a nearer point projects farther from the centre than a farther one", () => {

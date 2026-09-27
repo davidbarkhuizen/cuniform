@@ -221,15 +221,9 @@ function benchRender(): void {
     }
 }
 
-async function benchGc(): Promise<void> {
-    console.log("\n== GC during 20x repulsion ==");
-    row("N", "wall ms / GC ms / GC %");
-
-    const graph = makeSparseGraph(GC_ORDER, makeRandom(555));
-    const solver = new ForceDirectedGraph(graph);
-    const out = graph.vertices.map(() => ({ x: 0, y: 0, z: 0 }));
-
-    solver.accumulateRepulsion(out); // warm
+/** Run `workload` `reps` times under a GC observer and report wall vs GC time. */
+async function measureGc(label: string, workload: () => void, reps: number): Promise<void> {
+    workload(); // warm
 
     let gcMs = 0;
     let gcCount = 0;
@@ -247,8 +241,8 @@ async function benchGc(): Promise<void> {
 
     const start = process.hrtime.bigint();
 
-    for (let i = 0; i < 20; i++)
-        solver.accumulateRepulsion(out);
+    for (let i = 0; i < reps; i++)
+        workload();
 
     const wallMs = Number(process.hrtime.bigint() - start) / 1e6;
 
@@ -256,7 +250,24 @@ async function benchGc(): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, 20));
     observer.disconnect();
 
-    row(String(GC_ORDER), `${wallMs.toFixed(1)} / ${gcMs.toFixed(1)} / ${(100 * gcMs / wallMs).toFixed(1)}% in ${gcCount} pauses`);
+    row(
+        label,
+        `${wallMs.toFixed(1)} ms / GC ${gcMs.toFixed(1)} ms / ${(100 * gcMs / wallMs).toFixed(1)}% in ${gcCount} pauses`
+    );
+}
+
+async function benchGc(): Promise<void> {
+    console.log("\n== GC during 20 repetitions ==");
+    row("workload", "wall ms / GC ms / GC %");
+
+    const graph = makeSparseGraph(GC_ORDER, makeRandom(555));
+    const solver = new ForceDirectedGraph(graph);
+    const projector = Projector.forCanvas(CANVAS_W, CANVAS_H);
+    const unpinned = () => false;
+    const out = graph.vertices.map(() => ({ x: 0, y: 0, z: 0 }));
+
+    await measureGc("repulsion x20", () => solver.accumulateRepulsion(out), 20);
+    await measureGc("step x20", () => solver.step(CANVAS_W, CANVAS_H, unpinned, projector), 20);
 }
 
 async function main(): Promise<void> {

@@ -1,6 +1,6 @@
 # Plan 2 — Remove hot-loop allocation
 
-Status: proposed · Depends on: nothing · Blocks: nothing, but should precede
+Status: implemented · Depends on: nothing · Blocks: nothing, but should precede
 Plan 1 (the octree reuses the same buffer pattern) and Plan 6 (transferable
 buffers need a structure-of-arrays)
 
