@@ -42,3 +42,61 @@ export function repulsionMagnitude(r: number): number {
 
     return CHARGE_PRODUCT / Math.pow(r_law, K.physics.repulsionExponent);
 }
+
+/**
+ * The Hooke magnitude for an edge of length `r`, k*(r - l): positive when the
+ * edge is stretched, so the pair is pulled together, negative when compressed.
+ *
+ * The single home for the spring law, alongside `repulsionMagnitude`, so the
+ * solver's step path and its object-returning reference cannot drift.
+ */
+export function springMagnitude(r: number): number {
+    return K.physics.springConstant * (r - K.physics.equilibriumDisplacement);
+}
+
+/**
+ * One damped semi-implicit Euler velocity update, `v' = v*friction + F*timeStep`.
+ *
+ * `stepPhysics()` and `velocityAtTag()` both call it, so the integration law -
+ * the one the README's `timeStep / (1 - friction) ~= 1` stability note is about -
+ * has one home.
+ */
+export function integrateVelocity(v: number, force: number): number {
+    return (v * K.physics.friction) + force * K.physics.timeStep;
+}
+
+/**
+ * The three scaled components of a radial interaction of `magnitude` between two
+ * centres offset by `(dx, dy, dz)` at distance `r`, written into `out`.
+ *
+ * `earlier` breaks the coincident case (`r === 0`), where there is no radial
+ * direction and an unconnected pair would sit in a permanent fixed point: the
+ * earlier index is pushed along -x and the later along +x. The divisor is 1
+ * there, so the push is exactly `-/+ magnitude`.
+ *
+ * The single home for that rule: the exact paired pass, the per-node reference,
+ * the spring pass and the Barnes-Hut leaf all call it, so they cannot disagree
+ * about direction at the singular boundary. `out` is caller-owned scratch, which
+ * is what keeps the hot passes allocation-free.
+ */
+export function radialComponentsInto(
+    dx: number,
+    dy: number,
+    dz: number,
+    r: number,
+    magnitude: number,
+    earlier: boolean,
+    out: Float64Array
+): void {
+
+    if (r === 0) {
+        out[0] = earlier ? -magnitude : magnitude;
+        out[1] = 0;
+        out[2] = 0;
+        return;
+    }
+
+    out[0] = (magnitude * dx) / r;
+    out[1] = (magnitude * dy) / r;
+    out[2] = (magnitude * dz) / r;
+}

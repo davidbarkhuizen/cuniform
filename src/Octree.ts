@@ -1,5 +1,5 @@
 import { K } from "./K";
-import { radius, repulsionMagnitude } from "./Kernel";
+import { radialComponentsInto, radius, repulsionMagnitude } from "./Kernel";
 import { Tag } from "./Tag";
 
 /**
@@ -110,6 +110,10 @@ export class Octree {
     private stackCell = new Int32Array(0);
     private stackContains = new Uint8Array(0);
 
+    // Radial-component scratch for Kernel.radialComponentsInto(), so the leaf
+    // pass allocates nothing steady-state.
+    private readonly radialScratch = new Float64Array(3);
+
     /**
      * Rebuild the tree from `vertices`. The arrays only ever grow, so a repeated
      * build at the same size reuses every buffer.
@@ -207,6 +211,7 @@ export class Octree {
 
         const stackCell = this.stackCell;
         const stackContains = this.stackContains;
+        const radial = this.radialScratch;
 
         for (let i = 0; i < n; i++) {
 
@@ -251,19 +256,22 @@ export class Octree {
                         const dz = pz - bodyZ[j];
                         const r = radius(dx, dy, dz);
 
-                        const magnitude = repulsionMagnitude(r);
+                        // Direction, clamp and the coincident tie-break are the
+                        // kernel's, so a leaf agrees with the exact kernel about
+                        // which of a coincident pair is pushed along -x.
+                        radialComponentsInto(
+                            dx,
+                            dy,
+                            dz,
+                            r,
+                            repulsionMagnitude(r),
+                            i < j,
+                            radial
+                        );
 
-                        // Same index tie-break as the exact kernel: the earlier
-                        // body is pushed toward -x when the pair is coincident.
-                        const coincident = r === 0;
-                        const ux = coincident ? (i < j ? -1 : 1) : dx;
-                        const uy = coincident ? 0 : dy;
-                        const uz = coincident ? 0 : dz;
-                        const ur = coincident ? 1 : r;
-
-                        fx += (magnitude * ux) / ur;
-                        fy += (magnitude * uy) / ur;
-                        fz += (magnitude * uz) / ur;
+                        fx += radial[0];
+                        fy += radial[1];
+                        fz += radial[2];
                     }
 
                     continue;

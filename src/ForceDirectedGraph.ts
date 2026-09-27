@@ -1,7 +1,7 @@
 import { otherEndpoint } from "./Edge";
 import { Graph } from "./Graph";
 import { K } from "./K";
-import { radius, repulsionMagnitude } from "./Kernel";
+import { integrateVelocity, radialComponentsInto, radius, repulsionMagnitude, springMagnitude } from "./Kernel";
 import { Octree } from "./Octree";
 import { point3, Point3D, zero3 } from "./Point3D";
 import { projectGraph } from "./Projection";
@@ -29,6 +29,12 @@ export class ForceDirectedGraph {
     // Projection destination, reused per node; see Projector.projectInto().
     // The projection pass itself lives in Projection.ts, so a render backend can
     // run it without the solver.
+
+    // Radial-component scratch for Kernel.radialComponentsInto(), and the
+    // destination for one node's spring sum. Reused, so the force passes below
+    // allocate nothing steady-state.
+    private readonly radialScratch = new Float64Array(3);
+    private readonly springScratch = new Float64Array(3);
 
     // The Barnes-Hut tree, rebuilt from the pre-step positions each step. It owns
     // its own pooled buffers, so it also allocates nothing steady-state.
@@ -58,30 +64,6 @@ export class ForceDirectedGraph {
         this.springZ = new Float64Array(n);
     }
 
-	// r == 0 and the unit vector live here once, so repulsion and springs cannot
-	// disagree about direction. `r` is passed in because both callers already
-	// need it, and recomputing it would double the O(N^2) repulsion pass.
-	private static addRadial(
-		Fx: number,
-		Fy: number,
-		Fz: number,
-		dx: number,
-		dy: number,
-		dz: number,
-		r: number,
-		magnitude: number
-	): Point3D {
-
-		if (r === 0)
-			return point3(Fx, Fy, Fz);
-
-		return point3(
-			Fx + (magnitude * dx) / r,
-			Fy + (magnitude * dy) / r,
-			Fz + (magnitude * dz) / r
-		);
-	};
-
 	netElectrostaticForceAtNode(tagA: Tag): Point3D {
 
 		var F: Point3D = zero3();
@@ -89,6 +71,7 @@ export class ForceDirectedGraph {
 		// Breaks the coincident tie below; the paired pass breaks it by index
 		// order, so this reference must agree.
 		var selfIndex = this.graph.vertices.indexOf(tagA);
+		var radial = this.radialScratch;
 
 		for(let i = 0; i < this.graph.vertices.length; i++) {
 
@@ -104,19 +87,23 @@ export class ForceDirectedGraph {
 
 			var r = radius(deltaX, deltaY, deltaZ);
 
-			// Only the magnitude is evaluated at a clamped radius, bounding the
-			// r -> 0 singularity; the direction uses the true radius.
-			var scalar_force = repulsionMagnitude(r);
+			// The direction, the clamp and the coincident tie-break all come from
+			// the kernel, so this reference and the paired pass cannot disagree.
+			radialComponentsInto(
+				deltaX,
+				deltaY,
+				deltaZ,
+				r,
+				repulsionMagnitude(r),
+				selfIndex < i,
+				radial
+			);
 
-			// Coincident centres have no radial direction and would sit in a
-			// permanent fixed point; tie-break by index, matching the paired pass.
-			var coincident = r === 0;
-			var ux = coincident ? (selfIndex < i ? -1 : 1) : deltaX;
-			var uy = coincident ? 0 : deltaY;
-			var uz = coincident ? 0 : deltaZ;
-			var ur = coincident ? 1 : r;
-
-			F = ForceDirectedGraph.addRadial(F.x, F.y, F.z, ux, uy, uz, ur, scalar_force);
+			F = point3(
+				F.x + radial[0],
+				F.y + radial[1],
+				F.z + radial[2]
+			);
 		};
 
 		return F;
@@ -132,6 +119,7 @@ export class ForceDirectedGraph {
 		const FX = this.repulsionX;
 		const FY = this.repulsionY;
 		const FZ = this.repulsionZ;
+		const radial = this.radialScratch;
 
 		for (let i = 0; i < n; i++) {
 
@@ -147,21 +135,22 @@ export class ForceDirectedGraph {
 				const deltaZ = a.position.z - b.position.z;
 				const r = radius(deltaX, deltaY, deltaZ);
 
-				const magnitude = repulsionMagnitude(r);
+				// Direction, clamp and the coincident tie-break are the kernel's.
+				// `j > i` throughout, so `i` is the earlier index the tie-break
+				// pushes along -x.
+				radialComponentsInto(
+					deltaX,
+					deltaY,
+					deltaZ,
+					r,
+					repulsionMagnitude(r),
+					i < j,
+					radial
+				);
 
-				// Coincident centres have no radial direction; break the tie by
-				// index (earlier node -x) so the pair separates instead of
-				// sitting in a fixed point. `ur` is never 0 here, so no slot is
-				// skipped: the tie-break direction is the unit -x vector.
-				const coincident = r === 0;
-				const ux = coincident ? -1 : deltaX;
-				const uy = coincident ? 0 : deltaY;
-				const uz = coincident ? 0 : deltaZ;
-				const ur = coincident ? 1 : r;
-
-				const scaledX = (magnitude * ux) / ur;
-				const scaledY = (magnitude * uy) / ur;
-				const scaledZ = (magnitude * uz) / ur;
+				const scaledX = radial[0];
+				const scaledY = radial[1];
+				const scaledZ = radial[2];
 
 				FX[i] += scaledX;
 				FY[i] += scaledY;
@@ -197,20 +186,19 @@ export class ForceDirectedGraph {
 		this.octree.accumulateForce(this.repulsionX, this.repulsionY, this.repulsionZ);
 	};
 
-	// The spring sum for one node, written into the spring buffers. The public
-	// netSpringForceAtNode() stays the object-returning reference; this is the
-	// step path. Contributions are added in adjacency insertion order, exactly
-	// as addRadial() did, starting from zero.
-	private accumulateSpringForceInto(index: number): void {
-
-		const tag = this.graph.vertices[index];
-
-		var k = K.physics.springConstant;
-		var l = K.physics.equilibriumDisplacement;
+	// The spring sum for one node, written into `out`. The one implementation:
+	// `accumulateSpringForceInto()` writes it into the step buffers and
+	// `netSpringForceAtNode()` returns it as a Point3D, so the Hooke law and the
+	// adjacency walk cannot drift. Contributions are added in adjacency
+	// insertion order, starting from zero, which is what keeps the step path
+	// bit-for-bit the object path's result.
+	private springForceInto(tag: Tag, out: Float64Array): void {
 
 		// The adjacency walk is O(V + E), not O(V*E): each edge is visited once
 		// per endpoint.
 		var incident = this.graph.incidentEdges(tag);
+
+		var radial = this.radialScratch;
 
 		var sx = 0;
 		var sy = 0;
@@ -233,61 +221,46 @@ export class ForceDirectedGraph {
 
 			var r = radius(deltaX, deltaY, deltaZ);
 
-			// addRadial() leaves the accumulator untouched at r === 0, so a
-			// zero-length edge contributes nothing rather than dividing by zero.
+			// A zero-length edge has no direction and so no spring force.
 			if (r === 0)
 				continue;
 
-			// Hooke's law: positive when stretched pulls toward the neighbour,
-			// negative when compressed pushes away.
-			var scalar_force = k * (r - l);
+			radialComponentsInto(
+				deltaX,
+				deltaY,
+				deltaZ,
+				r,
+				springMagnitude(r),
+				// r !== 0 is guaranteed by the guard above, so the coincident
+				// tie-break this flag selects cannot apply.
+				false,
+				radial
+			);
 
-			sx += (scalar_force * deltaX) / r;
-			sy += (scalar_force * deltaY) / r;
-			sz += (scalar_force * deltaZ) / r;
+			sx += radial[0];
+			sy += radial[1];
+			sz += radial[2];
 		};
 
-		this.springX[index] = sx;
-		this.springY[index] = sy;
-		this.springZ[index] = sz;
+		out[0] = sx;
+		out[1] = sy;
+		out[2] = sz;
+	};
+
+	private accumulateSpringForceInto(index: number): void {
+
+		this.springForceInto(this.graph.vertices[index], this.springScratch);
+
+		this.springX[index] = this.springScratch[0];
+		this.springY[index] = this.springScratch[1];
+		this.springZ[index] = this.springScratch[2];
 	};
 
 	netSpringForceAtNode(tag: Tag): Point3D {
 
-		var F: Point3D = zero3();
+		this.springForceInto(tag, this.springScratch);
 
-		var k = K.physics.springConstant;
-		var l = K.physics.equilibriumDisplacement;
-
-		// The adjacency walk is O(V + E), not O(V*E): each edge is visited once
-		// per endpoint.
-		var incident = this.graph.incidentEdges(tag);
-
-		for(let i = 0; i < incident.length; i++) {
-
-			var edge = incident[i];
-			var other_tag = otherEndpoint(edge, tag);
-
-			// A self-loop has no far endpoint, so it exerts no spring force.
-			if (other_tag === null)
-				continue;
-
-			// Toward the neighbour, so a positive magnitude pulls the pair
-			// together.
-			var deltaX = other_tag.position.x - tag.position.x;
-			var deltaY = other_tag.position.y - tag.position.y;
-			var deltaZ = other_tag.position.z - tag.position.z;
-
-			var r = radius(deltaX, deltaY, deltaZ);
-
-			// Hooke's law: positive when stretched pulls toward the neighbour,
-			// negative when compressed pushes away.
-			var scalar_force = k * (r - l);
-
-			F = ForceDirectedGraph.addRadial(F.x, F.y, F.z, deltaX, deltaY, deltaZ, r, scalar_force);
-		};
-
-		return F;
+		return point3(this.springScratch[0], this.springScratch[1], this.springScratch[2]);
 	};
 
 	// Pure: reads no cached field, so it is meaningful before the first step()
@@ -307,23 +280,17 @@ export class ForceDirectedGraph {
 
 	// Damped, semi-implicit Euler. Velocity must be updated before position (see
 	// step()) or stiff springs go unstable. `force` defaults to the net force at
-	// the node's current position.
+	// the node's current position. The update law is Kernel's, so this reference
+	// and the step path cannot drift.
 	velocityAtTag(tag: Tag, force: Point3D = this.netForceAtNode(tag)): Point3D {
 
 		var f = force;
 
-		var vx_old = tag.velocity.x;
-		var vy_old = tag.velocity.y;
-		var vz_old = tag.velocity.z;
-
-		var friction = K.physics.friction;
-		var time_step = K.physics.timeStep;
-
-		var vx_new = (vx_old * friction) + f.x * time_step;
-		var vy_new = (vy_old * friction) + f.y * time_step;
-		var vz_new = (vz_old * friction) + f.z * time_step;
-
-		return point3(vx_new, vy_new, vz_new);
+		return point3(
+			integrateVelocity(tag.velocity.x, f.x),
+			integrateVelocity(tag.velocity.y, f.y),
+			integrateVelocity(tag.velocity.z, f.z)
+		);
 	};
 
 	// Accumulates the paired repulsion onto `out` in place, so it allocates
@@ -391,9 +358,6 @@ export class ForceDirectedGraph {
 			this.repulsionZ[i] += this.springZ[i];
 		}
 
-		const friction = K.physics.friction;
-		const timeStep = K.physics.timeStep;
-
 		// The displacement the settle detector reads: position advances by the
 		// velocity, so the largest speed is the largest travel this step.
 		let maxDisplacement = 0;
@@ -411,9 +375,9 @@ export class ForceDirectedGraph {
 				continue;
 			}
 
-			tag.velocity.x = (tag.velocity.x * friction) + (this.repulsionX[i] * timeStep);
-			tag.velocity.y = (tag.velocity.y * friction) + (this.repulsionY[i] * timeStep);
-			tag.velocity.z = (tag.velocity.z * friction) + (this.repulsionZ[i] * timeStep);
+			tag.velocity.x = integrateVelocity(tag.velocity.x, this.repulsionX[i]);
+			tag.velocity.y = integrateVelocity(tag.velocity.y, this.repulsionY[i]);
+			tag.velocity.z = integrateVelocity(tag.velocity.z, this.repulsionZ[i]);
 
 			const travel = radius(tag.velocity.x, tag.velocity.y, tag.velocity.z);
 

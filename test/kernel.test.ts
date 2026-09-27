@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
-import { radius } from "../src/Kernel";
+import { K } from "../src/K";
+import { radialComponentsInto, radius, springMagnitude } from "../src/Kernel";
 import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
 import { CANVAS_H, CANVAS_W } from "./support/physics";
@@ -62,4 +63,32 @@ test("deltas whose squares underflow land in the bounded coincident branch", () 
 
     assert.ok(Number.isFinite(a.position.x) && a.position.x < 0, `a stayed at ${a.position.x}`);
     assert.ok(Number.isFinite(b.position.x) && b.position.x > 0, `b stayed at ${b.position.x}`);
+});
+
+test("springMagnitude is zero at the rest length and signed by the stretch", () => {
+    assert.equal(springMagnitude(K.physics.equilibriumDisplacement), 0, "at rest, no spring force");
+    assert.ok(springMagnitude(K.physics.equilibriumDisplacement + 1) > 0, "stretched pulls together");
+    assert.ok(springMagnitude(K.physics.equilibriumDisplacement - 1) < 0, "compressed pushes apart");
+});
+
+test("radialComponentsInto scales by the radius, and ties a coincident pair apart", () => {
+    const out = new Float64Array(3);
+
+    // The non-coincident case is magnitude * delta / r.
+    radialComponentsInto(3, 4, 0, 5, 10, true, out);
+    assertClose(out[0], 6, 1e-12, "x");
+    assertClose(out[1], 8, 1e-12, "y");
+    assert.equal(out[2], 0, "z");
+
+    // r === 0 has no radial direction, so the earlier index goes -x...
+    radialComponentsInto(0, 0, 0, 0, 5, true, out);
+    assert.deepEqual([...out], [-5, 0, 0], "the earlier index is pushed along -x");
+
+    // ...and the later goes +x, which is what keeps the pair from freezing.
+    radialComponentsInto(0, 0, 0, 0, 5, false, out);
+    assert.deepEqual([...out], [5, 0, 0], "the later index is pushed along +x");
+
+    // A negative magnitude flips the coincident direction too.
+    radialComponentsInto(0, 0, 0, 0, -5, true, out);
+    assert.deepEqual([...out], [5, 0, 0], "the sign follows the magnitude");
 });

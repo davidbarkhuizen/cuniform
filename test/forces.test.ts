@@ -130,8 +130,8 @@ test("coincident pairs separate deterministically, and the other edges still add
     assertClose(repel.x, -clamped - REPULSION_CONSTANT / Math.pow(10, 1.9), 1e-9, `repulsion was ${repel.x}`);
     assertClose(repel.y, 0, 1e-12, "repulsion must stay radial");
 
-    // Duplicate zero-length edges and the self-loop are skipped by addRadial's
-    // r === 0 guard.
+    // Duplicate zero-length edges and the self-loop contribute no spring force,
+    // so only the a-c edge is felt.
     const spring = fdg.netSpringForceAtNode(a);
     assertClose(
         spring.x,
