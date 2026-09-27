@@ -15,6 +15,7 @@ export interface RenderSurface {
     globalAlpha: number;
     strokeStyle: string | object;
     fillStyle: string | object;
+    lineWidth: number;
     save(): void;
     restore(): void;
     setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void;

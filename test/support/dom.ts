@@ -1,6 +1,7 @@
 // Minimal DOM stand-ins for the UI-facing modules under `node --test`; the
 // physics solver is DOM-free and needs none of this.
 
+import { Emphasis } from "../../src/core/Emphasis";
 import { Graph } from "../../src/graph/Graph";
 import { GraphWizard } from "../../src/ui/GraphWizard";
 import { K } from "../../src/core/K";
@@ -160,6 +161,8 @@ export interface DrawOp {
     kind: 'stroke' | 'fill' | 'text';
     style: string;
     alpha: number;
+    /** The stroke width the context carried when the op was issued. */
+    lineWidth: number;
     /** The radius of the arc a `fill` acted on, else undefined. */
     radius?: number;
     /** The string a `text` op drew, else undefined. */
@@ -174,6 +177,7 @@ export class FakeContext2D {
     strokeStyle = '';
     fillStyle = '';
     font = '';
+    lineWidth = 1;
 
     /** The current alpha, set by the renderer for the depth fade. */
     globalAlpha = 1;
@@ -182,6 +186,8 @@ export class FakeContext2D {
     fills: string[] = [];
     texts: string[] = [];
     strokeAlphas: number[] = [];
+    /** The `lineWidth` in force at each stroke(), so the ring width is visible. */
+    strokeWidths: number[] = [];
     fillAlphas: number[] = [];
     textAlphas: number[] = [];
     textLabels: string[] = [];
@@ -228,13 +234,25 @@ export class FakeContext2D {
         this.texts.push(String(this.fillStyle));
         this.textAlphas.push(this.globalAlpha);
         this.textLabels.push(drawn);
-        this.ops.push({ kind: 'text', style: String(this.fillStyle), alpha: this.globalAlpha, text: drawn });
+        this.ops.push({
+            kind: 'text',
+            style: String(this.fillStyle),
+            alpha: this.globalAlpha,
+            lineWidth: this.lineWidth,
+            text: drawn,
+        });
     }
 
     stroke() {
         this.strokes.push(String(this.strokeStyle));
         this.strokeAlphas.push(this.globalAlpha);
-        this.ops.push({ kind: 'stroke', style: String(this.strokeStyle), alpha: this.globalAlpha });
+        this.strokeWidths.push(this.lineWidth);
+        this.ops.push({
+            kind: 'stroke',
+            style: String(this.strokeStyle),
+            alpha: this.globalAlpha,
+            lineWidth: this.lineWidth,
+        });
     }
 
     fill() {
@@ -245,6 +263,7 @@ export class FakeContext2D {
             kind: 'fill',
             style: String(this.fillStyle),
             alpha: this.globalAlpha,
+            lineWidth: this.lineWidth,
             radius: this.lastArcRadius,
         });
     }
@@ -301,6 +320,7 @@ export interface RecordedDraw {
     selected: Tag | null;
     width: number;
     height: number;
+    emphasis: Emphasis;
 }
 
 /**
@@ -323,8 +343,8 @@ export class FakeRenderBackend implements RenderBackend {
     /** When false, draw() reports "not ready" and the controller keeps the frame pending. */
     drawable = true;
 
-    draw(graph: Graph, camera: CameraView, selected: Tag | null, width: number, height: number): boolean {
-        this.draws.push({ graph, camera, selected, width, height });
+    draw(graph: Graph, camera: CameraView, selected: Tag | null, width: number, height: number, emphasis: Emphasis = Emphasis.nodes): boolean {
+        this.draws.push({ graph, camera, selected, width, height, emphasis });
         return this.drawable;
     }
 

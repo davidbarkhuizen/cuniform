@@ -1,5 +1,6 @@
 import { otherEndpoint } from "../graph/Edge";
 import { doublingCapacity } from "../core/Growth";
+import { Emphasis } from "../core/Emphasis";
 import { Graph } from "../graph/Graph";
 import { K } from "../core/K";
 import { clamp } from "../core/Numeric";
@@ -10,6 +11,11 @@ import { Tag } from "../graph/Tag";
 // Node dot and selection-ring radii, in CSS pixels.
 const NODE_RADIUS = 5;
 const SELECTION_RADIUS = 10;
+
+// The selection ring's own stroke width. It is set per stroke rather than once
+// per frame, because an `edges`-emphasis frame leaves `lineWidth` at the edge
+// width and the ring must not inherit it.
+const NODE_RING_WIDTH = 1;
 
 // The depth-fade range, as one distance: the batched paths split it into buckets.
 const DEPTH_ALPHA_SPAN = K.depthCue.maxAlpha - K.depthCue.minAlpha;
@@ -39,6 +45,23 @@ function alphaAt(depth: number, minDepth: number, maxDepth: number, hasRange: bo
 
 	const t = (depth - minDepth) / (maxDepth - minDepth);
 	return K.depthCue.maxAlpha + (K.depthCue.minAlpha - K.depthCue.maxAlpha) * t;
+}
+
+// The per-class depth-fade scale, clamped so a retuned preset can never push an
+// alpha outside [0, 1]. One home, so both the per-item and the batched paths
+// clamp identically.
+function scaledAlpha(base: number, scale: number): number {
+	return Math.min(1, Math.max(0, base * scale));
+}
+
+// The leading sort key: whichever class draws first ends up underneath, so the
+// other class's items land on top. `nodes` promotes the old edges-first
+// tie-break to an absolute rule; `edges` is its mirror.
+function rank(kind: number, emphasis: Emphasis): number {
+	if (emphasis === Emphasis.nodes)
+		return kind;
+
+	return 1 - kind;
 }
 
 // Perspective size: nearer is larger, clamped at both ends.
@@ -102,8 +125,16 @@ function ensureGroupCapacity(n: number): void {
 
 /**
  * Draw `graph` onto `context`: clears the backing store in device space, then
- * paints edges and nodes together, farthest-first (painter's algorithm), in CSS
- * pixels. `camera` must be the one that produced each node's cached depth.
+ * paints edges and nodes (painter's algorithm), in CSS pixels. `camera` must be
+ * the one that produced each node's cached depth.
+ *
+ * `emphasis` picks one of the two display configurations
+ * (`K.renderer.emphasis`): `nodes` draws edges first and nodes on top at a
+ * reduced edge alpha, `edges` mirrors that order, draws the mesh at
+ * `edgeWidthPx` and leaves the depth fade unscaled. The same policy governs the
+ * per-item, batched and coarse paths below, so an emphasis cannot reverse above
+ * a size threshold. Within a class the painter order is still
+ * (depth descending, insertion index ascending).
  *
  * Above the `K.renderer` thresholds the frame switches to a cheaper, size-gated
  * path: labels are culled to the selection and its neighbours, and edges are
@@ -120,7 +151,8 @@ export function render(
 	context: RenderSurface,
 	graph: Graph,
 	camera: CameraView,
-	selected: Tag | null
+	selected: Tag | null,
+	emphasis: Emphasis
 ): void {
 
 	// Cleared in device space, independent of any devicePixelRatio transform the
@@ -189,16 +221,36 @@ export function render(
 	// uses the full ramp; a flat scene has no range and draws at full opacity.
 	const hasRange = nodeCount > 0 && maxDepth > minDepth;
 
-	// Explicit (depth descending, insertion index ascending) comparator: it
-	// reproduces the previous stable sort's order without depending on
-	// Array.prototype.sort stability. Edges were inserted first, so equal depths
-	// still draw edge-before-node.
+	// The emphasis preset, resolved once per frame into local numbers: no config
+	// object is built per draw (invariant 8).
+	const preset = K.renderer.emphasis[emphasis];
+	const edgeAlphaScale = preset.edgeAlphaScale;
+	const nodeAlphaScale = preset.nodeAlphaScale;
+
+	// Explicit (emphasis rank, depth descending, insertion index ascending)
+	// comparator: an absolute total order that does not depend on
+	// Array.prototype.sort stability.
+	//
+	// The rank term is an explicit `if` rather than one `||` chain: chained, two
+	// items of *different* ranks would fall through to the depth term, which makes
+	// the comparator non-transitive and lets the sort order the two classes
+	// arbitrarily. Edges were inserted first, which is why the insertion
+	// tie-break still reproduces the old stable edges-before-nodes order at equal
+	// depth.
 	itemOrder.length = 0;
 
 	for (let k = 0; k < itemCount; k++)
 		itemOrder.push(k);
 
-	itemOrder.sort((a, b) => (itemDepth[b] - itemDepth[a]) || (a - b));
+	itemOrder.sort((a, b) => {
+
+		const byRank = rank(itemKind[a], emphasis) - rank(itemKind[b], emphasis);
+
+		if (byRank !== 0)
+			return byRank;
+
+		return (itemDepth[b] - itemDepth[a]) || (a - b);
+	});
 
 	// Frame constant: nothing drawn in the loop changes the font.
 	context.font = K.label.fontFamily;
@@ -223,10 +275,43 @@ export function render(
 		? K.renderer.performance.edgeAlphaBuckets
 		: K.renderer.edgeAlphaBuckets;
 
-	if (batchEdges)
-		drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets);
-
+	// A batched edge pass is one call that can be made first or last rather than
+	// a fixed prefix, so every path can honour the emphasis's paint order. The
+	// coarse path returns below, after its own ordering; the per-item path draws
+	// whichever items fall outside the batch pass in sorted order.
 	if (coarse) {
+
+		if (preset.edgesOnTop) {
+
+			drawBatchedNodeFills(
+				context,
+				vertices,
+				itemKind,
+				itemIndex,
+				itemDepth,
+				itemOrder,
+				itemCount,
+				focalLength,
+				hasRange,
+				nodeAlphaScale
+			);
+
+			// The fills are done, so only the ring and the labels remain per-node
+			// work. They precede the edge pass here, because the mesh draws on top.
+			drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
+
+			drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
+
+			// A 2.5 px mesh over the frame would bury the one label a user is
+			// reading, so the selection and its incident neighbours are re-drawn
+			// after the edges. Bounded by degree(selected) + 1, not by N.
+			drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
+
+			return;
+		}
+
+		if (batchEdges)
+			drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
 
 		drawBatchedNodeFills(
 			context,
@@ -237,14 +322,20 @@ export function render(
 			itemOrder,
 			itemCount,
 			focalLength,
-			hasRange
+			hasRange,
+			nodeAlphaScale
 		);
 
-		// The fills are done; only the ring and the labels remain per-node work.
 		drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
 
 		return;
 	}
+
+	// The batched edge pass draws the whole mesh in one go, so it is a call the
+	// emphasis places before or after the depth-sorted items rather than a fixed
+	// prefix. The per-item loop then draws only the other class.
+	if (batchEdges && !preset.edgesOnTop)
+		drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
 
 	for (let k = 0; k < itemCount; k++) {
 
@@ -252,11 +343,11 @@ export function render(
 
 		if (itemKind[item] === EDGE_ITEM) {
 
-			// In batch mode every edge was already drawn, edges-first.
+			// In batch mode every edge was already drawn, or is drawn below.
 			if (batchEdges)
 				continue;
 
-			drawEdge(context, edges[itemIndex[item]], itemDepth[item], minDepth, maxDepth, hasRange, selected);
+			drawEdge(context, edges[itemIndex[item]], itemDepth[item], minDepth, maxDepth, hasRange, selected, edgeAlphaScale, preset.edgeWidthPx);
 		}
 		else {
 			drawNode(
@@ -269,10 +360,14 @@ export function render(
 				hasRange,
 				graph,
 				selected,
-				labelAll
+				labelAll,
+				nodeAlphaScale
 			);
 		}
 	}
+
+	if (batchEdges && preset.edgesOnTop)
+		drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
 }
 
 function drawEdge(
@@ -282,15 +377,18 @@ function drawEdge(
 	minDepth: number,
 	maxDepth: number,
 	hasRange: boolean,
-	selected: Tag | null
+	selected: Tag | null,
+	alphaScale: number,
+	width: number
 ): void {
 
-	context.globalAlpha = alphaAt(depth, minDepth, maxDepth, hasRange);
+	context.globalAlpha = scaledAlpha(alphaAt(depth, minDepth, maxDepth, hasRange), alphaScale);
 	context.strokeStyle = colourFor(
 		selected === edge.v1 || selected === edge.v2,
 		K.colours.edgeIncident,
 		K.colours.edgeDefault
 	);
+	context.lineWidth = width;
 
 	context.beginPath();
 	context.moveTo(edge.v1.translatedPosition.x, edge.v1.translatedPosition.y);
@@ -308,7 +406,8 @@ function drawNode(
 	hasRange: boolean,
 	graph: Graph,
 	selected: Tag | null,
-	labelAll: boolean
+	labelAll: boolean,
+	alphaScale: number
 ): void {
 
 	const x = node.translatedPosition.x;
@@ -316,7 +415,9 @@ function drawNode(
 	const radius = radiusAt(depth, focalLength);
 	const ringRadius = ringRadiusFor(radius);
 
-	context.globalAlpha = alphaAt(depth, minDepth, maxDepth, hasRange);
+	// The node scale applies to the fill only: a label at 0.19 alpha would be
+	// unreadable, so text keeps the full depth ramp.
+	context.globalAlpha = scaledAlpha(alphaAt(depth, minDepth, maxDepth, hasRange), alphaScale);
 
 	context.fillStyle = colourFor(node.isSelected, K.colours.nodeSelected, K.colours.nodeDefault);
 
@@ -326,6 +427,9 @@ function drawNode(
 	if (node.isSelected) {
 		circlePath(context, x, y, ringRadius);
 		context.strokeStyle = K.colours.nodeSelected;
+
+		// The ring has its own width so an `edges` frame cannot thicken it.
+		context.lineWidth = NODE_RING_WIDTH;
 		context.stroke();
 	}
 
@@ -338,6 +442,7 @@ function drawNode(
 		(selected !== null && graph.hasEdge(selected, node));
 
 	if (labelled) {
+		context.globalAlpha = alphaAt(depth, minDepth, maxDepth, hasRange);
 		context.fillStyle = K.colours.label;
 		context.fillText(node.label, x + K.label.horizontalSpacing, y - K.label.verticalSpacing);
 	}
@@ -345,9 +450,10 @@ function drawNode(
 
 /**
  * One path and one stroke per (style x alpha bucket) group instead of one per
- * edge. All edges are drawn before the depth-sorted nodes, so a batched frame
- * loses the per-edge interleave with nodes; that is the documented, size-gated
- * divergence.
+ * edge. The whole mesh draws in one pass, so it is a call the caller makes first
+ * or last; in `nodes` mode that is before the depth-sorted nodes, which loses the
+ * per-edge interleave with nodes - the documented, size-gated divergence. The
+ * pass is emitted after the class's sort tier, so `edges` mode draws it last.
  */
 function drawBatchedEdges(
 	context: RenderSurface,
@@ -359,7 +465,9 @@ function drawBatchedEdges(
 	maxDepth: number,
 	hasRange: boolean,
 	selected: Tag | null,
-	configuredBuckets: number
+	configuredBuckets: number,
+	alphaScale: number,
+	width: number
 ): void {
 
 	const buckets = Math.max(1, Math.floor(configuredBuckets));
@@ -412,8 +520,9 @@ function drawBatchedEdges(
 		const incident = g >= buckets;
 		const bucket = g - (incident ? buckets : 0);
 
-		context.globalAlpha = bucketAlpha(bucket, buckets, hasRange, span);
+		context.globalAlpha = scaledAlpha(bucketAlpha(bucket, buckets, hasRange, span), alphaScale);
 		context.strokeStyle = incident ? K.colours.edgeIncident : K.colours.edgeDefault;
+		context.lineWidth = width;
 
 		context.beginPath();
 
@@ -448,13 +557,15 @@ function drawBatchedNodeFills(
 	itemOrder: number[],
 	itemCount: number,
 	focalLength: number,
-	hasRange: boolean
+	hasRange: boolean,
+	alphaScale: number
 ): void {
 
 	// The depth fade collapsed to one bucket: the midpoint of the whole ramp,
-	// matching what a 1-bucket edge batch draws at.
+	// matching what a 1-bucket edge batch draws at. The node scale is applied to
+	// the collapsed value, as it is to the per-node ramp.
 	const span = DEPTH_ALPHA_SPAN;
-	const alpha = bucketAlpha(0, 1, hasRange, span);
+	const alpha = scaledAlpha(bucketAlpha(0, 1, hasRange, span), alphaScale);
 
 	// Selected last, matching the per-node path's selected fill over the default.
 	for (let pass = 0; pass < 2; pass++) {
@@ -506,6 +617,10 @@ function drawBatchedNodeFills(
  * `incidentEdges()` hands back the adjacency array, so this allocates nothing; a
  * duplicate edge can label a neighbour twice, which is invisible (opaque text
  * over itself) and still bounded by the degree.
+ *
+ * In `edges` mode the caller runs this twice: once before the mesh is drawn, and
+ * once after, so the selection the user is reading is not buried by it. The
+ * second pass is the same bounded set, so it costs no more than the first.
  */
 function drawCoarseNodeWork(
 	context: RenderSurface,
@@ -558,6 +673,10 @@ function drawCoarseNode(
 
 		circlePath(context, x, y, ringRadiusFor(radius));
 		context.strokeStyle = K.colours.nodeSelected;
+
+		// The ring's own width: an `edges` frame has a wider `lineWidth` set by
+		// its edge pass by the time this runs.
+		context.lineWidth = NODE_RING_WIDTH;
 		context.stroke();
 	}
 

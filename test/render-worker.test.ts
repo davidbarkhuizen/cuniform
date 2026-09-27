@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { Emphasis } from "../src/core/Emphasis";
 import { Graph } from "../src/graph/Graph";
 import { buildMirrorGraph } from "../src/graph/MirrorGraph";
 import { PhysicsWorkerEngine } from "../src/physics/PhysicsProtocol";
@@ -48,7 +49,8 @@ function frameFor(
     camera = defaultCameraView(),
     width: number = 800,
     height: number = 600,
-    dpr: number = 1
+    dpr: number = 1,
+    emphasis: Emphasis = Emphasis.nodes
 ): FrameRequest {
 
     const request = initRequest(graph, generation);
@@ -60,6 +62,7 @@ function frameFor(
         camera: encodeCamera(camera),
         positions: request.positions,
         selected,
+        emphasis,
         width,
         height,
         dpr,
@@ -72,7 +75,8 @@ function directDraw(
     selected: number,
     camera = defaultCameraView(),
     width: number = 800,
-    height: number = 600
+    height: number = 600,
+    emphasis: Emphasis = Emphasis.nodes
 ): FakeContext2D {
 
     const data = initRequest(graph, 0);
@@ -87,7 +91,7 @@ function directDraw(
 
     const selectedTag = selected >= 0 ? mirror.vertices[selected] ?? null : null;
 
-    render(context, mirror, projector.camera, selectedTag);
+    render(context, mirror, projector.camera, selectedTag, emphasis);
 
     return context;
 }
@@ -131,28 +135,62 @@ const IDENTITY_CASES: Case[] = [
 
 test("the engine's draw calls are identical to the direct renderer at every threshold", () => {
 
-    for (const testCase of IDENTITY_CASES) {
+    // Both configurations, not just the default: the emphasis rides the frame, so
+    // a divergence between the realms would show up as a different frame for the
+    // same message.
+    for (const emphasis of [Emphasis.nodes, Emphasis.edges]) {
 
-        const ops = withRendererSettings(testCase.settings, (): { engine: DrawOp[]; direct: DrawOp[]; engineTexts: number; directTexts: number } => {
+        for (const testCase of IDENTITY_CASES) {
 
-            const { engine, context } = attached(testCase.graph);
+            const label = `${testCase.name} (${emphasis === Emphasis.edges ? "edges" : "nodes"})`;
 
-            const response = engine.handle(frameFor(testCase.graph, 0, 1, testCase.selected));
+            const ops = withRendererSettings(testCase.settings, (): { engine: DrawOp[]; direct: DrawOp[]; engineTexts: number; directTexts: number } => {
 
-            assert.ok(response, `${testCase.name} must draw`);
+                const { engine, context } = attached(testCase.graph);
 
-            const direct = directDraw(testCase.graph, testCase.selected);
+                const response = engine.handle(frameFor(testCase.graph, 0, 1, testCase.selected, defaultCameraView(), 800, 600, 1, emphasis));
 
-            return {
-                engine: context.ops,
-                direct: direct.ops,
-                engineTexts: context.texts.length,
-                directTexts: direct.texts.length,
-            };
-        });
+                assert.ok(response, `${label} must draw`);
 
-        assert.deepEqual(ops.engine, ops.direct, `${testCase.name}: draw sequence`);
-        assert.equal(ops.engineTexts, ops.directTexts, `${testCase.name}: fillText count`);
+                const direct = directDraw(testCase.graph, testCase.selected, defaultCameraView(), 800, 600, emphasis);
+
+                return {
+                    engine: context.ops,
+                    direct: direct.ops,
+                    engineTexts: context.texts.length,
+                    directTexts: direct.texts.length,
+                };
+            });
+
+            assert.deepEqual(ops.engine, ops.direct, `${label}: draw sequence`);
+            assert.equal(ops.engineTexts, ops.directTexts, `${label}: fillText count`);
+        }
+    }
+});
+
+test("an unknown or missing wire emphasis decodes to nodes", () => {
+
+    const graph = thresholdGraph();
+    const context = new FakeContext2D();
+    const engine = new RenderWorkerEngine();
+
+    engine.attach(context, context.canvas);
+    engine.handle(initRequest(graph, 0));
+
+    // A host that predates the field, or a value from a newer build.
+    for (const wire of [99, -1, NaN, undefined as unknown as number]) {
+
+        context.ops.length = 0;
+
+        const request = frameFor(graph, 0, 1, -1);
+        request.emphasis = wire;
+
+        assert.ok(engine.handle(request), `wire ${wire} must still draw`);
+        assert.deepEqual(
+            context.ops,
+            directDraw(graph, -1).ops,
+            `wire ${wire} must draw the default configuration`
+        );
     }
 });
 

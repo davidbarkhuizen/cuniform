@@ -1,3 +1,4 @@
+import { emphasisFromWire } from "../core/Emphasis";
 import { Graph } from "../graph/Graph";
 import { K } from "../core/K";
 import { buildMirrorGraph, packMirror, writePositions } from "../graph/MirrorGraph";
@@ -46,6 +47,12 @@ export interface FrameRequest {
     positions: Float64Array;
     /** Index of the selected node, or -1. An index, not an object, crosses. */
     selected: number;
+    /**
+     * The frame's display emphasis, its `Emphasis` wire value. A number rather
+     * than a name, because nothing per frame is a string; an unknown value
+     * decodes to `nodes`.
+     */
+    emphasis: number;
     /** Logical (CSS-pixel) canvas size and the device-pixel ratio to size the store with. */
     width: number;
     height: number;
@@ -230,7 +237,7 @@ export class RenderWorkerEngine {
             ? graph.vertices[request.selected] ?? null
             : null;
 
-        render(surface, graph, projector.camera, selected);
+        render(surface, graph, projector.camera, selected, emphasisFromWire(request.emphasis));
 
         // A fresh depth array crosses back (transferred), so the main thread can
         // restore `Tag.depth` for the drag and the cull tie-break.

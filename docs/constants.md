@@ -35,6 +35,8 @@ All tuning lives in [`src/core/K.ts`](../src/core/K.ts):
 | `depthCue.minAlpha` / `maxAlpha` | `0.35` / `1.0` | depth fade range |
 | `renderer.performance.minNodes` | `4096` | coarse frame at or above this node count |
 | `renderer.performance.edgeAlphaBuckets` / `batchNodeFills` / `selectionRing` | `1` / `true` / `false` | coarse depth-fade buckets, colour-batched fills, and the dropped selection ring |
+| `renderer.emphasis.nodes` | `edgesOnTop false`, `edgeAlphaScale 0.55`, `nodeAlphaScale 1.0`, `edgeWidthPx 1.0` | default emphasis: nodes are the subject, the mesh recedes |
+| `renderer.emphasis.edges` | `edgesOnTop true`, `edgeAlphaScale 1.0`, `nodeAlphaScale 1.0`, `edgeWidthPx 2.5` | edge-priority emphasis: the mesh draws over the nodes and heavier |
 | `renderer.workerReadyTimeoutMS` | `250` | how long the main thread waits for a render worker's `ready` before drawing in process |
 | `chooser.minOrder` / `maxOrder` | `2` / `4096` | random-graph node-count bounds; `maxOrder` is the measured usability cap |
 | `chooser.interactiveOrder` | `1024` | above this the chooser warns that the layout may advance below 20 Hz |
@@ -48,6 +50,27 @@ displacement under a constant force, and it is a real stability constraint, not 
 style note. With the defaults the gain is exactly `1`, a single edge settles at
 `r ~= 65.46` model units (not at `l = 30` — repulsion pushes past the rest
 length), and an underdamped mode decays by `sqrt(friction) ~= 0.9487` per step.
+
+## Display emphasis
+
+The `renderer.emphasis` preset is one entry per `Emphasis` wire value:
+`edgesOnTop` is the paint order, `edgeAlphaScale`/`nodeAlphaScale` multiply the
+depth-fade alpha of a class, and `edgeWidthPx` is the mesh's stroke width. The
+scale is deliberately one-sided. Measured against the near-black canvas in WCAG
+relative luminance:
+
+| frame | near (alpha 1.0) | mid (0.675) | far (0.35) |
+| --- | ---: | ---: | ---: |
+| baseline (both scales 1.0) | 3.78 | 2.79 | 1.67 |
+| node-priority, `edgeAlphaScale` 0.55 (shipped `nodes`) | **6.75** | **4.01** | 1.93 |
+| edge-priority, `nodeAlphaScale` 0.70 | **1.95** | 1.62 | 1.24 |
+| edge-priority, `nodeAlphaScale` 0.85 | **2.77** | 2.14 | 1.43 |
+
+The asymmetry is the point: dimming the edges is safe, dimming the nodes is not.
+The nodes are the only bright element, so fading them toward the canvas collapses
+the very contrast the configuration exists to preserve. That is why both shipped
+presets leave `nodeAlphaScale` at `1.0` and let paint order and edge width carry
+the edge-priority read.
 
 ## Component anchor
 

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { Emphasis } from "../src/core/Emphasis";
 import { Graph } from "../src/graph/Graph";
 import { K } from "../src/core/K";
 import { defaultCameraView } from "../src/view/Projector";
@@ -62,6 +63,7 @@ test("draw() receives the solver's graph, the live camera, the selection and the
         assert.equal(first.camera, ui.controller.state.camera, "the frame draws the live camera");
         assert.equal(first.selected, null, "nothing is selected");
         assert.deepEqual([first.width, first.height], [800, 600], "the logical canvas size");
+        assert.equal(first.emphasis, Emphasis.nodes, "the frame's display emphasis");
 
         // A selection reaches the backend without the renderer scanning for it.
         const node = ui.controller.solver.graph.vertices[0];
@@ -276,7 +278,7 @@ test("a worker that fails to load leaves the canvas untransferred and falls back
     assert.equal(runner.usesWorker, false, "the runner must fall back to the canvas context");
     assert.equal(runner.ready, true, "the in-process backend is ready at once");
 
-    runner.draw(graph, defaultCameraView(), null, 800, 600);
+    runner.draw(graph, defaultCameraView(), null, 800, 600, Emphasis.nodes);
 
     assert.ok(canvas.context.clears.length > 0, "the fallback must draw on the canvas context");
 });
@@ -328,12 +330,12 @@ test("draw coalesces to one frame in flight and carries the newest state", () =>
     const cameraB = { ...defaultCameraView(), distance: 600 };
     const cameraC = { ...defaultCameraView(), distance: 700 };
 
-    runner.draw(graph, cameraA, null, 800, 600);
+    runner.draw(graph, cameraA, null, 800, 600, Emphasis.nodes);
     assert.equal(frames(fake).length, 1);
 
     // Two more draws while one frame is in flight: neither may post.
-    runner.draw(graph, cameraB, null, 800, 600);
-    runner.draw(graph, cameraC, graph.vertices[3], 800, 600);
+    runner.draw(graph, cameraB, null, 800, 600, Emphasis.nodes);
+    runner.draw(graph, cameraC, graph.vertices[3], 800, 600, Emphasis.edges);
     assert.equal(frames(fake).length, 1, "one frame in flight");
 
     // The ack posts the coalesced frame, carrying the newest camera and selection.
@@ -342,6 +344,7 @@ test("draw coalesces to one frame in flight and carries the newest state", () =>
     assert.equal(frames(fake).length, 2, "exactly one more frame");
     assert.equal(frames(fake)[1].camera[12], 700, "the newest camera");
     assert.equal(frames(fake)[1].selected, 3, "the newest selection");
+    assert.equal(frames(fake)[1].emphasis, Emphasis.edges, "the newest emphasis");
 
     runner.terminate();
 });
@@ -355,7 +358,7 @@ test("a steady-state frame reuses the pooled position buffers", () => {
     const seen = new Set<Float64Array>();
 
     for (let frame = 0; frame < 12; frame++) {
-        runner.draw(graph, defaultCameraView(), null, 800, 600);
+        runner.draw(graph, defaultCameraView(), null, 800, 600, Emphasis.nodes);
 
         const posts = frames(fake);
         seen.add(posts[posts.length - 1].positions);
@@ -374,7 +377,7 @@ test("an ack from a replaced generation is ignored", () => {
     fake.becomeReady();
     fake.hold();
 
-    runner.draw(first, defaultCameraView(), null, 800, 600);
+    runner.draw(first, defaultCameraView(), null, 800, 600, Emphasis.nodes);
     const stale = frames(fake)[0];
 
     runner.setGraph(second);
@@ -400,7 +403,7 @@ test("the drawn ack writes this frame's depths back onto the tags", () => {
     const { fake, runner } = workerFixture(graph);
 
     fake.becomeReady();
-    runner.draw(graph, defaultCameraView(), null, 800, 600);
+    runner.draw(graph, defaultCameraView(), null, 800, 600, Emphasis.nodes);
 
     const mirror = fake.engine.graph;
 

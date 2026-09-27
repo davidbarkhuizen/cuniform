@@ -1,3 +1,4 @@
+import { Emphasis } from "../core/Emphasis";
 import { Graph } from "../graph/Graph";
 import { K } from "../core/K";
 import { readPositions } from "../graph/MirrorGraph";
@@ -47,9 +48,11 @@ export interface RenderBackend {
     onReady: (() => void) | null;
     /**
      * Project and draw one frame. `width`/`height` are logical CSS pixels; the
-     * backend owns the device-pixel backing store. False means "not ready".
+     * backend owns the device-pixel backing store. `emphasis` is the frame's
+     * display configuration, a number so the steady-state frame allocates no
+     * options object. False means "not ready".
      */
-    draw(graph: Graph, camera: CameraView, selected: Tag | null, width: number, height: number): boolean;
+    draw(graph: Graph, camera: CameraView, selected: Tag | null, width: number, height: number, emphasis: Emphasis): boolean;
     resize(width: number, height: number, dpr: number): void;
     /** Point the backend at a new graph, dropping anything computed for the old one. */
     setGraph(graph: Graph): void;
@@ -139,14 +142,14 @@ class InProcessBackend implements RenderBackend {
         private readonly surface: RenderSurface
     ) {}
 
-    draw(graph: Graph, camera: CameraView, selected: Tag | null, width: number, height: number): boolean {
+    draw(graph: Graph, camera: CameraView, selected: Tag | null, width: number, height: number, emphasis: Emphasis): boolean {
 
         // One projector for the projection pass and the draw, so the cull
         // boundary sees the depths cached with this camera (invariant 2).
         const projector = Projector.forCanvas(width, height, camera);
 
         projectGraph(graph, projector);
-        render(this.surface, graph, projector.camera, selected);
+        render(this.surface, graph, projector.camera, selected, emphasis);
 
         return true;
     }
@@ -197,6 +200,7 @@ class WorkerBackend implements RenderBackend {
     private dpr = 1;
 
     private pendingCamera: CameraView | null = null;
+    private pendingEmphasis: Emphasis = Emphasis.nodes;
     private pendingSelected: Tag | null = null;
     private pendingSelectedIndex = -1;
     private pendingIndexGraph: Graph | null = null;
@@ -238,7 +242,7 @@ class WorkerBackend implements RenderBackend {
         return this.probePassed;
     }
 
-    draw(graph: Graph, camera: CameraView, selected: Tag | null, width: number, height: number): boolean {
+    draw(graph: Graph, camera: CameraView, selected: Tag | null, width: number, height: number, emphasis: Emphasis): boolean {
 
         if (this.disposed)
             return false;
@@ -258,6 +262,7 @@ class WorkerBackend implements RenderBackend {
         }
 
         this.pendingCamera = camera;
+        this.pendingEmphasis = emphasis;
 
         if (!this.probePassed)
             return false;
@@ -398,6 +403,7 @@ class WorkerBackend implements RenderBackend {
             camera: this.scratchCamera,
             positions,
             selected: this.pendingSelectedIndex,
+            emphasis: this.pendingEmphasis,
             width: this.width,
             height: this.height,
             dpr: this.dpr,
@@ -601,8 +607,8 @@ export class RenderRunner {
         return this.backend.ready;
     }
 
-    draw(graph: Graph, camera: CameraView, selected: Tag | null, width: number, height: number): boolean {
-        return this.backend.draw(graph, camera, selected, width, height);
+    draw(graph: Graph, camera: CameraView, selected: Tag | null, width: number, height: number, emphasis: Emphasis): boolean {
+        return this.backend.draw(graph, camera, selected, width, height, emphasis);
     }
 
     resize(width: number, height: number, dpr: number): void {

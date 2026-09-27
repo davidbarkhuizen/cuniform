@@ -13,6 +13,7 @@
 
 import { PerformanceObserver } from "perf_hooks";
 
+import { Emphasis } from "../src/core/Emphasis";
 import { ForceDirectedGraph } from "../src/physics/ForceDirectedGraph";
 import { Graph } from "../src/graph/Graph";
 import { GraphFactory } from "../src/graph/GraphFactory";
@@ -345,7 +346,7 @@ function measureRender(graph: Graph, camera: CameraView, reps: number): RenderMe
             contexts.push(context);
         }
 
-        render(contexts[0], graph, camera, selected);
+        render(contexts[0], graph, camera, selected, Emphasis.nodes);
 
         if (batch === 0) {
             ops = contexts[0].ops.length;
@@ -355,7 +356,7 @@ function measureRender(graph: Graph, camera: CameraView, reps: number): RenderMe
         const start = process.hrtime.bigint();
 
         for (let i = 1; i <= reps; i++)
-            render(contexts[i], graph, camera, selected);
+            render(contexts[i], graph, camera, selected, Emphasis.nodes);
 
         bestMs = Math.min(bestMs, Number(process.hrtime.bigint() - start) / 1e6 / reps);
     }
