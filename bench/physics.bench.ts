@@ -13,10 +13,11 @@
 import { PerformanceObserver } from "perf_hooks";
 
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
+import { Graph } from "../src/Graph";
 import { GraphFactory } from "../src/GraphFactory";
 import { K } from "../src/K";
 import { radius } from "../src/Kernel";
-import { Projector } from "../src/Projector";
+import { CameraView, Projector } from "../src/Projector";
 import { render } from "../src/Renderer";
 import { FakeContext2D } from "../test/support/dom";
 import { seededRandom, sparseGraph } from "../test/support/physics";
@@ -28,7 +29,7 @@ const AVERAGE_DEGREE = 3;
 const GENERATION_ORDERS = [512, 1024, 2048, 4096, 8192];
 const STEP_CASES: Array<[number, number]> = [[256, 8], [512, 6], [1024, 4], [2048, 2], [4096, 1]];
 const REPULSION_ORDERS = [256, 512, 1024, 2048, 4096, 8192];
-const RENDER_ORDERS = [512, 1024, 2048, 4096];
+const RENDER_ORDERS = [512, 1024, 2048, 4096, 8192];
 const GC_ORDER = 1024;
 const KERNEL_SAMPLES = 1000000;
 const ERROR_SAMPLE = 64;
@@ -227,9 +228,70 @@ function benchProjection(): void {
     row("4096 nodes", `${ms.toFixed(2)} ms`);
 }
 
+interface RenderMeasurement {
+    ms: number;
+    ops: number;
+    texts: number;
+}
+
+/** Render into a fresh context per frame; the fake records every call. */
+function measureRender(graph: Graph, camera: CameraView, reps: number): RenderMeasurement {
+    let bestMs = Infinity;
+    let ops = 0;
+    let texts = 0;
+
+    // Best of three batches: the fake context's recording makes single batches
+    // noisy enough to swamp the difference between the two paths.
+    for (let batch = 0; batch < 3; batch++) {
+
+        const contexts: FakeContext2D[] = [];
+
+        for (let i = 0; i <= reps; i++) {
+            const context = new FakeContext2D();
+            context.canvas = { width: CANVAS_W, height: CANVAS_H };
+            contexts.push(context);
+        }
+
+        render(contexts[0] as unknown as CanvasRenderingContext2D, graph, camera);
+
+        if (batch === 0) {
+            ops = contexts[0].ops.length;
+            texts = contexts[0].texts.length;
+        }
+
+        const start = process.hrtime.bigint();
+
+        for (let i = 1; i <= reps; i++)
+            render(contexts[i] as unknown as CanvasRenderingContext2D, graph, camera);
+
+        bestMs = Math.min(bestMs, Number(process.hrtime.bigint() - start) / 1e6 / reps);
+    }
+
+    return { ms: bestMs, ops, texts };
+}
+
+/** Run `fn` with the renderer thresholds forced, always restoring them. */
+function withRendererThresholds<T>(labelMaxNodes: number, batchEdgesMinEdges: number, fn: () => T): T {
+    const label = K.renderer.labelMaxNodes;
+    const batch = K.renderer.batchEdgesMinEdges;
+
+    K.renderer.labelMaxNodes = labelMaxNodes;
+    K.renderer.batchEdgesMinEdges = batchEdgesMinEdges;
+
+    try {
+        return fn();
+    } finally {
+        K.renderer.labelMaxNodes = label;
+        K.renderer.batchEdgesMinEdges = batch;
+    }
+}
+
 function benchRender(): void {
-    console.log("\n== renderer (FakeContext2D: JS overhead only) ==");
-    row("N / E", "render ms (canvas ops/frame)");
+    console.log(
+        `\n== renderer (FakeContext2D: JS overhead only; labels culled above ` +
+        `N=${K.renderer.labelMaxNodes}, edges batched above E=${K.renderer.batchEdgesMinEdges}) ==`
+    );
+    row("N / E", "ms legacy -> scaled   ops legacy -> scaled   texts/frame");
 
     for (const order of RENDER_ORDERS) {
         const graph = sparseGraph(order, 4321 + order);
@@ -239,20 +301,18 @@ function benchRender(): void {
         // Populate depth/translatedPosition the way a real tick would.
         solver.step(CANVAS_W, CANVAS_H, () => false, projector);
 
-        const context = new FakeContext2D();
-        context.canvas = { width: CANVAS_W, height: CANVAS_H };
-
-        const before = context.ops.length;
-        render(context as unknown as CanvasRenderingContext2D, graph, projector.camera);
-        const opsPerFrame = context.ops.length - before;
-
         const reps = order <= 1024 ? 10 : 3;
-        const ms = timePer(
-            () => render(context as unknown as CanvasRenderingContext2D, graph, projector.camera),
-            reps
-        );
 
-        row(`${order} / ${graph.edges.length}`, `${ms.toFixed(2)}  (${opsPerFrame})`);
+        // Thresholds forced off is the pre-Plan-5 frame: every label, one path per
+        // edge. Measuring both on the same harness keeps the comparison fair.
+        const legacy = withRendererThresholds(Infinity, Infinity, () => measureRender(graph, projector.camera, reps));
+        const scaled = measureRender(graph, projector.camera, reps);
+
+        row(
+            `${order} / ${graph.edges.length}`,
+            `${legacy.ms.toFixed(2)} -> ${scaled.ms.toFixed(2)}   ` +
+            `${legacy.ops} -> ${scaled.ops}   ${scaled.texts}`
+        );
     }
 }
 

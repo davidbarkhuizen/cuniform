@@ -34,6 +34,21 @@ export const K = {
         minimumNodeSelectionRadiusPx : 15.0,
     },
 
+    renderer: {
+        // Label culling: at or above this node count only the selection and its
+        // incident neighbours are labelled. fillText per node dominates the real
+        // canvas cost and is unreadable at scale. Below the threshold every label
+        // is drawn, so small-graph output is unchanged.
+        labelMaxNodes: 150,
+        // Above this edge count, edges are batched into one path per (style x
+        // alpha bucket) instead of one path per edge. Batch mode draws all edges
+        // before the depth-sorted nodes, so edges no longer interleave in front
+        // of nearer nodes; that divergence is deliberate and size-gated.
+        batchEdgesMinEdges: 2000,
+        // Depth-fade quantization for the batched edge strokes.
+        edgeAlphaBuckets: 8,
+    },
+
     space: {
         // Model space: a 600x600x600 cube centred on the origin. Nothing clamps a node to it.
         W_0 : 600,

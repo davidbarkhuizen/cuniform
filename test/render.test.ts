@@ -322,3 +322,112 @@ test("render sizes nodes with the focal length of the camera it is given", () =>
     assertClose(base, NODE_RADIUS, 1e-9, "at the camera distance the cue is the marker radius");
     assertClose(zoomed, NODE_RADIUS * 2, 1e-9, "the doubled focal length must double the radius");
 });
+
+// ------------------------------------------------- size-gated scaling (Plan 5)
+
+/** Run `fn` with a `K.renderer` override, always restoring it. */
+function withRendererSetting<T>(
+    key: "labelMaxNodes" | "batchEdgesMinEdges",
+    value: number,
+    fn: () => T
+): T {
+    const original = K.renderer[key];
+
+    K.renderer[key] = value;
+
+    try {
+        return fn();
+    } finally {
+        K.renderer[key] = original;
+    }
+}
+
+test("above labelMaxNodes only the selection and its neighbours are labelled", () => {
+    const { graph, b } = build();
+    b.isSelected = true;
+
+    // The fixture is a-b-c-d, so b's neighbours are a and c; d is two hops away.
+    const context = withRendererSetting("labelMaxNodes", graph.vertices.length, () => draw(graph));
+
+    assert.deepEqual([...context.textLabels].sort(), ["a", "b", "c"]);
+});
+
+test("above labelMaxNodes nothing is labelled without a selection", () => {
+    const { graph } = build();
+
+    const context = withRendererSetting("labelMaxNodes", graph.vertices.length, () => draw(graph));
+
+    assert.deepEqual(context.textLabels, [], "an unselected large graph carries no labels");
+});
+
+test("below labelMaxNodes every label is still drawn", () => {
+    const { graph } = build();
+
+    const context = withRendererSetting("labelMaxNodes", graph.vertices.length + 1, () => draw(graph));
+
+    assert.equal(context.textLabels.length, graph.vertices.length);
+});
+
+test("at equal depths the explicit comparator keeps edges before nodes", () => {
+    const { graph } = build();
+
+    const context = draw(graph);
+
+    // Three edges, then four fill+label pairs, in insertion order.
+    assert.deepEqual(context.ops.map(op => op.kind), [
+        "stroke", "stroke", "stroke",
+        "fill", "text", "fill", "text", "fill", "text", "fill", "text",
+    ]);
+});
+
+test("a forced batch frame represents every edge and bounds stroke calls", () => {
+    const { graph } = build();
+
+    const context = withRendererSetting("batchEdgesMinEdges", 0, () => draw(graph));
+
+    assert.equal(context.moveTos.length, graph.edges.length, "every edge needs a moveTo");
+    assert.equal(context.lineTos.length, graph.edges.length, "every edge needs a lineTo");
+    assert.ok(
+        context.strokes.length <= 2 * K.renderer.edgeAlphaBuckets,
+        `batched edges must need at most 2*buckets strokes, got ${context.strokes.length}`
+    );
+    assert.equal(context.fills.length, graph.vertices.length, "every node is still filled");
+});
+
+test("batch mode draws every edge before any node", () => {
+    const { graph } = build();
+
+    const context = withRendererSetting("batchEdgesMinEdges", 0, () => draw(graph));
+    const kinds = context.ops.map(op => op.kind);
+
+    const lastStroke = kinds.lastIndexOf("stroke");
+    const firstFill = kinds.indexOf("fill");
+
+    assert.ok(firstFill >= 0, "nodes must still be drawn");
+    assert.ok(lastStroke < firstFill, `edges must not interleave with nodes, got ${kinds.join(",")}`);
+});
+
+test("batched edges keep the incident highlight", () => {
+    const { graph, b } = build();
+    b.isSelected = true;
+
+    const context = withRendererSetting("batchEdgesMinEdges", 0, () => draw(graph));
+
+    assert.ok(context.strokes.includes(EDGE_INCIDENT), `strokes were ${context.strokes}`);
+    assert.ok(context.strokes.includes(EDGE_DEFAULT), `strokes were ${context.strokes}`);
+});
+
+test("batch and per-edge modes agree on which edges and nodes are drawn", () => {
+    const { graph } = build();
+
+    const batched = withRendererSetting("batchEdgesMinEdges", 0, () => draw(graph));
+    const unbatched = withRendererSetting("batchEdgesMinEdges", 1000, () => draw(graph));
+
+    assert.deepEqual(batched.moveTos, unbatched.moveTos, "the same segments, in the same order");
+    assert.deepEqual(batched.lineTos, unbatched.lineTos);
+    assert.deepEqual(batched.fills, unbatched.fills);
+    assert.deepEqual(batched.textLabels, unbatched.textLabels);
+
+    // The saving is the point: one path per group instead of one per edge.
+    assert.ok(batched.strokes.length < unbatched.strokes.length, "batch mode must stroke fewer times");
+});

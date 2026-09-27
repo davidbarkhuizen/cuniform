@@ -180,6 +180,9 @@ export class FakeContext2D {
     textAlphas: number[] = [];
     textLabels: string[] = [];
     arcs: number[][] = [];
+    /** Segment endpoints, so a batched frame can be checked edge by edge. */
+    moveTos: number[][] = [];
+    lineTos: number[][] = [];
     /** The radius of the arc the nth fill() acted on, in order. */
     fillRadii: number[] = [];
     ops: DrawOp[] = [];
@@ -194,8 +197,14 @@ export class FakeContext2D {
     }
 
     beginPath() {}
-    moveTo() {}
-    lineTo() {}
+
+    moveTo(...args: number[]) {
+        this.moveTos.push(args);
+    }
+
+    lineTo(...args: number[]) {
+        this.lineTos.push(args);
+    }
 
     arc(...args: number[]) {
         this.arcs.push(args);
