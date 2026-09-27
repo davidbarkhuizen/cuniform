@@ -114,6 +114,59 @@ test("the panel's third section is the camera console, after the selected node",
     assert.ok(panel.includes('id="cameraConsole"'), "the console needs the id the entrypoint resolves");
 });
 
+test("the display emphasis control sits between the camera console and the actions", () => {
+    const panel = panelMarkup(readWeb("index.html"));
+
+    const camera = panel.indexOf('class="cameraSection"');
+    const emphasis = panel.indexOf('class="emphasisSection"');
+    const actions = panel.indexOf('class="menuOptions"');
+
+    assert.notEqual(emphasis, -1, "the panel needs an emphasisSection");
+    assert.ok(camera < emphasis, "the emphasis control follows the camera console");
+    assert.ok(emphasis < actions, "the emphasis control precedes the actions");
+
+    assert.ok(panel.includes('id="emphasisConsole"'), "the control needs the id the entrypoint resolves");
+});
+
+test("the emphasis control is a labelled group of two pressed buttons", () => {
+    const panel = panelMarkup(readWeb("index.html"));
+
+    // Attributes may span several lines, so compare against whitespace-normalised markup.
+    const markup = panel.replace(/\s+/g, " ");
+
+    assert.ok(markup.includes(`role="group"`), "the two configurations are a segmented control");
+    assert.ok(markup.includes(`aria-label="display emphasis"`), "the group needs an accessible name");
+
+    for (const name of ["nodes", "edges"]) {
+        assert.ok(markup.includes(`data-emphasis="${name}"`), `the control needs a ${name} button`);
+        assert.ok(
+            markup.includes(`data-emphasis="${name}" aria-pressed="`),
+            `the ${name} button needs to report whether it is the live configuration`
+        );
+    }
+
+    assert.ok(
+        markup.includes(`data-emphasis="nodes" aria-pressed="true"`),
+        "the default configuration is the pressed one"
+    );
+    assert.ok(
+        markup.includes(`data-emphasis="edges" aria-pressed="false"`),
+        "the other button starts unpressed"
+    );
+
+    const section = panel.slice(panel.indexOf('class="emphasisSection"'));
+    assert.ok(section.includes('class="sectionHeading"'), "the control needs a section heading");
+
+    const css = readWeb("stylez.css");
+    assert.match(cssRule(css, ".emphasisButton"), /cursor\s*:\s*pointer/, "an emphasis button should look pressable");
+    assert.match(cssRule(css, ".emphasisSection"), /cursor\s*:\s*default/, "the section is not a drag handle");
+    assert.match(
+        cssRule(css, '.emphasisButton\[aria-pressed="true"\]'),
+        /background-color\s*:/,
+        "the live configuration needs its own face"
+    );
+});
+
 test("the export and reset actions sit below the camera console", () => {
     const panel = panelMarkup(readWeb("index.html"));
 

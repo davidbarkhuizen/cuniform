@@ -170,6 +170,33 @@
 				</div>
 
 				<!--
+					The display emphasis: which of the graph's two elements is
+					the subject of the frame. Two named configurations rather
+					than a checkbox, so a screen reader can say which is
+					pressed; `data-emphasis` names one for the delegated
+					handler and `aria-pressed` tracks the live choice.
+
+					They are real buttons, so Enter and Space activate them and
+					DragController ignores a press inside one, which is why -
+					unlike the camera console's hold - no pointerdown guard is
+					needed.
+				-->
+				<div id="emphasisConsole" class="emphasisSection" role="group"
+					aria-label="display emphasis">
+					<div class="sectionHeading">
+						display
+					</div>
+					<div class="emphasisRow">
+						<button type="button" class="emphasisButton"
+							data-emphasis="nodes" aria-pressed="true"
+							title="draw the nodes over the edges">nodes</button>
+						<button type="button" class="emphasisButton"
+							data-emphasis="edges" aria-pressed="false"
+							title="draw the edges over the nodes">edges</button>
+					</div>
+				</div>
+
+				<!--
 					The actions, at the foot of the panel: export saves the
 					current view as a PNG, reset reopens the graph chooser.
 					They sit below the camera console, after the identity line

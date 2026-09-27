@@ -124,7 +124,7 @@ test("entrypoint falls back to the whole panel when the grip is missing", () => 
 });
 
 test("entrypoint reports failure when any required element is missing", () => {
-    for (const missing of ['body', 'export_canvas_link', 'reset_link', 'selectedNodeInfoLabel', 'selectedNodeInfoList', 'currentGraphLabel', 'cameraConsole']) {
+    for (const missing of ['body', 'export_canvas_link', 'reset_link', 'selectedNodeInfoLabel', 'selectedNodeInfoList', 'currentGraphLabel', 'cameraConsole', 'emphasisConsole']) {
         withFakeDom(demoElements([missing]), dom => {
             const result = quietly(() => entrypoint(...IDS));
 

@@ -1,4 +1,5 @@
 import { Camera } from '../view/Camera';
+import { Emphasis } from '../core/Emphasis';
 import { Point2D } from '../core/Point2D';
 
 export class State {
@@ -19,6 +20,14 @@ export class State {
      * losing the viewing angle.
      */
     public readonly camera: Camera = new Camera();
+
+    /**
+     * The frame's display emphasis, owned here for the same reason as the camera:
+     * reset() runs on mouse-out, a graph swap and initialize(), and a display
+     * choice that vanished on a graph swap would be a bug. Not persisted, so a
+     * reload starts at the shipped default.
+     */
+    public emphasis: Emphasis = Emphasis.nodes;
 
 	constructor(
 	) {

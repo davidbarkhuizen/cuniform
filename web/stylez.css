@@ -324,6 +324,70 @@ body
 	outline-offset		: 2px;
 }
 
+/* the display emphasis: two named configurations, one pressed */
+.emphasisSection
+{
+	padding-top		: 12px;
+	margin-top		: 12px;
+	border-top		: 1px solid var(--accent-soft);
+
+	/* the panel itself is a drag handle; the section is not */
+	cursor			: default;
+}
+
+.emphasisRow
+{
+	display			: flex;
+	align-items		: center;
+	gap			: 8px;
+	margin-top		: 8px;
+}
+
+.emphasisButton
+{
+	flex			: 1;
+	box-sizing		: border-box;
+	min-height		: 32px;
+
+	display			: flex;
+	align-items		: center;
+	justify-content		: center;
+
+	padding			: 6px 10px;
+
+	font			: inherit;
+	font-weight		: bold;
+	line-height		: 1;
+
+	color			: var(--ink);
+	background-color	: var(--accent);
+	border			: none;
+	border-radius		: 6px;
+
+	cursor			: pointer;
+}
+
+.emphasisButton:hover
+{
+	background-color	: var(--accent-hover);
+}
+
+.emphasisButton:focus-visible
+{
+	outline			: 2px solid var(--fg-bright);
+	outline-offset		: 2px;
+}
+
+/*
+ * The live configuration, mirroring the camera console's press state: the
+ * chosen button is the brighter one, so the pair reads as a segmented control.
+ */
+.emphasisButton[aria-pressed="true"]
+{
+	background-color	: var(--fg-bright);
+	color			: var(--accent);
+}
+
 /* ---------------------------------------------------------- graph wizard -- */
 
 /*
