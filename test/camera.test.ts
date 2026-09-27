@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Camera } from "../src/Camera";
+import { Camera, sameCameraView } from "../src/Camera";
 import { K } from "../src/K";
 import { apply, fromYawPitch, identity, Mat3, multiply, rotX, rotY, rotZ } from "../src/Mat3";
 import { point3 } from "../src/Point3D";
@@ -196,4 +196,53 @@ test("reset restores the identity orientation and framing", () => {
     assert.deepEqual(camera.orientation, identity());
     assert.equal(camera.distance, K.camera.distance);
     assert.deepEqual(camera.target, { x: 0, y: 0, z: 0 });
+});
+
+// ------------------------------------------------------------ sameCameraView
+
+test("sameCameraView is true for equal views and false for each mutation", () => {
+    const camera = new Camera();
+    const reference = defaultCameraView();
+
+    assert.equal(sameCameraView(reference, camera), true, "the default camera matches the default view");
+
+    camera.dolly(1);
+    assert.equal(sameCameraView(reference, camera), false, "a dolly must be detected");
+    camera.reset();
+
+    camera.panBy(point3(1, 0, 0));
+    assert.equal(sameCameraView(reference, camera), false, "a pan must be detected");
+    camera.reset();
+
+    camera.orbit(10, 0);
+    assert.equal(sameCameraView(reference, camera), false, "an orbit must be detected");
+    camera.reset();
+
+    camera.rotateLocal('z', 0.1);
+    assert.equal(sameCameraView(reference, camera), false, "a console rotation must be detected");
+    camera.reset();
+
+    assert.equal(sameCameraView(reference, camera), true, "reset must restore a matching view");
+});
+
+test("sameCameraView reads a mutable scratch copy, so the redraw check allocates nothing", () => {
+    // The controller overwrites one scratch fingerprint each drawn frame; the
+    // comparison must read it structurally, not compare object identity.
+    const reference = defaultCameraView();
+
+    const scratch = {
+        orientation: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+        target: point3(0, 0, 0),
+        distance: reference.distance,
+        focalLength: reference.focalLength,
+        nearPlane: reference.nearPlane,
+    };
+
+    assert.equal(sameCameraView(scratch, reference), true);
+
+    scratch.orientation[0] = 2;
+    assert.equal(sameCameraView(scratch, reference), false, "one orientation entry is enough to differ");
+
+    scratch.orientation[0] = 1;
+    assert.equal(sameCameraView(scratch, reference), true, "restoring the entry must match again");
 });

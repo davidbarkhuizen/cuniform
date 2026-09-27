@@ -233,15 +233,19 @@ Physics still advances in fixed `timerTickPeriodMS` steps, but `setInterval` no
 longer drives them. Where `requestAnimationFrame` exists the browser paints on
 its own clock and the scheduler accumulates real elapsed time, runs at most
 `maxStepsPerFrame` physics steps per animation frame, and discards the
-remainder, so a slow frame cannot spiral into a backlog. A frame draws exactly
-once, however many steps it ran.
+remainder, so a slow frame cannot spiral into a backlog. A frame draws once, and
+only when something changed: it ran a step, something asked for a redraw
+(selection, drag, resize, graph swap), or the live camera no longer matches the
+view the last frame drew. A settled, untouched scene therefore issues no canvas
+work at all and leaves the previous frame on the canvas.
 
 Once the largest node travel stays below `settleEpsilon` for `settleFrames`
 consecutive steps the layout is settled and stepping stops, leaving only the
-draw. A drag, orbit, dolly, console rotation, resize or graph swap starts it
-again. Without `requestAnimationFrame` the controller falls back to the original
-fixed-interval tick; `onTimerTick()` still means exactly one tick plus one draw,
-which is what the tests and the fallback use.
+change check above. A drag, orbit, dolly, console rotation, resize or graph swap
+starts it again. Without `requestAnimationFrame` the controller falls back to the
+original fixed-interval tick; `onTimerTick()` still means exactly one tick plus
+one draw, deliberately bypassing the idle-frame skip, which is what the tests and
+the fallback use.
 
 Where the browser has a `Worker`, the force integration runs in
 `dist/simulation.worker.js`, owned by `PhysicsRunner`; projection, hit-testing
@@ -461,17 +465,16 @@ eventual ceiling. Steady-state GC is 0–2% of wall time; the projection loop is
 
 ### Next steps
 
-Ordered by roughly the ratio of payoff to risk. The first two are small, local
-changes; the last three are larger pieces of work with their own design and
-should be separate PRs.
+Ordered by roughly the ratio of payoff to risk. The first is a small, local
+change; the rest are larger pieces of work with their own design and should be
+separate PRs.
 
 | # | change | why, and what it touches |
 | ---: | --- | --- |
 | 1 | A coarse-rendering / large-graph preset above a threshold | Labels are already culled and edges already batched, but the debug cost is still real: at 8192 nodes the `FakeContext2D` frame issues 8200 ops. A single "performance" preset could thin edges further (hide them behind a distance or degree filter), drop the depth fade to one bucket, and skip the selection ring on hover; today all of it is always on. `src/K.ts`, `src/Renderer.ts`. |
-| 2 | Skip the frame entirely when nothing moved | The settle detector stops *stepping* once the layout is quiet, but the rAF loop still redraws. Track the last drawn camera and the settle flag and skip `render()` while the camera is still; hover, selection and a resize are the only things that must force a redraw. This is the cheapest possible frame and it is the highest-value item at large N. `src/UIController.ts`, `src/Renderer.ts`. |
-| 3 | Make the octree incrementally cheaper, not asymptotically better | The remaining cost is the per-body traversal and the per-step tree rebuild. Candidate work, each measurable by itself: reuse the traversal stack explicitly instead of recursion, tune leaf capacity and `barnesHutMaxDepth` for the measured graph sizes (a shallower tree with a larger bucket is often faster than a deep one), inline the theta test and the distance computation into the traversal, and keep the body-to-cell mapping so an incremental rebuild can skip unchanged cells. `src/Octree.ts`. |
-| 4 | Revisit the worker boundary | Positions cross as a transferable `Float64Array` once per step and are copied onto the `Tag` objects, then projected. Copying is no longer the bottleneck at the measured sizes, but if the step count rises the boundary is next: a runner-owned position buffer that the graph does not own, or shared memory behind `SharedArrayBuffer` when the page is cross-origin isolated. `SharedArrayBuffer` remains out of reach for the `file://` demo, so it stays a feature-detected upgrade. `src/PhysicsRunner.ts`, `src/PhysicsProtocol.ts`. |
-| 5 | Rendering or physics beyond canvas 2D | If the real canvas becomes the wall, the next step is `OffscreenCanvas`/WebGL (instanced points and lines) rather than further batch tuning. If force computation becomes the wall, the options are a tuned native/WASM kernel, a pool of workers splitting the octree, or GPU forces. Both are separate designs with different failure modes (context loss, shader precision, determinism across devices) and neither is committed. |
+| 2 | Make the octree incrementally cheaper, not asymptotically better | The remaining cost is the per-body traversal and the per-step tree rebuild. Candidate work, each measurable by itself: reuse the traversal stack explicitly instead of recursion, tune leaf capacity and `barnesHutMaxDepth` for the measured graph sizes (a shallower tree with a larger bucket is often faster than a deep one), inline the theta test and the distance computation into the traversal, and keep the body-to-cell mapping so an incremental rebuild can skip unchanged cells. `src/Octree.ts`. |
+| 3 | Revisit the worker boundary | Positions cross as a transferable `Float64Array` once per step and are copied onto the `Tag` objects, then projected. Copying is no longer the bottleneck at the measured sizes, but if the step count rises the boundary is next: a runner-owned position buffer that the graph does not own, or shared memory behind `SharedArrayBuffer` when the page is cross-origin isolated. `SharedArrayBuffer` remains out of reach for the `file://` demo, so it stays a feature-detected upgrade. `src/PhysicsRunner.ts`, `src/PhysicsProtocol.ts`. |
+| 4 | Rendering or physics beyond canvas 2D | If the real canvas becomes the wall, the next step is `OffscreenCanvas`/WebGL (instanced points and lines) rather than further batch tuning. If force computation becomes the wall, the options are a tuned native/WASM kernel, a pool of workers splitting the octree, or GPU forces. Both are separate designs with different failure modes (context loss, shader precision, determinism across devices) and neither is committed. |
 
 ### Invariants any change must keep
 
