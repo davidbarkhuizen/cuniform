@@ -1,6 +1,6 @@
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { Graph } from "./Graph";
-import { point3 } from "./Point3D";
+import { buildMirrorGraph } from "./MirrorGraph";
 import { Tag } from "./Tag";
 
 /**
@@ -121,27 +121,15 @@ export class PhysicsWorkerEngine {
 
     private build(request: InitRequest): void {
 
-        const graph = new Graph();
+        // The shared mirror builder, so the physics and render mirrors cannot
+        // drift. Physics never reads a label, so they are generated here.
         const count = Math.floor(request.positions.length / 3);
+        const labels: string[] = new Array(count);
 
-        for (let i = 0; i < count; i++) {
-            graph.addNode(new Tag(
-                point3(
-                    request.positions[3 * i],
-                    request.positions[3 * i + 1],
-                    request.positions[3 * i + 2]
-                ),
-                `n${i}`
-            ));
-        }
+        for (let i = 0; i < count; i++)
+            labels[i] = `n${i}`;
 
-        for (let e = 0; e + 1 < request.edges.length; e += 2) {
-            const a = request.edges[e];
-            const b = request.edges[e + 1];
-
-            if (a >= 0 && b >= 0)
-                graph.addEdge(graph.vertices[a], graph.vertices[b]);
-        }
+        const graph = buildMirrorGraph(labels, request.edges, request.positions);
 
         this.graph = graph;
         this.solver = new ForceDirectedGraph(graph);

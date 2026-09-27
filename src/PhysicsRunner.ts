@@ -1,5 +1,6 @@
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { Graph } from "./Graph";
+import { readPositions, writePositions } from "./MirrorGraph";
 import { initRequest, PositionsResponse, StepRequest, WorkerRequest } from "./PhysicsProtocol";
 import { Tag } from "./Tag";
 
@@ -44,28 +45,6 @@ function pinnedTagOf(graph: Graph, index: number): Tag | null {
         return null;
 
     return graph.vertices[index];
-}
-
-/** Read the graph's tag positions into `out`, length 3N. */
-function readPositions(graph: Graph, out: Float64Array): void {
-    const vertices = graph.vertices;
-
-    for (let i = 0; i < vertices.length; i++) {
-        out[3 * i] = vertices[i].position.x;
-        out[3 * i + 1] = vertices[i].position.y;
-        out[3 * i + 2] = vertices[i].position.z;
-    }
-}
-
-/** Write flat positions onto the graph's tags. */
-function writePositions(graph: Graph, positions: Float64Array): void {
-    const vertices = graph.vertices;
-
-    for (let i = 0; i < vertices.length; i++) {
-        vertices[i].position.x = positions[3 * i];
-        vertices[i].position.y = positions[3 * i + 1];
-        vertices[i].position.z = positions[3 * i + 2];
-    }
 }
 
 /** The default: a Worker when the browser has one, else null (in-process). */
