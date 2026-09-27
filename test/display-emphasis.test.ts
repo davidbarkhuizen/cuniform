@@ -7,7 +7,22 @@ import { K } from "../src/core/K";
 import { defaultCameraView } from "../src/view/Projector";
 import { render } from "../src/render/Renderer";
 import { Tag } from "../src/graph/Tag";
-import { FakeContext2D, poisonSelection, withRendererSettings } from "./support/dom";
+import { DragController } from "../src/ui/DragController";
+import {
+    EMPHASIS_CONSOLE_EVENTS,
+    countSteps,
+    FakeContext2D,
+    FakeElement,
+    FakeRenderBackend,
+    emphasisConsoleElement,
+    poisonSelection,
+    settleFrames,
+    settledGraph,
+    withRendererSettings,
+    withUIController,
+} from "./support/dom";
+import { pointerEvent } from "./support/dom";
+import { sparseGraph } from "./support/physics";
 
 /**
  * The display emphasis: one frame configuration per graph element. The vocabulary
@@ -389,4 +404,210 @@ test("the renderer still never scans the graph in either emphasis", () => {
 
         assert.doesNotThrow(() => render(context, graph, defaultCameraView(), graph.vertices[0], emphasis));
     }
+});
+
+// ------------------------------------------------------- the panel control
+
+/** The `data-emphasis` button the fake console owns. */
+function emphasisButton(ui: { elements: Record<string, FakeElement> }, name: string): FakeElement {
+    const button = ui.elements.emphasisConsole.children.find(child => child.getAttribute('data-emphasis') === name);
+    assert.ok(button, `the console needs a ${name} button`);
+    return button;
+}
+
+/**
+ * Press a console button: the fake DOM does not bubble, so the delegated listener
+ * is invoked where the browser would invoke it, on the container, with the button
+ * as the target.
+ */
+function press(ui: { elements: Record<string, FakeElement> }, name: string): void {
+    const button = emphasisButton(ui, name);
+    ui.elements.emphasisConsole.dispatch('click', { target: button, detail: 1 });
+}
+
+/** Read `aria-pressed` off both buttons, as the browser would. */
+function pressed(ui: { elements: Record<string, FakeElement> }): Record<string, string | null> {
+    return {
+        nodes: emphasisButton(ui, 'nodes').getAttribute('aria-pressed'),
+        edges: emphasisButton(ui, 'edges').getAttribute('aria-pressed'),
+    };
+}
+
+test("initialize starts on the default emphasis with the matching button pressed", () => {
+    withUIController(ui => {
+        assert.equal(ui.controller.state.emphasis, Emphasis.nodes, "a run starts at nodes");
+        assert.deepEqual(pressed(ui), { nodes: 'true', edges: 'false' });
+    });
+});
+
+test("pressing edges switches the frame, flips both buttons and requests one redraw", () => {
+    const backend = new FakeRenderBackend();
+
+    withUIController(ui => {
+        ui.controller.updateSelectionInfo();
+
+        ui.dom.runAnimationFrames(0);
+        const before = backend.draws.length;
+
+        press(ui, 'edges');
+
+        assert.equal(ui.controller.state.emphasis, Emphasis.edges, "the click sets the frame's emphasis");
+        assert.deepEqual(pressed(ui), { nodes: 'false', edges: 'true' }, "the pair mirrors the choice");
+        assert.equal(backend.draws[before - 1].emphasis, Emphasis.nodes, "the frame before the toggle");
+
+        ui.dom.runAnimationFrames(0);
+
+        assert.equal(backend.draws.length, before + 1, "the toggle must request exactly one redraw");
+        assert.equal(backend.draws[before].emphasis, Emphasis.edges, "the next frame draws the new emphasis");
+    }, { backend, graph: settledGraph() });
+});
+
+test("pressing the pressed button again changes nothing", () => {
+    const backend = new FakeRenderBackend();
+
+    withUIController(ui => {
+        ui.dom.runAnimationFrames(0);
+        const before = backend.draws.length;
+
+        press(ui, 'nodes');
+
+        assert.equal(ui.controller.state.emphasis, Emphasis.nodes);
+        assert.deepEqual(pressed(ui), { nodes: 'true', edges: 'false' });
+        assert.equal(backend.draws.length, before, "a no-op press must not request a redraw");
+    }, { backend, graph: settledGraph() });
+});
+
+test("a click on the section's own padding changes nothing", () => {
+    withUIController(ui => {
+        ui.elements.emphasisConsole.dispatch('click', { target: ui.elements.emphasisConsole, detail: 1 });
+
+        assert.equal(ui.controller.state.emphasis, Emphasis.nodes, "only a button may switch the emphasis");
+        assert.deepEqual(pressed(ui), { nodes: 'true', edges: 'false' });
+    });
+});
+
+test("terminate detaches the emphasis listener", () => {
+    withUIController(ui => {
+        assert.equal(
+            ui.elements.emphasisConsole.listenerCount('click'),
+            1,
+            "one delegated listener while the controller lives"
+        );
+
+        ui.controller.terminate();
+
+        assert.equal(ui.elements.emphasisConsole.listenerCount('click'), 0, "terminate must not leave it behind");
+    });
+});
+
+test("a graph swap preserves the emphasis and resets the pressed button to the default", () => {
+    const backend = new FakeRenderBackend();
+
+    withUIController(ui => {
+        ui.controller.setEmphasis(Emphasis.edges);
+        ui.controller.state.reset();
+
+        assert.equal(ui.controller.state.emphasis, Emphasis.edges, "state.reset() must not clear the display choice");
+
+        ui.controller.loadGraph(sparseGraph(12, 3));
+
+        assert.equal(
+            ui.controller.state.emphasis,
+            Emphasis.edges,
+            "a graph swap must not lose the emphasis"
+        );
+
+        ui.dom.runAnimationFrames(0);
+
+        assert.equal(backend.draws[backend.draws.length - 1].emphasis, Emphasis.edges);
+
+        // A second run is a fresh demo, not a restored preference.
+        ui.controller.initialize();
+
+        assert.equal(ui.controller.state.emphasis, Emphasis.nodes, "a run starts at the shipped default");
+        assert.deepEqual(pressed(ui), { nodes: 'true', edges: 'false' });
+    }, { backend, graph: settledGraph() });
+});
+
+test("the emphasis console carries one delegated click listener", () => {
+    withUIController(ui => {
+        assert.deepEqual(EMPHASIS_CONSOLE_EVENTS, ['click'], "a click is the whole control's protocol");
+
+        for (const type of EMPHASIS_CONSOLE_EVENTS)
+            assert.equal(ui.elements.emphasisConsole.listenerCount(type), 1, `${type} listener`);
+    });
+});
+
+test("a press on an emphasis button never starts a panel drag", () => {
+    // The panel is a drag surface. Real buttons are what make the control safe
+    // without a stopPropagation guard, so the exclusion is asserted rather than
+    // assumed.
+    const panel = new FakeElement('DIV');
+    const console = emphasisConsoleElement();
+    panel.appendChild(console);
+
+    const drag = new DragController(panel as unknown as HTMLElement);
+
+    const button = emphasisButton({ elements: { emphasisConsole: console } }, 'edges');
+
+    panel.dispatch('pointerdown', pointerEvent({
+        target: button,
+        button: 0,
+        pointerType: 'mouse',
+        clientX: 40,
+        clientY: 40,
+    }));
+
+    assert.equal(drag.dragX, 0, "the panel must not move");
+    assert.equal(drag.dragY, 0, "the panel must not move");
+});
+
+test("the selection highlight composes with, and is never replaced by, the emphasis", () => {
+    const { graph, nodes } = DESCENDING();
+
+    for (const emphasis of [Emphasis.nodes, Emphasis.edges]) {
+        const context = draw(graph, emphasis);
+        context.fills.length = 0;
+
+        nodes[0].isSelected = true;
+
+        const selected = draw(graph, emphasis);
+
+        assert.equal(selected.fills[0], K.colours.nodeSelected, `emphasis ${emphasis} must keep the selection fill`);
+        assert.ok(
+            selected.strokes.includes(K.colours.nodeSelected),
+            `emphasis ${emphasis} must keep the selection ring`
+        );
+    }
+});
+
+test("toggling the emphasis neither wakes the layout nor moves the camera", () => {
+    // The toggle is a legibility control, not a data operation: it redraws, and a
+    // settled layout must stay settled.
+    const backend = new FakeRenderBackend();
+
+    withUIController(ui => {
+        const steps = countSteps(ui.controller);
+        const camera = { ...ui.controller.state.camera, orientation: [...ui.controller.state.camera.orientation] };
+
+        const timestamp = settleFrames(ui);
+        const settledSteps = steps();
+
+        press(ui, 'edges');
+
+        assert.equal(steps(), settledSteps, "a toggle must run no physics step");
+
+        ui.dom.runAnimationFrames(timestamp);
+
+        assert.equal(backend.draws[backend.draws.length - 1].emphasis, Emphasis.edges, "the frame still redraws");
+        assert.deepEqual(
+            {
+                distance: ui.controller.state.camera.distance,
+                target: { ...ui.controller.state.camera.target },
+                orientation: [...ui.controller.state.camera.orientation],
+            },
+            { distance: camera.distance, target: { ...camera.target }, orientation: camera.orientation },
+            "a toggle must not move the camera"
+        );
+    }, { backend, graph: settledGraph() });
 });

@@ -144,6 +144,26 @@ export class FakeElement {
         return this.children.length > 0 ? this.children[0] : null;
     }
 
+    /**
+     * The one selector the controller needs from a real element: the emphasis
+     * buttons the console owns. It matches an attribute presence or an exact
+     * `[name="value"]`, which covers `[data-emphasis]`.
+     */
+    querySelectorAll(selector: string): FakeElement[] {
+
+        const match = /^\[([\w-]+)(?:="([^"]*)")?\]$/.exec(selector.trim());
+
+        if (match === null)
+            return [];
+
+        const [, name, value] = match;
+
+        return this.children.filter(child => {
+            const attribute = child.getAttribute(name);
+            return value === undefined ? attribute !== null : attribute === value;
+        });
+    }
+
     appendChild(child: FakeElement): FakeElement {
         child.parentElement = this;
         this.children.push(child);
@@ -603,6 +623,21 @@ export function installFakeDom(
 
 // The element map the demo entrypoint expects; IDs in `omit` are left out
 // (`delete` on the index signature is rejected by strict TS).
+/** The emphasis console the panel ships: two real buttons, `nodes` pressed. */
+export function emphasisConsoleElement(): FakeElement {
+    const console = new FakeElement('DIV');
+    console.id = 'emphasisConsole';
+
+    for (const [name, pressed] of [['nodes', 'true'], ['edges', 'false']] as const) {
+        const button = new FakeElement('BUTTON');
+        button.setAttribute('data-emphasis', name);
+        button.setAttribute('aria-pressed', pressed);
+        console.appendChild(button);
+    }
+
+    return console;
+}
+
 export function demoElements(omit: string[] = []): Record<string, FakeElement> {
     const all: Record<string, FakeElement> = {
         body: new FakeElement('BODY'),
@@ -615,6 +650,7 @@ export function demoElements(omit: string[] = []): Record<string, FakeElement> {
         selectedNodeInfoList: new FakeElement('UL'),
         currentGraphLabel: new FakeElement('DIV'),
         cameraConsole: new FakeElement('DIV'),
+        emphasisConsole: emphasisConsoleElement(),
     };
 
     const out: Record<string, FakeElement> = {};
@@ -669,7 +705,8 @@ export function newUIController(
         elements.cameraConsole as unknown as HTMLElement,
         suppliedGraph ? () => suppliedGraph : undefined,
         opts.backend ?? null,
-        opts.workerFactory
+        opts.workerFactory,
+        (elements.emphasisConsole ?? null) as unknown as HTMLElement | null
     );
 
     if (opts.width !== undefined)
@@ -710,6 +747,9 @@ export const CANVAS_EVENTS = [
 
 /** The camera console's own delegated listeners, one per event type. */
 export const CAMERA_CONSOLE_EVENTS = ['pointerdown', 'keydown', 'keyup', 'click'];
+
+/** The emphasis console's one delegated listener. */
+export const EMPHASIS_CONSOLE_EVENTS = ['click'];
 
 // Window listeners that end a held console button anywhere; `blur` covers the
 // pointerup the browser never delivers when the window loses focus.
