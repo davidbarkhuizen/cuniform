@@ -18,6 +18,7 @@ import { Graph } from "../src/Graph";
 import { GraphFactory } from "../src/GraphFactory";
 import { K, QualitySetting } from "../src/K";
 import { radius } from "../src/Kernel";
+import { projectGraph } from "../src/Projection";
 import { CameraView, Projector } from "../src/Projector";
 import { openingAngleFor } from "../src/Quality";
 import { render } from "../src/Renderer";
@@ -252,13 +253,7 @@ function benchProjection(): void {
     const graph = sparseGraph(4096, 7);
     const projector = Projector.forCanvas(CANVAS_W, CANVAS_H);
 
-    const ms = timePer(() => {
-        for (const node of graph.vertices) {
-            const projected = projector.project(node.position);
-            node.translatedPosition = projector.viewport.toCanvas(projected.screen);
-            node.depth = projected.depth;
-        }
-    }, 20);
+    const ms = timePer(() => projectGraph(graph, projector), 20);
 
     row("4096 nodes", `${ms.toFixed(2)} ms`);
 }

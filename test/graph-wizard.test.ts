@@ -9,6 +9,7 @@ import {
     FakeElement,
     demoElements,
     el,
+    generateRandom,
     keyEvent,
     withFakeDom,
 } from "./support/dom";
@@ -252,9 +253,7 @@ test("generate calls onComplete once with the parsed numbers and closes", () => 
     withWizard(({ wizard, completed, counts }) => {
         wizard.open("random");
 
-        wizard.orderInput.value = "9";
-        wizard.branchingInput.value = "4";
-        el(wizard.generateButton).dispatch("click");
+        generateRandom(wizard, 9, 4);
 
         assert.deepEqual(completed, [{ kind: "random", order: 9, branching: 4 }]);
         assert.equal(wizard.isOpen, false);

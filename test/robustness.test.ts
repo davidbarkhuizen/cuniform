@@ -31,11 +31,9 @@ test("the minimum interaction radius is a positive, finite guard", () => {
 
 test("repulsion magnitude is clamped below the minimum interaction radius", () => {
     const minR = K.physics.minimumInteractionRadius;
-    const k = K.physics.scalarForceConstant;
-    const q = K.physics.nodeCharge;
     const exponent = K.physics.repulsionExponent;
 
-    const bound = (k * q * q) / Math.pow(minR, exponent);
+    const bound = REPULSION_CONSTANT / Math.pow(minR, exponent);
 
     for (const r of [0.001, 0.5, 0.857, minR - 0.001]) {
         const { a, fdg } = pairAt(r);

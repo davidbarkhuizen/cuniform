@@ -2,6 +2,7 @@
 // physics solver is DOM-free and needs none of this.
 
 import { Graph } from "../../src/Graph";
+import { GraphWizard } from "../../src/GraphWizard";
 import { K } from "../../src/K";
 import { CameraView } from "../../src/Projector";
 import { RenderRequest, RenderResponse, RenderWorkerEngine } from "../../src/RenderProtocol";
@@ -663,6 +664,23 @@ export function newUIController(
 /** The fake element behind an HTMLElement a component hands back. */
 export function el(element: HTMLElement): FakeElement {
     return element as unknown as FakeElement;
+}
+
+/** Fill the random form and press generate, as a user choosing that spec would. */
+export function generateRandom(wizard: GraphWizard, order: number, branching: number): void {
+    wizard.orderInput.value = String(order);
+    wizard.branchingInput.value = String(branching);
+    el(wizard.generateButton).dispatch("click");
+}
+
+/**
+ * Replace `graph.selectedVertex` with a thrower, so a regression that scans the
+ * graph for the selection fails loudly. `message` names the offending caller.
+ */
+export function poisonSelection(graph: Graph, message: string): void {
+    graph.selectedVertex = () => {
+        throw new Error(message);
+    };
 }
 
 /** Every listener initialize() attaches to the canvas. */

@@ -10,6 +10,25 @@ import { Tag } from "../src/Tag";
 import { catalogEntry } from "./support/catalog";
 import { newGraph } from "./support/physics";
 
+/**
+ * Asserts `graph` keeps the two invariants every generated graph must: no
+ * self-loop, and no edge pair repeated. `context` prefixes each failure.
+ */
+function assertNoSelfLoopsOrDuplicates(graph: Graph, context: string): void {
+    const pairs = new Set<string>();
+
+    for (const edge of graph.edges) {
+        assert.notEqual(edge.v1, edge.v2, `${context}self-loop`);
+
+        const i = graph.vertices.indexOf(edge.v1);
+        const j = graph.vertices.indexOf(edge.v2);
+        const key = i < j ? `${i}:${j}` : `${j}:${i}`;
+
+        assert.ok(!pairs.has(key), `${context}duplicate edge ${key}`);
+        pairs.add(key);
+    }
+}
+
 test("generateGraph creates exactly `order` vertices", () => {
     for (const order of [1, 2, 10, 50]) {
         assert.equal(newGraph(order, 2).vertices.length, order);
@@ -86,6 +105,8 @@ test("generated graphs have no self-loops and no duplicate edges", () => {
             assert.notEqual(e.v1, e.v2, `trial ${trial}: self-loop`);
         }
 
+        // A second, independent check by tag identity rather than the helper's
+        // index-key scan: a duplicate the index space misses still fails here.
         for (let i = 0; i < graph.edges.length; i++) {
             for (let j = i + 1; j < graph.edges.length; j++) {
                 const a = graph.edges[i];
@@ -195,23 +216,13 @@ test("a nearly complete graph terminates and keeps every invariant", () => {
     for (const order of [2, 3, 4, 5]) {
         for (let trial = 0; trial < 20; trial++) {
             const graph = newGraph(order, order - 1);
-            const pairs = new Set<string>();
 
             assert.ok(
                 graph.edges.length <= order * (order - 1),
                 `order ${order} trial ${trial}: too many edges`
             );
 
-            for (const edge of graph.edges) {
-                assert.notEqual(edge.v1, edge.v2, `order ${order} trial ${trial}: self-loop`);
-
-                const i = graph.vertices.indexOf(edge.v1);
-                const j = graph.vertices.indexOf(edge.v2);
-                const key = i < j ? `${i}:${j}` : `${j}:${i}`;
-
-                assert.ok(!pairs.has(key), `order ${order} trial ${trial}: duplicate edge ${key}`);
-                pairs.add(key);
-            }
+            assertNoSelfLoopsOrDuplicates(graph, `order ${order} trial ${trial}: `);
         }
     }
 });
@@ -227,7 +238,6 @@ test("a larger graph still respects the edge bound and has no duplicates", () =>
     const order = 500;
     const branching = 3;
     const graph = newGraph(order, branching);
-    const pairs = new Set<string>();
 
     assert.equal(graph.vertices.length, order);
     assert.ok(
@@ -235,16 +245,7 @@ test("a larger graph still respects the edge bound and has no duplicates", () =>
         `${graph.edges.length} edges exceeds ${order * branching}`
     );
 
-    for (const edge of graph.edges) {
-        assert.notEqual(edge.v1, edge.v2, "self-loop");
-
-        const i = graph.vertices.indexOf(edge.v1);
-        const j = graph.vertices.indexOf(edge.v2);
-        const key = i < j ? `${i}:${j}` : `${j}:${i}`;
-
-        assert.ok(!pairs.has(key), `duplicate edge ${key}`);
-        pairs.add(key);
-    }
+    assertNoSelfLoopsOrDuplicates(graph, "");
 });
 
 // -------------------------------------------------------------- build(spec)

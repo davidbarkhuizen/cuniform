@@ -4,10 +4,13 @@ import assert from "node:assert/strict";
 import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
-import { mouseEvent, withUIController } from "./support/dom";
+import { mouseEvent, poisonSelection, withUIController } from "./support/dom";
 
 const NODE_DEFAULT = K.colours.nodeDefault;
 const NODE_SELECTED = K.colours.nodeSelected;
+
+/** This suite's poison message: the scan would be by the controller's frame. */
+const NO_RESCAN = "the controller must not rescan for the selection";
 
 /**
  * The controller caches the selection so neither the pin decision nor the frame
@@ -28,12 +31,6 @@ function twoNodes(): { graph: Graph; a: Tag; b: Tag } {
     return { graph, a, b };
 }
 
-function throwingSelection(graph: Graph): void {
-    graph.selectedVertex = () => {
-        throw new Error("the controller must not rescan for the selection");
-    };
-}
-
 test("the cached selection drives the frame without rescanning the graph", () => {
     const { graph, a } = twoNodes();
 
@@ -44,7 +41,7 @@ test("the cached selection drives the frame without rescanning the graph", () =>
 
         assert.equal(a.isSelected, true, "the click must select the origin node");
 
-        throwingSelection(graph);
+        poisonSelection(graph, NO_RESCAN);
 
         const before = ui.canvas.context.fills.length;
 
@@ -69,7 +66,7 @@ test("clearSelection refreshes the cache to null", () => {
         ui.controller.clearSelection();
         assert.equal(graph.selectedVertex(), null);
 
-        throwingSelection(graph);
+        poisonSelection(graph, NO_RESCAN);
 
         const before = ui.canvas.context.fills.length;
 
@@ -94,7 +91,7 @@ test("loadGraph refreshes the cache to null for the new graph", () => {
         const replacement = twoNodes();
         ui.controller.loadGraph(replacement.graph);
 
-        throwingSelection(replacement.graph);
+        poisonSelection(replacement.graph, NO_RESCAN);
 
         const before = ui.canvas.context.fills.length;
 
@@ -128,7 +125,7 @@ test("dragging pins the cached selection", () => {
             realStep(pinnedIndex, x, y, z);
         };
 
-        throwingSelection(graph);
+        poisonSelection(graph, NO_RESCAN);
 
         assert.doesNotThrow(() => ui.controller.onTimerTick());
 

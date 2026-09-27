@@ -9,6 +9,7 @@ import { catalogEntry } from "./support/catalog";
 import {
     CANVAS_EVENTS,
     el,
+    generateRandom,
     keyEvent,
     mouseEvent,
     withUIController,
@@ -83,9 +84,7 @@ test("a chooser after a choice is dismissible and seeded from that choice", () =
         controller.onReset();
 
         const first = controller.wizard!;
-        first.orderInput.value = "7";
-        first.branchingInput.value = "3";
-        el(first.generateButton).dispatch("click");
+        generateRandom(first, 7, 3);
 
         controller.onReset();
 
@@ -115,9 +114,7 @@ test("completing with a random spec swaps the graph and re-registers nothing", (
         controller.onReset();
 
         const wizard = controller.wizard!;
-        wizard.orderInput.value = "6";
-        wizard.branchingInput.value = "1";
-        el(wizard.generateButton).dispatch("click");
+        generateRandom(wizard, 6, 1);
 
         assert.equal(controller.solver.graph.vertices.length, 6);
         assert.ok(controller.wizard === null, "the chooser closes on completion");
@@ -175,13 +172,11 @@ test("the panel's graph line names the loaded graph", () => {
 
         controller.onReset();
         const wizard = controller.wizard!;
-        wizard.orderInput.value = "5";
-        wizard.branchingInput.value = "2";
-        el(wizard.generateButton).dispatch("click");
+        generateRandom(wizard, 5, 2);
 
         assert.equal(
             elements.currentGraphLabel.innerHTML,
-            "random graph: 5 nodes, up to 2 new edges per node"
+            specLabel({ kind: "random", order: 5, branching: 2 })
         );
     });
 });
@@ -193,9 +188,7 @@ test("cancelling leaves the graph, timer, listeners and camera untouched", () =>
         // A first choice makes the next chooser dismissible.
         controller.onReset();
         const first = controller.wizard!;
-        first.orderInput.value = "6";
-        first.branchingInput.value = "2";
-        el(first.generateButton).dispatch("click");
+        generateRandom(first, 6, 2);
 
         controller.state.camera.orbit(30, 10);
 
@@ -256,9 +249,7 @@ test("initialize with a chosen spec rebuilds that spec", () => {
         controller.onReset();
 
         const wizard = controller.wizard!;
-        wizard.orderInput.value = "6";
-        wizard.branchingInput.value = "2";
-        el(wizard.generateButton).dispatch("click");
+        generateRandom(wizard, 6, 2);
 
         const chosen = controller.spec;
         assert.deepEqual(chosen, { kind: "random", order: 6, branching: 2 });
