@@ -4,6 +4,43 @@
  * the graph for space.
  */
 
+/*
+ * The chrome palette, in one place: repeated literals below reference these
+ * tokens, so a retune is one edit rather than nine.
+ *
+ * Two of them are also canvas knowledge. --fg is K.colours.label and
+ * --highlight is K.colours.nodeSelected, which is what makes the panel's
+ * selected-node text and the selected node itself read as one highlight.
+ * test/layout.test.ts asserts that pair stays in step.
+ */
+:root
+{
+	--accent		: #22d3ee;
+	--accent-hover		: #7dd3fc;
+	--accent-soft		: rgba(34, 211, 238, 0.35);
+	--accent-line		: rgba(34, 211, 238, 0.25);
+	--accent-deep		: #0f766e;
+	--accent-glow		: rgba(34, 211, 238, 0.7);
+	--accent-grip		: rgba(34, 211, 238, 0.5);
+
+	--fg			: #e8f4ff;
+	--fg-bright		: #ffffff;
+	--highlight		: #ffd400;
+	--muted			: #9fb3c8;
+	--success		: #a7f3d0;
+	--danger		: #fca5a5;
+
+	--canvas-bg		: #04070e;
+	--ink			: #04121c;
+
+	--panel-bg		: rgba(9, 15, 28, 0.94);
+	--panel-bg-solid	: rgba(9, 15, 28, 0.98);
+	--control-bg		: #1f2a3a;
+	--control-bg-danger	: #3a2330;
+
+	--font-mono		: "Courier", monospace;
+}
+
 html,
 body
 {
@@ -15,8 +52,8 @@ body
 
 .documentBody
 {
-	font-family		: "Courier", monospace;
-	background-color	: #04070e;
+	font-family		: var(--font-mono);
+	background-color	: var(--canvas-bg);
 }
 
 .canvas-container
@@ -33,7 +70,7 @@ body
 	display			: block;
 	width			: 100%;
 	height			: 100%;
-	background-color	: #04070e;
+	background-color	: var(--canvas-bg);
 }
 
 /* ---------------------------------------------------- floating overlay -- */
@@ -52,14 +89,14 @@ body
 
 	padding			: 16px 18px;
 
-	font-family		: "Courier", monospace;
-	color			: #e8f4ff;
+	font-family		: var(--font-mono);
+	color			: var(--fg);
 
-	background-color	: rgba(9, 15, 28, 0.94);
-	border			: 2px solid #22d3ee;
+	background-color	: var(--panel-bg);
+	border			: 2px solid var(--accent);
 	border-radius		: 10px;
 
-	box-shadow		: 0 0 0 1px rgba(34, 211, 238, 0.25),
+	box-shadow		: 0 0 0 1px var(--accent-line),
 				  0 14px 34px rgba(0, 0, 0, 0.8);
 
 	cursor			: move;
@@ -86,7 +123,7 @@ body
 	width			: 46px;
 	height			: 4px;
 
-	background-color	: rgba(34, 211, 238, 0.5);
+	background-color	: var(--accent-grip);
 	border-radius		: 999px;
 }
 
@@ -95,7 +132,7 @@ body
 {
 	padding-bottom		: 12px;
 	margin-bottom		: 12px;
-	border-bottom		: 1px solid rgba(34, 211, 238, 0.35);
+	border-bottom		: 1px solid var(--accent-soft);
 }
 
 .mainLabel
@@ -103,8 +140,8 @@ body
 	font-size		: xx-large;
 	font-weight		: bold;
 	letter-spacing		: 0.06em;
-	color			: #ffffff;
-	text-shadow		: 0 0 14px rgba(34, 211, 238, 0.7);
+	color			: var(--fg-bright);
+	text-shadow		: 0 0 14px var(--accent-glow);
 }
 
 /*
@@ -118,7 +155,7 @@ body
 	font-size		: small;
 	line-height		: 1.35;
 
-	color			: #9fb3c8;
+	color			: var(--muted);
 	overflow-wrap		: anywhere;
 }
 
@@ -139,8 +176,8 @@ body
 	text-decoration		: none;
 	font-weight		: bold;
 
-	color			: #04121c;
-	background-color	: #22d3ee;
+	color			: var(--ink);
+	background-color	: var(--accent);
 	border-radius		: 6px;
 
 	/* the panel is a drag handle; its links are not */
@@ -149,7 +186,7 @@ body
 
 .main_menu_option:hover
 {
-	background-color	: #7dd3fc;
+	background-color	: var(--accent-hover);
 }
 
 /* the currently selected node */
@@ -165,7 +202,7 @@ body
 	font-size		: small;
 	text-transform		: uppercase;
 	letter-spacing		: 0.14em;
-	color			: #22d3ee;
+	color			: var(--accent);
 }
 
 #selectedNodeInfoLabel
@@ -175,7 +212,7 @@ body
 
 	font-size		: large;
 	font-weight		: bold;
-	color			: #ffd400;
+	color			: var(--highlight);
 }
 
 #selectedNodeInfoList
@@ -183,7 +220,7 @@ body
 	margin			: 0;
 	padding-left		: 18px;
 
-	color			: #a7f3d0;
+	color			: var(--success);
 }
 
 /* the camera console: three rows of axis rotate buttons */
@@ -191,7 +228,7 @@ body
 {
 	padding-top		: 12px;
 	margin-top		: 12px;
-	border-top		: 1px solid rgba(34, 211, 238, 0.35);
+	border-top		: 1px solid var(--accent-soft);
 
 	/* the panel itself is a drag handle; the console is not */
 	cursor			: default;
@@ -212,7 +249,7 @@ body
 	font-weight		: bold;
 	text-transform		: uppercase;
 
-	color			: #22d3ee;
+	color			: var(--accent);
 }
 
 .cameraButton
@@ -224,8 +261,8 @@ body
 	font-weight		: bold;
 	line-height		: 1;
 
-	color			: #04121c;
-	background-color	: #22d3ee;
+	color			: var(--ink);
+	background-color	: var(--accent);
 	border			: none;
 	border-radius		: 6px;
 
@@ -234,12 +271,12 @@ body
 
 .cameraButton:hover
 {
-	background-color	: #7dd3fc;
+	background-color	: var(--accent-hover);
 }
 
 .cameraButton:focus-visible
 {
-	outline			: 2px solid #ffffff;
+	outline			: 2px solid var(--fg-bright);
 	outline-offset		: 2px;
 }
 
@@ -274,14 +311,14 @@ body
 
 	padding			: 18px 20px;
 
-	font-family		: "Courier", monospace;
-	color			: #e8f4ff;
+	font-family		: var(--font-mono);
+	color			: var(--fg);
 
-	background-color	: rgba(9, 15, 28, 0.98);
-	border			: 2px solid #22d3ee;
+	background-color	: var(--panel-bg-solid);
+	border			: 2px solid var(--accent);
 	border-radius		: 10px;
 
-	box-shadow		: 0 0 0 1px rgba(34, 211, 238, 0.25),
+	box-shadow		: 0 0 0 1px var(--accent-line),
 				  0 20px 48px rgba(0, 0, 0, 0.85);
 }
 
@@ -291,7 +328,7 @@ body
 
 	font-size		: large;
 	font-weight		: bold;
-	color			: #ffffff;
+	color			: var(--fg-bright);
 }
 
 /* the three steps are toggled by inline display, not stacked */
@@ -311,8 +348,8 @@ body
 	font-size		: large;
 	font-weight		: bold;
 
-	color			: #04121c;
-	background-color	: #22d3ee;
+	color			: var(--ink);
+	background-color	: var(--accent);
 	border			: none;
 	border-radius		: 8px;
 
@@ -321,7 +358,7 @@ body
 
 .wizardChoice:hover
 {
-	background-color	: #7dd3fc;
+	background-color	: var(--accent-hover);
 }
 
 .wizardField
@@ -339,9 +376,9 @@ body
 	padding			: 8px 10px;
 
 	font			: inherit;
-	color			: #e8f4ff;
-	background-color	: #04121c;
-	border			: 1px solid #22d3ee;
+	color			: var(--fg);
+	background-color	: var(--ink);
+	border			: 1px solid var(--accent);
 	border-radius		: 6px;
 }
 
@@ -361,8 +398,8 @@ body
 	font			: inherit;
 	line-height		: 1.2;
 
-	color			: #04121c;
-	background-color	: #a7f3d0;
+	color			: var(--ink);
+	background-color	: var(--success);
 	border			: none;
 	border-radius		: 999px;
 
@@ -373,7 +410,7 @@ body
 {
 	display			: block;
 	font-size		: 0.7em;
-	color			: #0f766e;
+	color			: var(--accent-deep);
 }
 
 .wizardFooter
@@ -400,8 +437,8 @@ body
 
 .wizardPrimary
 {
-	color			: #04121c;
-	background-color	: #22d3ee;
+	color			: var(--ink);
+	background-color	: var(--accent);
 }
 
 .wizardPrimary:disabled
@@ -412,14 +449,14 @@ body
 
 .wizardBack
 {
-	color			: #e8f4ff;
-	background-color	: #1f2a3a;
+	color			: var(--fg);
+	background-color	: var(--control-bg);
 }
 
 .wizardCancel
 {
-	color			: #e8f4ff;
-	background-color	: #3a2330;
+	color			: var(--fg);
+	background-color	: var(--control-bg-danger);
 }
 
 .wizardValidation,
@@ -430,15 +467,15 @@ body
 	margin			: 8px 0 0;
 
 	font-size		: small;
-	color			: #9fb3c8;
+	color			: var(--muted);
 }
 
 .wizardValidation
 {
-	color			: #fca5a5;
+	color			: var(--danger);
 }
 
 .wizardHint
 {
-	color			: #ffd400;
+	color			: var(--highlight);
 }
