@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { Emphasis } from "../src/core/Emphasis";
 import { Graph } from "../src/graph/Graph";
 import { K } from "../src/core/K";
 import { CameraView, defaultCameraView } from "../src/view/Projector";
@@ -51,18 +52,24 @@ function withDepths(depths: number[], labels: string[] = []) {
     return { graph, nodes };
 }
 
-function drawWith(graph: Graph, camera: CameraView): FakeContext2D {
+function drawWith(graph: Graph, camera: CameraView, emphasis: Emphasis = Emphasis.nodes): FakeContext2D {
     const context = new FakeContext2D();
     context.canvas = { width: 800, height: 600 };
     // Tests resolve the selection once per fixture draw, as the controller does;
     // production passes its cache and the renderer never scans.
-    render(context, graph, camera, graph.selectedVertex());
+    render(context, graph, camera, graph.selectedVertex(), emphasis);
     return context;
 }
 
 function draw(graph: Graph): FakeContext2D {
     return drawWith(graph, defaultCameraView());
 }
+
+/** The `nodes` preset's edge fade, which every flat-scene golden now carries. */
+const NODES_EDGE_SCALE = K.renderer.emphasis[Emphasis.nodes].edgeAlphaScale;
+
+/** A flat scene draws every edge at the top of the fade scaled by the preset. */
+const EDGE_SCALED_MAX = K.depthCue.maxAlpha * NODES_EDGE_SCALE;
 
 function radiusAt(depth: number): number {
     const graph = new Graph();
@@ -150,24 +157,30 @@ test("render reproduces the pre-refactor draw sequence exactly", () => {
     assert.deepEqual(context.clears, [[0, 0, 800, 600]]);
 
     // At the camera distance the cue is the identity: full opacity, 2D radius.
+    // The nodes preset fades the edges; the selection ring is a node and keeps the
+    // full ramp.
     assert.deepEqual(context.fillRadii, [NODE_RADIUS, NODE_RADIUS, NODE_RADIUS, NODE_RADIUS]);
-    assert.ok(
-        context.strokeAlphas.every(a => a === K.depthCue.maxAlpha),
-        `golden stroke alphas were ${context.strokeAlphas}`
+    assert.deepEqual(
+        context.strokeAlphas,
+        [EDGE_SCALED_MAX, EDGE_SCALED_MAX, EDGE_SCALED_MAX, K.depthCue.maxAlpha],
+        "the three edges fade; the ring does not"
     );
+    assert.deepEqual(context.strokeWidths, [1, 1, 1, 1], "edges and the ring share the base width");
     assert.ok(
         context.fillAlphas.every(a => a === K.depthCue.maxAlpha),
         `golden fill alphas were ${context.fillAlphas}`
     );
 });
 
-test("render takes the context, the graph, the camera and the selection, and no label-spacing parameter", () => {
+test("render takes the context, the graph, the camera, the selection and the emphasis", () => {
     // Regression for 5.4: the unused label-spacing parameter was removed;
     // spacing lives in K.label and the camera keeps cull/focal in step. The
-    // selection is now the caller's argument, so the renderer never scans.
+    // selection is now the caller's argument, so the renderer never scans; the
+    // emphasis is the frame's display configuration and is never defaulted, so a
+    // caller must state which one it drew.
     const { graph } = build();
 
-    assert.equal(render.length, 4);
+    assert.equal(render.length, 5);
     assert.equal(K.label.horizontalSpacing, 5);
     assert.equal(K.label.verticalSpacing, 5);
     assert.doesNotThrow(() => draw(graph));
@@ -185,7 +198,7 @@ test("render never scans the graph for the selection", () => {
     context.canvas = { width: 800, height: 600 };
 
     assert.doesNotThrow(() =>
-        render(context, graph, defaultCameraView(), b)
+        render(context, graph, defaultCameraView(), b, Emphasis.nodes)
     );
 
     assert.deepEqual(context.fills, [NODE_DEFAULT, NODE_SELECTED, NODE_DEFAULT, NODE_DEFAULT]);
@@ -200,9 +213,12 @@ test("the painter's algorithm draws farthest-first across edges and nodes", () =
 
     const context = draw(graph);
 
+    // The emphasis owns the class order: the mesh first, the nodes over it. Within
+    // a class the painter order is still (depth descending, insertion ascending),
+    // which the labels show.
     assert.deepEqual(
         context.ops.map(op => (op.kind === "text" ? `text:${op.text}` : op.kind)),
-        ["fill", "text:far", "stroke", "fill", "text:near"]
+        ["stroke", "fill", "text:far", "fill", "text:near"]
     );
     assert.deepEqual(context.textLabels, ["far", "near"]);
 });
@@ -264,9 +280,15 @@ test("alpha ramps from maxAlpha at the near end to minAlpha at the far end", () 
     // Painter order is farthest-first, so the far node fills first.
     assert.deepEqual(context.fillAlphas, [K.depthCue.minAlpha, K.depthCue.maxAlpha]);
 
-    // The edge between them sits at the midpoint of the ramp.
+    // The edge between them sits at the midpoint of the ramp, faded by the nodes
+    // preset's edge scale.
     const mid = (K.depthCue.maxAlpha + K.depthCue.minAlpha) / 2;
-    assertClose(context.strokeAlphas[0], mid, 1e-9, `edge alpha was ${context.strokeAlphas[0]}`);
+    assertClose(
+        context.strokeAlphas[0],
+        mid * NODES_EDGE_SCALE,
+        1e-9,
+        `edge alpha was ${context.strokeAlphas[0]}`
+    );
 });
 
 test("a flat scene draws at full opacity with no fade", () => {
@@ -278,9 +300,11 @@ test("a flat scene draws at full opacity with no fade", () => {
         context.fillAlphas.every(a => a === K.depthCue.maxAlpha),
         `flat fills were ${context.fillAlphas}`
     );
-    assert.ok(
-        context.strokeAlphas.every(a => a === K.depthCue.maxAlpha),
-        `flat strokes were ${context.strokeAlphas}`
+    // Three edges at the scaled top of the ramp; there is no selection here, so no
+    // ring stroke is added.
+    assert.deepEqual(
+        context.strokeAlphas,
+        [EDGE_SCALED_MAX, EDGE_SCALED_MAX, EDGE_SCALED_MAX]
     );
 });
 
@@ -399,7 +423,7 @@ test("a forced batch frame represents every edge and bounds stroke calls", () =>
     assert.equal(context.fills.length, graph.vertices.length, "every node is still filled");
 });
 
-test("batch mode draws every edge before any node", () => {
+test("batch mode draws every edge before any node in the nodes emphasis", () => {
     const { graph } = build();
 
     const context = withRendererSettings({ batchEdgesMinEdges: 0 }, () => draw(graph));
@@ -410,6 +434,25 @@ test("batch mode draws every edge before any node", () => {
 
     assert.ok(firstFill >= 0, "nodes must still be drawn");
     assert.ok(lastStroke < firstFill, `edges must not interleave with nodes, got ${kinds.join(",")}`);
+});
+
+test("batch mode draws every edge after every node in the edges emphasis", () => {
+    // The size-gated batched path is not exempt from the emphasis: a frame that
+    // reversed above batchEdgesMinEdges would be a bug the demo's 11 nodes never
+    // show.
+    const { graph } = build();
+
+    const context = withRendererSettings({ batchEdgesMinEdges: 0 }, () =>
+        drawWith(graph, defaultCameraView(), Emphasis.edges));
+
+    const kinds = context.ops.map(op => op.kind);
+
+    const firstStroke = kinds.indexOf("stroke");
+    const lastFill = kinds.lastIndexOf("fill");
+
+    assert.ok(firstStroke > lastFill, `edges must follow every node, got ${kinds.join(",")}`);
+    assert.equal(context.strokes.length, 1, "one batched stroke for the whole mesh");
+    assert.equal(context.strokeWidths[0], K.renderer.emphasis[Emphasis.edges].edgeWidthPx);
 });
 
 test("batched edges keep the incident highlight", () => {

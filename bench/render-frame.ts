@@ -19,12 +19,14 @@
 //   ?dpr=2           pin one device pixel ratio (default: 1, then 2)
 //   ?frames=300      frames measured per case
 //   ?render=main     force the in-process backend; the default is `worker`
+//   ?emphasis=edges  measure the edge-priority display configuration (default nodes)
 //
 // Physics is never stepped here, so a long task can only be the draw path; the
 // graph is a seeded sparse graph, so a run is reproducible. This is a manual
 // instrument, not part of `npm test` or `npm run bench`.
 
 import { Camera } from "../src/view/Camera";
+import { Emphasis, emphasisFromWire } from "../src/core/Emphasis";
 import { Graph } from "../src/graph/Graph";
 import { RenderMode, RenderRunner, renderModeFromLocation } from "../src/render/RenderRunner";
 import { sparseGraph } from "../test/support/physics";
@@ -42,6 +44,7 @@ interface Params {
     dprs: number[];
     frames: number;
     mode: RenderMode;
+    emphasis: Emphasis;
 }
 
 interface Measurement {
@@ -68,11 +71,15 @@ function queryParams(): Params {
     const dpr = query.get("dpr");
     const frames = query.get("frames");
 
+    // An unknown name falls back to `nodes`, the same decoder the frame uses.
+    const emphasis = query.get("emphasis");
+
     return {
         sizes: n !== null ? [Number(n)] : DEFAULT_SIZES,
         dprs: dpr !== null ? [Number(dpr)] : DEFAULT_DPRS,
         frames: frames !== null ? Number(frames) : DEFAULT_FRAMES,
         mode: renderModeFromLocation(),
+        emphasis: emphasisFromWire(emphasis === "edges" ? Emphasis.edges : Emphasis.nodes),
     };
 }
 
@@ -96,7 +103,8 @@ async function measureCase(
     runner: RenderRunner,
     nodes: number,
     dpr: number,
-    frames: number
+    frames: number,
+    emphasis: Emphasis
 ): Promise<Measurement> {
 
     // The backend owns the backing store and the device transform; the harness
@@ -149,7 +157,7 @@ async function measureCase(
 
         const start = performance.now();
 
-        runner.draw(graph, camera, null, CANVAS_W, CANVAS_H);
+        runner.draw(graph, camera, null, CANVAS_W, CANVAS_H, emphasis);
 
         drawTimes.push(performance.now() - start);
 
@@ -241,14 +249,14 @@ async function main(): Promise<void> {
     console.log(
         `cuniform real-canvas frame harness: ${params.sizes.join(", ")} nodes, ` +
         `dpr ${params.dprs.join(", ")}, ${params.frames} frames, render=${params.mode}, ` +
-        `backend=${runner.usesWorker ? "worker" : "main"}`
+        `backend=${runner.usesWorker ? "worker" : "main"}, emphasis=${params.emphasis}`
     );
 
     const rows: Measurement[] = [];
 
     for (const nodes of params.sizes) {
         for (const dpr of params.dprs) {
-            const row = await measureCase(runner, nodes, dpr, params.frames);
+            const row = await measureCase(runner, nodes, dpr, params.frames, params.emphasis);
 
             rows.push(row);
 

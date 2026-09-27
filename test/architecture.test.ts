@@ -31,6 +31,7 @@ function code(source: string): string {
 /** The DOM-free half: the solver, the projection and the catalog data. */
 const PURE_MODULES = [
     // core
+    "core/Emphasis.ts",
     "core/Growth.ts",
     "core/K.ts",
     "core/Numeric.ts",

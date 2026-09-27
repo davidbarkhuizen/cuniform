@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { Graph } from "../src/graph/Graph";
 import { K } from "../src/core/K";
 import { defaultCameraView, Projector } from "../src/view/Projector";
+import { Emphasis } from "../src/core/Emphasis";
 import { render } from "../src/render/Renderer";
 import { resizeBackingStore } from "../src/render/RenderSurface";
 import { Tag } from "../src/graph/Tag";
@@ -154,7 +155,7 @@ test("render clears the whole backing store in device space", () => {
     const context = new FakeContext2D();
     context.canvas = { width: 1200, height: 900 };
 
-    render(context, graph, defaultCameraView(), graph.selectedVertex());
+    render(context, graph, defaultCameraView(), graph.selectedVertex(), Emphasis.nodes);
 
     assert.deepEqual(context.transforms[0], [1, 0, 0, 1, 0, 0]);
     assert.deepEqual(context.clears[0], [0, 0, 1200, 900]);
