@@ -5,7 +5,7 @@ import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { Tag } from "../src/Tag";
 import { UIController } from "../src/UIController";
-import { wheelEvent, withUIController } from "./support/dom";
+import { mouseEvent, UIControllerFixture, wheelEvent, withUIController } from "./support/dom";
 
 const PERIOD = K.physics.timerTickPeriodMS;
 
@@ -15,6 +15,24 @@ function settledGraph(): Graph {
     const graph = new Graph();
     graph.addNode(new Tag({ x: 0, y: 0, z: 0 }, "solo"));
     return graph;
+}
+
+/**
+ * Drive the first frame plus `settleFrames` stepping frames, leaving the layout
+ * settled with an empty accumulator. Returns the timestamp of the last frame, so
+ * a caller can run another frame at the same instant and be sure no step is due.
+ */
+function settle(ui: UIControllerFixture): number {
+    ui.dom.runAnimationFrames(0);
+
+    let timestamp = 0;
+
+    for (let frame = 1; frame <= K.physics.settleFrames; frame++) {
+        timestamp = PERIOD * frame;
+        ui.dom.runAnimationFrames(timestamp);
+    }
+
+    return timestamp;
 }
 
 /** Count physics steps by wrapping the controller's solver. */
@@ -133,11 +151,96 @@ test("the setInterval fallback still ticks when rAF is unavailable", () => {
         assert.equal(ui.controller.running, true);
 
         const steps = countSteps(ui.controller);
+        const clears = ui.canvas.context.clears.length;
 
         ui.dom.intervals[0].fn();
 
         assert.equal(steps(), 1, "one interval callback is one fixed tick");
+
+        // The legacy path deliberately bypasses the idle-frame skip: it steps on
+        // every callback, so it must draw on every callback too.
+        assert.equal(ui.canvas.context.clears.length, clears + 1, "the legacy tick draws every callback");
     }, { graph: settledGraph(), animationFrame: false });
+});
+
+// ------------------------------------------------------- idle-frame skipping
+
+test("a settled, untouched scene issues no further clears", () => {
+    withUIController(ui => {
+        const timestamp = settle(ui);
+        const clears = ui.canvas.context.clears.length;
+
+        // Two more frames with no step due, no camera change and no interaction.
+        ui.dom.runAnimationFrames(timestamp + PERIOD);
+        ui.dom.runAnimationFrames(timestamp + PERIOD * 2);
+
+        assert.equal(
+            ui.canvas.context.clears.length,
+            clears,
+            "an idle scene must leave the previous frame on the canvas"
+        );
+    }, { graph: settledGraph() });
+});
+
+test("a camera dolly redraws even when no step is due", () => {
+    withUIController(ui => {
+        const timestamp = settle(ui);
+        const clears = ui.canvas.context.clears.length;
+
+        ui.elements.canvas.dispatch("wheel", wheelEvent({ deltaY: 1 }));
+
+        // The same timestamp means no elapsed time, so no step can run.
+        ui.dom.runAnimationFrames(timestamp);
+
+        assert.equal(ui.canvas.context.clears.length, clears + 1, "a dolly must force a redraw");
+    }, { graph: settledGraph() });
+});
+
+test("a selection click redraws even when no step is due", () => {
+    withUIController(ui => {
+        const timestamp = settle(ui);
+        const clears = ui.canvas.context.clears.length;
+
+        // The solo node sits at the model origin: canvas (400, 300) on 800x600.
+        ui.controller.onMouseDown(mouseEvent({ button: 0, clientX: 400, clientY: 300 }));
+
+        ui.dom.runAnimationFrames(timestamp);
+
+        assert.equal(ui.canvas.context.clears.length, clears + 1, "a selection must force a redraw");
+    }, { graph: settledGraph() });
+});
+
+test("a position-writing drag redraws even when no step is due", () => {
+    withUIController(ui => {
+        const timestamp = settle(ui);
+
+        // Select the node; onMouseDown leaves the left button held.
+        ui.controller.onMouseDown(mouseEvent({ button: 0, clientX: 400, clientY: 300 }));
+        ui.dom.runAnimationFrames(timestamp);
+
+        const clears = ui.canvas.context.clears.length;
+
+        ui.controller.onMouseMove(mouseEvent({ clientX: 430, clientY: 300 }));
+        ui.dom.runAnimationFrames(timestamp);
+
+        assert.equal(ui.canvas.context.clears.length, clears + 1, "a drag must force a redraw");
+    }, { graph: settledGraph() });
+});
+
+test("a resize redraws even when no step is due", () => {
+    withUIController(ui => {
+        const timestamp = settle(ui);
+        const clears = ui.canvas.context.clears.length;
+
+        const listeners = ui.dom.windowListeners.get("resize") ?? [];
+
+        assert.equal(listeners.length, 1, "initialize registers one resize listener");
+        listeners[0]({});
+
+        ui.dom.runAnimationFrames(timestamp);
+
+        assert.equal(ui.canvas.context.clears.length, clears + 1, "a resize must force a redraw");
+    }, { graph: settledGraph() });
 });
 
 test("terminate() stops the loop on either scheduler", () => {

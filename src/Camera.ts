@@ -7,6 +7,44 @@ import { CameraView, defaultCameraView } from "./Projector";
 export type CameraAxis = 'x' | 'y' | 'z';
 
 /**
+ * The mutable part of a camera: everything `sameCameraView` compares. A caller
+ * can keep one scratch copy and overwrite it, which is why `orientation` is a
+ * plain (read-only to the reader) array rather than the `Mat3` tuple.
+ * `focalLength`/`nearPlane` are fixed for a camera's life but are carried so the
+ * state is a faithful view.
+ */
+export interface CameraViewState {
+    readonly orientation: readonly number[];
+    readonly target: { readonly x: number; readonly y: number; readonly z: number };
+    readonly distance: number;
+    readonly focalLength: number;
+    readonly nearPlane: number;
+}
+
+/**
+ * True when two camera views frame the same picture: the 9 orientation entries,
+ * the target and the distance. This is a fail-safe O(13) comparison rather than
+ * a revision counter, so it catches every mutation path (`orbit`, `rotateLocal`,
+ * `dolly`, `panBy`, `reset`) without the camera having to remember to bump
+ * anything. The renderer's redraw check is its only caller.
+ */
+export function sameCameraView(a: CameraViewState, b: CameraViewState): boolean {
+
+    if (a.distance !== b.distance)
+        return false;
+
+    if (a.target.x !== b.target.x || a.target.y !== b.target.y || a.target.z !== b.target.z)
+        return false;
+
+    for (let i = 0; i < 9; i++) {
+        if (a.orientation[i] !== b.orientation[i])
+            return false;
+    }
+
+    return true;
+}
+
+/**
  * How far the look direction is above the world XY plane, radians in
  * [-pi/2, pi/2] - the quantity the turntable guard bounds.
  */

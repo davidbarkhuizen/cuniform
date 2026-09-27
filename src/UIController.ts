@@ -1,4 +1,4 @@
-import { CameraAxis } from "./Camera";
+import { CameraAxis, sameCameraView } from "./Camera";
 import { ContextMenu } from "./ContextMenu";
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { Graph } from "./Graph";
@@ -69,6 +69,26 @@ export class UIController {
 
     /** True once the layout has settled and stepping has stopped. */
     private settled = false;
+
+    /**
+     * True when the next animation frame must draw even if no step ran and the
+     * camera did not move. Any change that is neither physics nor camera -
+     * selection, drag, resize, graph swap - sets it through requestRedraw().
+     */
+    private needsRedraw = true;
+
+    /**
+     * The mutable camera values the last drawn frame used, in reusable scratch.
+     * A frame is skipped while these still match the live camera, so a settled,
+     * untouched scene issues no canvas work at all.
+     */
+    private readonly lastDrawnCamera = {
+        orientation: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+        target: point3(0, 0, 0),
+        distance: K.camera.distance,
+        focalLength: K.camera.focalLength,
+        nearPlane: K.camera.nearPlane,
+    };
 
     /** True while the simulation loop is scheduled, by either scheduler. */
     get running(): boolean {
@@ -204,6 +224,11 @@ export class UIController {
 
 				vertex.position = projector.unproject(mxy, depth);
 			}
+
+			// Writing positions is neither a step nor a camera move, and a frame
+			// whose accumulator is below one period runs no step, so without this
+			// the drag would freeze between ticks.
+			this.requestRedraw();
 		}
 		else if (this.state.b1Down) {
 
@@ -619,7 +644,10 @@ export class UIController {
 	};
 
 	// One fixed tick, drawing included: the meaning tests and the setInterval
-	// fallback depend on, so it never consults the settle state.
+	// fallback depend on, so it never consults the settle state. It also
+	// deliberately bypasses the idle-frame skip: this path steps on every
+	// interval and never settles, so skipping a draw would freeze the picture
+	// while the physics kept moving.
 	onTimerTick = () => {
 		this.renderFrame(this.advanceOneTick());
 	};
@@ -662,6 +690,32 @@ export class UIController {
 
 	private renderFrame(camera: CameraView = this.state.camera): void {
 		render(this.context2D, this.solver.graph, camera, this.selected);
+
+		// Record the view this frame drew with and consume any pending request, so
+		// the next idle frame can be skipped. The record is scratch, not a copy.
+		this.recordDrawnCamera(camera);
+		this.needsRedraw = false;
+	}
+
+	/** Ask the next animation frame to draw even if nothing stepped or moved. */
+	private requestRedraw(): void {
+		this.needsRedraw = true;
+	}
+
+	// Overwrite the scratch fingerprint with `view`'s mutable values. Allocation
+	// free: the orientation array is reused and the target Point3D is mutated.
+	private recordDrawnCamera(view: CameraView): void {
+		const out = this.lastDrawnCamera;
+
+		for (let i = 0; i < 9; i++)
+			out.orientation[i] = view.orientation[i];
+
+		out.target.x = view.target.x;
+		out.target.y = view.target.y;
+		out.target.z = view.target.z;
+		out.distance = view.distance;
+		out.focalLength = view.focalLength;
+		out.nearPlane = view.nearPlane;
 	}
 
 	// Stop stepping once the layout has been quiet for settleFrames steps. Any
@@ -754,6 +808,11 @@ export class UIController {
 	
 		this.refreshSelection();
 
+		// Every selection-changing path funnels through here (a click, a clear, a
+		// graph swap), and none of them is a step or a camera move, so the frame
+		// would otherwise be skipped. This is the one home for that request.
+		this.requestRedraw();
+
 		const selectedNode = this.selected;
 		
 		const selectedNodeInfoLabel = this.selectionInfoLabel;
@@ -811,6 +870,10 @@ export class UIController {
 
 		// A resize is interaction, so a settled layout starts moving again.
 		this.wake();
+
+		// The backing store was just re-created, so a redraw is mandatory no matter
+		// what the camera or the settle state say.
+		this.requestRedraw();
 	};
 
 	// The browser loop: requestAnimationFrame where it exists, else the original
@@ -829,7 +892,10 @@ export class UIController {
 	}
 
 	// One animation frame: run the fixed steps the accumulator says are due, up to
-	// the per-frame cap, then draw exactly once whatever happened.
+	// the per-frame cap, then draw only if something actually changed: a step ran,
+	// a requestRedraw() was posted, or the live camera no longer matches the last
+	// drawn view. A settled, untouched scene therefore issues no canvas work,
+	// leaving the previous frame on the canvas.
 	onAnimationFrame = (timestamp: number): void => {
 
 		this.frameHandle = null;
@@ -862,7 +928,9 @@ export class UIController {
 		if (this.accumulator >= period)
 			this.accumulator = 0;
 
-		this.renderFrame();
+		if (steps > 0 || this.needsRedraw || !sameCameraView(this.lastDrawnCamera, this.state.camera))
+			this.renderFrame();
+
 		this.frameHandle = window.requestAnimationFrame(this.onAnimationFrame);
 	}
 
@@ -873,6 +941,9 @@ export class UIController {
 		this.terminate();
 
 		this.resizeCanvas();
+
+		// The first drawn frame is not optional, whatever the camera scratch says.
+		this.needsRedraw = true;
 
 		// Reset the existing state object rather than allocating a new one, so
 		// handlers holding a reference see the cleared flags.
