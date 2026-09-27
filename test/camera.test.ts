@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Camera, sameCameraView } from "../src/Camera";
+import { Camera, cameraScratch, copyCameraView, sameCameraView } from "../src/Camera";
 import { K } from "../src/K";
 import { apply, fromYawPitch, identity, Mat3, multiply, rotX, rotY, rotZ } from "../src/Mat3";
 import { point3 } from "../src/Point3D";
@@ -230,13 +230,7 @@ test("sameCameraView reads a mutable scratch copy, so the redraw check allocates
     // comparison must read it structurally, not compare object identity.
     const reference = defaultCameraView();
 
-    const scratch = {
-        orientation: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-        target: point3(0, 0, 0),
-        distance: reference.distance,
-        focalLength: reference.focalLength,
-        nearPlane: reference.nearPlane,
-    };
+    const scratch = cameraScratch(reference);
 
     assert.equal(sameCameraView(scratch, reference), true);
 
@@ -245,4 +239,26 @@ test("sameCameraView reads a mutable scratch copy, so the redraw check allocates
 
     scratch.orientation[0] = 1;
     assert.equal(sameCameraView(scratch, reference), true, "restoring the entry must match again");
+});
+
+test("copyCameraView overwrites every field cameraScratch seeds", () => {
+    // The scratch starts at the default camera, so a copy of a different view
+    // must move all five fields; a field the copy forgets would silently keep
+    // the default and skip a frame that should have drawn.
+    const scratch = cameraScratch();
+
+    const moved = {
+        orientation: fromYawPitch(0.3, 0.2),
+        target: point3(12, -8, 4),
+        distance: K.camera.distance * 2,
+        focalLength: K.camera.focalLength,
+        nearPlane: K.camera.nearPlane,
+    };
+
+    copyCameraView(moved, scratch);
+
+    assert.equal(sameCameraView(scratch, moved), true, "the copy must equal its source");
+
+    const reference = defaultCameraView();
+    assert.equal(sameCameraView(scratch, reference), false, "the copy must not still match the default");
 });

@@ -1,4 +1,4 @@
-import { CameraAxis, sameCameraView } from "./Camera";
+import { CameraAxis, cameraScratch, copyCameraView, sameCameraView } from "./Camera";
 import { ContextMenu } from "./ContextMenu";
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { Graph } from "./Graph";
@@ -65,15 +65,10 @@ export class UIController {
     /**
      * The mutable camera values the last drawn frame used, in reusable scratch.
      * A frame is skipped while these still match the live camera, so a settled,
-     * untouched scene issues no canvas work at all.
+     * untouched scene issues no canvas work at all. Seeded from
+     * `defaultCameraView()`, so the default camera has one definition.
      */
-    private readonly lastDrawnCamera = {
-        orientation: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-        target: point3(0, 0, 0),
-        distance: K.camera.distance,
-        focalLength: K.camera.focalLength,
-        nearPlane: K.camera.nearPlane,
-    };
+    private readonly lastDrawnCamera = cameraScratch();
 
     /** True while the simulation loop is scheduled, by either scheduler. */
     get running(): boolean {
@@ -266,33 +261,45 @@ export class UIController {
 		}
 	};
 
+	/**
+	 * The previous middle-drag anchor, or null after seeding it from the first
+	 * move of a gesture. Orbit and Shift+pan consume the anchor identically, so
+	 * the "first move seeds and returns, later moves consume-and-restore"
+	 * lifecycle lives here once.
+	 */
+	private takeDragAnchor(mxy: Point2D): Point2D | null {
+
+		const last = this.state.lastMiddleDragPos;
+
+		if (last == null) {
+			this.state.lastMiddleDragPos = mxy;
+			return null;
+		}
+
+		this.state.lastMiddleDragPos = mxy;
+		return last;
+	};
+
 	// Orbit by the pointer delta since the anchor. The live camera lives in
 	// State, so reset() rebuilds the graph without losing the angle.
 	orbitTo = (mxy: Point2D) => {
 
-		const last = this.state.lastMiddleDragPos;
+		const last = this.takeDragAnchor(mxy);
 
-		// First move of a gesture establishes the anchor.
-		if (last == null) {
-			this.state.lastMiddleDragPos = mxy;
+		if (last === null)
 			return;
-		}
 
 		this.state.camera.orbit(mxy.x - last.x, mxy.y - last.y);
-		this.state.lastMiddleDragPos = mxy;
 	};
 
 	// Shift+middle-drag pans the camera target (D4): the pointer delta is
 	// unprojected at the target's depth, and node positions are never touched.
 	panCameraTo = (mxy: Point2D) => {
 
-		const last = this.state.lastMiddleDragPos;
+		const last = this.takeDragAnchor(mxy);
 
-		// First move of a gesture establishes the anchor.
-		if (last == null) {
-			this.state.lastMiddleDragPos = mxy;
+		if (last === null)
 			return;
-		}
 
 		const projector = this.projector();
 
@@ -306,8 +313,6 @@ export class UIController {
 		this.state.camera.panBy(
 			point3(now.x - before.x, now.y - before.y, now.z - before.z)
 		);
-
-		this.state.lastMiddleDragPos = mxy;
 	};
 
 	// Wheel dollies; `focalLength` is constant by design, so only the distance
@@ -752,17 +757,7 @@ export class UIController {
 	// Overwrite the scratch fingerprint with `view`'s mutable values. Allocation
 	// free: the orientation array is reused and the target Point3D is mutated.
 	private recordDrawnCamera(view: CameraView): void {
-		const out = this.lastDrawnCamera;
-
-		for (let i = 0; i < 9; i++)
-			out.orientation[i] = view.orientation[i];
-
-		out.target.x = view.target.x;
-		out.target.y = view.target.y;
-		out.target.z = view.target.z;
-		out.distance = view.distance;
-		out.focalLength = view.focalLength;
-		out.nearPlane = view.nearPlane;
+		copyCameraView(view, this.lastDrawnCamera);
 	}
 
 	// Stop stepping once the layout has been quiet for settleFrames steps. Any
