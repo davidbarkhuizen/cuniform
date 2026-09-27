@@ -3,7 +3,7 @@ import { Graph } from "./Graph";
 import { K } from "./K";
 import { radius } from "./Kernel";
 import { point3, Point3D, zero3 } from "./Point3D";
-import { Projector } from "./Projector";
+import { ProjectionScratch, Projector } from "./Projector";
 import { Tag } from "./Tag";
 
 // k*q^2, the numerator of the repulsion law. Hoisted because repulsionMagnitude
@@ -15,9 +15,37 @@ export class ForceDirectedGraph {
 
     graph: Graph;
 
+    // Solver-owned scratch, sized to the vertex count and reused every step, so
+    // a steady-state step allocates nothing. The old object path built roughly
+    // two Point3D per unordered pair plus per-node arrays: ~1M objects a step at
+    // N=1024. `loadGraph` builds a fresh solver, so a graph swap starts from
+    // cleanly sized buffers; ensureCapacity is the in-place-growth guard.
+    private capacity = 0;
+    private repulsionX = new Float64Array(0);
+    private repulsionY = new Float64Array(0);
+    private repulsionZ = new Float64Array(0);
+    private springX = new Float64Array(0);
+    private springY = new Float64Array(0);
+    private springZ = new Float64Array(0);
+
+    // Projection destination, reused per node; see Projector.projectInto().
+    private readonly projected: ProjectionScratch = { screenX: 0, screenY: 0, depth: 0 };
 
     constructor(graph: Graph) {
         this.graph = graph;
+    }
+
+    private ensureCapacity(n: number): void {
+        if (n <= this.capacity)
+            return;
+
+        this.capacity = n;
+        this.repulsionX = new Float64Array(n);
+        this.repulsionY = new Float64Array(n);
+        this.repulsionZ = new Float64Array(n);
+        this.springX = new Float64Array(n);
+        this.springY = new Float64Array(n);
+        this.springZ = new Float64Array(n);
     }
 
 	// r == 0 and the unit vector live here once, so repulsion and springs cannot
@@ -93,18 +121,22 @@ export class ForceDirectedGraph {
 		return F;
 	};
 
-	// One evaluation per unordered pair: the forces are equal and opposite, so
-	// magnitude and unit vector are computed once. Public only so the
-	// equivalence test can call it; step() is the sole production caller.
-	accumulateRepulsion(out: Point3D[]): void {
+	// One evaluation per unordered pair, accumulated into the flat repulsion
+	// buffers. Loop order (i ascending, j ascending) and the per-slot addition
+	// order are exactly the object path's, so the computed doubles are unchanged.
+	private accumulateRepulsionInto(n: number): void {
 
 		const verts = this.graph.vertices;
 
-		for (let i = 0; i < verts.length; i++) {
+		const FX = this.repulsionX;
+		const FY = this.repulsionY;
+		const FZ = this.repulsionZ;
+
+		for (let i = 0; i < n; i++) {
 
 			const a = verts[i];
 
-			for (let j = i + 1; j < verts.length; j++) {
+			for (let j = i + 1; j < n; j++) {
 
 				const b = verts[j];
 
@@ -118,17 +150,83 @@ export class ForceDirectedGraph {
 
 				// Coincident centres have no radial direction; break the tie by
 				// index (earlier node -x) so the pair separates instead of
-				// sitting in a fixed point.
+				// sitting in a fixed point. `ur` is never 0 here, so no slot is
+				// skipped: the tie-break direction is the unit -x vector.
 				const coincident = r === 0;
 				const ux = coincident ? -1 : deltaX;
 				const uy = coincident ? 0 : deltaY;
 				const uz = coincident ? 0 : deltaZ;
 				const ur = coincident ? 1 : r;
 
-				out[i] = ForceDirectedGraph.addRadial(out[i].x, out[i].y, out[i].z, ux, uy, uz, ur, magnitude);
-				out[j] = ForceDirectedGraph.addRadial(out[j].x, out[j].y, out[j].z, -ux, -uy, -uz, ur, magnitude);
+				const scaledX = (magnitude * ux) / ur;
+				const scaledY = (magnitude * uy) / ur;
+				const scaledZ = (magnitude * uz) / ur;
+
+				FX[i] += scaledX;
+				FY[i] += scaledY;
+				FZ[i] += scaledZ;
+
+				// a - s is bit-identical to the old a + (magnitude * -u) / r.
+				FX[j] -= scaledX;
+				FY[j] -= scaledY;
+				FZ[j] -= scaledZ;
 			}
 		}
+	};
+
+	// The spring sum for one node, written into the spring buffers. The public
+	// netSpringForceAtNode() stays the object-returning reference; this is the
+	// step path. Contributions are added in adjacency insertion order, exactly
+	// as addRadial() did, starting from zero.
+	private accumulateSpringForceInto(index: number): void {
+
+		const tag = this.graph.vertices[index];
+
+		var k = K.physics.springConstant;
+		var l = K.physics.equilibriumDisplacement;
+
+		// The adjacency walk is O(V + E), not O(V*E): each edge is visited once
+		// per endpoint.
+		var incident = this.graph.incidentEdges(tag);
+
+		var sx = 0;
+		var sy = 0;
+		var sz = 0;
+
+		for(let i = 0; i < incident.length; i++) {
+
+			var edge = incident[i];
+			var other_tag = otherEndpoint(edge, tag);
+
+			// A self-loop has no far endpoint, so it exerts no spring force.
+			if (other_tag === null)
+				continue;
+
+			// Toward the neighbour, so a positive magnitude pulls the pair
+			// together.
+			var deltaX = other_tag.position.x - tag.position.x;
+			var deltaY = other_tag.position.y - tag.position.y;
+			var deltaZ = other_tag.position.z - tag.position.z;
+
+			var r = radius(deltaX, deltaY, deltaZ);
+
+			// addRadial() leaves the accumulator untouched at r === 0, so a
+			// zero-length edge contributes nothing rather than dividing by zero.
+			if (r === 0)
+				continue;
+
+			// Hooke's law: positive when stretched pulls toward the neighbour,
+			// negative when compressed pushes away.
+			var scalar_force = k * (r - l);
+
+			sx += (scalar_force * deltaX) / r;
+			sy += (scalar_force * deltaY) / r;
+			sz += (scalar_force * deltaZ) / r;
+		};
+
+		this.springX[index] = sx;
+		this.springY[index] = sy;
+		this.springZ[index] = sz;
 	};
 
 	netSpringForceAtNode(tag: Tag): Point3D {
@@ -205,9 +303,41 @@ export class ForceDirectedGraph {
 		return point3(vx_new, vy_new, vz_new);
 	};
 
+	// Accumulates the paired repulsion onto `out` in place, so it allocates
+	// nothing per call and stays bit-for-bit the old object path's result,
+	// including from a non-zero starting `out`. Public only so the equivalence
+	// test and the benchmark can drive the kernel directly; step() is the sole
+	// production caller.
+	accumulateRepulsion(out: Point3D[]): void {
+
+		const n = this.graph.vertices.length;
+
+		this.ensureCapacity(n);
+
+		// Seed the flat slots from the caller's values so the accumulation starts
+		// where the object path started.
+		for (let i = 0; i < n; i++) {
+			this.repulsionX[i] = out[i].x;
+			this.repulsionY[i] = out[i].y;
+			this.repulsionZ[i] = out[i].z;
+		}
+
+		this.accumulateRepulsionInto(n);
+
+		for (let i = 0; i < n; i++) {
+			out[i].x = this.repulsionX[i];
+			out[i].y = this.repulsionY[i];
+			out[i].z = this.repulsionZ[i];
+		}
+	};
+
 	// Advance the simulation by exactly one step. Physics only, with no drawing,
 	// so it can run headlessly. A pinned node keeps the position the pointer
 	// handler wrote and loses its velocity, so releasing a drag does not fling it.
+	//
+	// Fixed passes over solver-owned buffers: every force reads the frozen
+	// pre-step positions, no node sees a half-updated neighbour, and the whole
+	// step allocates nothing.
 	step(
 		canvasWidth: number,
 		canvasHeight: number,
@@ -216,46 +346,71 @@ export class ForceDirectedGraph {
 	) {
 
 		const vertices = this.graph.vertices;
+		const n = vertices.length;
 
-		// Both passes read the frozen pre-step positions, so every node sees the
-		// same snapshot.
-		const electrostatic: Point3D[] = vertices.map(() => zero3());
-		this.accumulateRepulsion(electrostatic);
+		this.ensureCapacity(n);
 
-		const forces: Point3D[] = vertices.map((tag, i) => {
-			const s = this.netSpringForceAtNode(tag);
-			const e = electrostatic[i];
+		// Explicit loop rather than the typed array's bulk-fill method: the
+		// architecture guard reads source text, and that method name is also a
+		// canvas drawing call it watches for.
+		for (let i = 0; i < n; i++) {
+			this.repulsionX[i] = 0;
+			this.repulsionY[i] = 0;
+			this.repulsionZ[i] = 0;
+		}
 
-			return point3(e.x + s.x, e.y + s.y, e.z + s.z);
-		});
+		// Pass 1: repulsion, from the pre-step positions.
+		this.accumulateRepulsionInto(n);
 
-		// The force computed above is passed in, so the O(N^2) repulsion kernel is
-		// not run a second time.
-		const velocities = vertices.map((tag, i) => this.velocityAtTag(tag, forces[i]));
+		// Pass 2: springs, still reading only pre-step positions. The spring sum
+		// is formed separately and then added to the repulsion, preserving the
+		// old repulsion-then-spring summation order exactly.
+		for (let i = 0; i < n; i++) {
+			this.accumulateSpringForceInto(i);
 
-		for (let i = 0; i < vertices.length; i++) {
+			this.repulsionX[i] += this.springX[i];
+			this.repulsionY[i] += this.springY[i];
+			this.repulsionZ[i] += this.springZ[i];
+		}
+
+		const friction = K.physics.friction;
+		const timeStep = K.physics.timeStep;
+
+		// Pass 3: velocity before position, so a stiff spring stays stable. This
+		// is the first pass that may write a Tag, so no force can observe it.
+		for (let i = 0; i < n; i++) {
+
 			const tag = vertices[i];
 
 			if (isPinned(tag)) {
-				tag.velocity = zero3();
+				tag.velocity.x = 0;
+				tag.velocity.y = 0;
+				tag.velocity.z = 0;
+				continue;
 			}
-			else {
-				tag.velocity = velocities[i];
 
-				const displacement = tag.displacement;
-				tag.position.x = tag.position.x + displacement.x;
-				tag.position.y = tag.position.y + displacement.y;
-				tag.position.z = tag.position.z + displacement.z;
-			}
+			tag.velocity.x = (tag.velocity.x * friction) + (this.repulsionX[i] * timeStep);
+			tag.velocity.y = (tag.velocity.y * friction) + (this.repulsionY[i] * timeStep);
+			tag.velocity.z = (tag.velocity.z * friction) + (this.repulsionZ[i] * timeStep);
+
+			tag.position.x = tag.position.x + tag.velocity.x;
+			tag.position.y = tag.position.y + tag.velocity.y;
+			tag.position.z = tag.position.z + tag.velocity.z;
 		}
 
-		// One projector for the whole pass: the camera and viewport are loop
-		// invariants, so they are resolved once per tick, not per node.
-		for (const node of vertices) {
-			const projected = projector.project(node.position);
+		// Pass 4: one projector for the whole pass: the camera and viewport are
+		// loop invariants, resolved once per tick, not per node. An indexed loop,
+		// like the passes above, so no array iterator is allocated.
+		for (let i = 0; i < n; i++) {
+			const node = vertices[i];
 
-			node.translatedPosition = projector.viewport.toCanvas(projected.screen);
-			node.depth = projected.depth;
+			projector.projectInto(node.position, this.projected);
+			projector.viewport.toCanvasInto(
+				this.projected.screenX,
+				this.projected.screenY,
+				node.translatedPosition
+			);
+			node.depth = this.projected.depth;
 		}
 	};
 };

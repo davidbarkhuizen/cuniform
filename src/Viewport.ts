@@ -24,12 +24,20 @@ export class Viewport {
 	}
 
 	toCanvas(xy: Point2D): Point2D {
+		return this.toCanvasInto(xy.x, xy.y, point(0, 0));
+	}
+
+	/**
+	 * `toCanvas()`, but written into `out` so a per-node mapping pass allocates
+	 * nothing. Same arithmetic, so the two agree bit-for-bit.
+	 */
+	toCanvasInto(screenX: number, screenY: number, out: Point2D): Point2D {
 		const s = this.scale;
 
-		return point(
-			(this.w1 / 2.0) + xy.x * s,
-			(this.h1 / 2.0) - xy.y * s
-		);
+		out.x = (this.w1 / 2.0) + screenX * s;
+		out.y = (this.h1 / 2.0) - screenY * s;
+
+		return out;
 	}
 
 	/** Exact inverse of `toCanvas()`. */

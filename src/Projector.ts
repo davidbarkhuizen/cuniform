@@ -43,6 +43,16 @@ export interface Projection {
 }
 
 /**
+ * A reusable projection destination: the allocation-free form of `Projection`.
+ * One per solver, never shared, so `projectInto()` can fill it every node.
+ */
+export interface ProjectionScratch {
+    screenX: number;
+    screenY: number;
+    depth: number;
+}
+
+/**
  * True when a view depth is at or inside the near plane. One home for the cull
  * rule, so projection, drawing and hit-testing cannot disagree at the boundary.
  */
@@ -86,20 +96,40 @@ export class Projector {
      * divide is taken at max(depth, nearPlane), bounding the singularity.
      */
     project(p: Point3D): Projection {
-        const { distance, focalLength, nearPlane } = this.camera;
-
-        const view = this.toCameraSpace(p);
-
-        const depth = view.z + distance;
-        const dEff = Math.max(depth, nearPlane);
+        const projected = this.projectInto(p, { screenX: 0, screenY: 0, depth: 0 });
 
         return {
-            screen: point(
-                (focalLength * view.x) / dEff,
-                (focalLength * view.y) / dEff
-            ),
-            depth,
+            screen: point(projected.screenX, projected.screenY),
+            depth: projected.depth,
         };
+    }
+
+    /**
+     * `project()`, but written into caller-owned scratch so a per-node projection
+     * pass allocates nothing. The arithmetic is inlined from `toCameraSpace()` +
+     * `project()`, so the two forms agree bit-for-bit.
+     */
+    projectInto(p: Point3D, out: ProjectionScratch): ProjectionScratch {
+        const { orientation, target, distance, focalLength, nearPlane } = this.camera;
+        const [m0, m1, m2, m3, m4, m5, m6, m7, m8] = orientation;
+
+        const dx = p.x - target.x;
+        const dy = p.y - target.y;
+        const dz = p.z - target.z;
+
+        // apply(orientation, p - target), with the temporary object removed.
+        const viewX = m0 * dx + m1 * dy + m2 * dz;
+        const viewY = m3 * dx + m4 * dy + m5 * dz;
+        const viewZ = m6 * dx + m7 * dy + m8 * dz;
+
+        const depth = viewZ + distance;
+        const dEff = Math.max(depth, nearPlane);
+
+        out.screenX = (focalLength * viewX) / dEff;
+        out.screenY = (focalLength * viewY) / dEff;
+        out.depth = depth;
+
+        return out;
     }
 
     toCanvas(p: Point3D): Point2D {
