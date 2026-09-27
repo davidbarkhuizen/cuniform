@@ -1,11 +1,10 @@
 import { Graph } from "./Graph";
 import { K } from "./K";
-import { buildMirrorGraph, writePositions } from "./MirrorGraph";
+import { buildMirrorGraph, packMirror, writePositions } from "./MirrorGraph";
 import { projectGraph } from "./Projection";
 import { CameraView, Projector } from "./Projector";
 import { render } from "./Renderer";
 import { RenderSurface } from "./RenderSurface";
-import { Tag } from "./Tag";
 
 /**
  * The message protocol between the main thread and a dedicated render worker,
@@ -98,28 +97,16 @@ export function initRequest(graph: Graph, generation: number): InitRequest {
 
     const vertices = graph.vertices;
 
+    // The render mirror needs the real labels; the wire form is otherwise the
+    // shared encoding, so only this realm pays for them.
     const labels: string[] = new Array(vertices.length);
-    const positions = new Float64Array(vertices.length * 3);
-
-    for (let i = 0; i < vertices.length; i++) {
-        labels[i] = vertices[i].label;
-        positions[3 * i] = vertices[i].position.x;
-        positions[3 * i + 1] = vertices[i].position.y;
-        positions[3 * i + 2] = vertices[i].position.z;
-    }
-
-    const edges = new Int32Array(graph.edges.length * 2);
-    const index = new Map<Tag, number>();
 
     for (let i = 0; i < vertices.length; i++)
-        index.set(vertices[i], i);
+        labels[i] = vertices[i].label;
 
-    for (let e = 0; e < graph.edges.length; e++) {
-        edges[2 * e] = index.get(graph.edges[e].v1) ?? -1;
-        edges[2 * e + 1] = index.get(graph.edges[e].v2) ?? -1;
-    }
+    const wire = packMirror(graph);
 
-    return { type: "init", generation, labels, edges, positions };
+    return { type: "init", generation, labels, edges: wire.edges, positions: wire.positions };
 }
 
 /** Pack a camera's 13 mutable numbers, so a frame message is a typed array. */

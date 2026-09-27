@@ -1,6 +1,6 @@
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { Graph } from "./Graph";
-import { buildMirrorGraph } from "./MirrorGraph";
+import { buildMirrorGraph, packMirror, readPositions } from "./MirrorGraph";
 import { Tag } from "./Tag";
 
 /**
@@ -51,27 +51,9 @@ export interface PositionsResponse {
 /** The `init` message for `graph`, with node insertion order as the index space. */
 export function initRequest(graph: Graph, generation: number): InitRequest {
 
-    const vertices = graph.vertices;
-    const positions = new Float64Array(vertices.length * 3);
+    const wire = packMirror(graph);
 
-    for (let i = 0; i < vertices.length; i++) {
-        positions[3 * i] = vertices[i].position.x;
-        positions[3 * i + 1] = vertices[i].position.y;
-        positions[3 * i + 2] = vertices[i].position.z;
-    }
-
-    const edges = new Int32Array(graph.edges.length * 2);
-    const index = new Map<Tag, number>();
-
-    for (let i = 0; i < vertices.length; i++)
-        index.set(vertices[i], i);
-
-    for (let e = 0; e < graph.edges.length; e++) {
-        edges[2 * e] = index.get(graph.edges[e].v1) ?? -1;
-        edges[2 * e + 1] = index.get(graph.edges[e].v2) ?? -1;
-    }
-
-    return { type: "init", generation, positions, edges };
+    return { type: "init", generation, positions: wire.positions, edges: wire.edges };
 }
 
 /**
@@ -122,14 +104,9 @@ export class PhysicsWorkerEngine {
     private build(request: InitRequest): void {
 
         // The shared mirror builder, so the physics and render mirrors cannot
-        // drift. Physics never reads a label, so they are generated here.
-        const count = Math.floor(request.positions.length / 3);
-        const labels: string[] = new Array(count);
-
-        for (let i = 0; i < count; i++)
-            labels[i] = `n${i}`;
-
-        const graph = buildMirrorGraph(labels, request.edges, request.positions);
+        // drift. Physics never reads a label, so the builder's own `n<i>` default
+        // is left to supply them rather than building a list here.
+        const graph = buildMirrorGraph([], request.edges, request.positions);
 
         this.graph = graph;
         this.solver = new ForceDirectedGraph(graph);
@@ -139,14 +116,11 @@ export class PhysicsWorkerEngine {
     /** A fresh flat copy of the positions, safe to transfer to the main thread. */
     private positions(): Float64Array {
 
-        const vertices = this.graph?.vertices ?? [];
-        const out = new Float64Array(vertices.length * 3);
+        const graph = this.graph;
+        const out = new Float64Array((graph?.vertices.length ?? 0) * 3);
 
-        for (let i = 0; i < vertices.length; i++) {
-            out[3 * i] = vertices[i].position.x;
-            out[3 * i + 1] = vertices[i].position.y;
-            out[3 * i + 2] = vertices[i].position.z;
-        }
+        if (graph !== null)
+            readPositions(graph, out);
 
         return out;
     }
