@@ -125,13 +125,20 @@ export const K = {
     },
 
     chooser: {
-        // Random-graph chooser bounds. maxOrder is still pinned at the old
-        // exact/Barnes-Hut crossover (barnesHutMinNodes), from when repulsion was
-        // O(N^2) per tick; raising it and adding large-graph UX is the first next
-        // step in the README's "Performance" section.
+        // Random-graph chooser bounds. maxOrder is a measured usability cap, not
+        // the old exact/Barnes-Hut crossover: with the octree repulsion the step
+        // cost stays inside the usable band up to the largest node count in
+        // bench/physics.bench.ts's STEP_CASES (4096 steps at ~10 Hz on the
+        // committed profile), and the worker keeps input alive while the layout
+        // advances. 8192 is deliberately not advertised: its step is unmeasured
+        // and its repulsion pass alone is ~265 ms.
         // minOrder is 2 because a one-node graph has no edges.
         minOrder : 2,
-        maxOrder : 64,
+        maxOrder : 4096,
+        // The largest measured size that still steps within a single 50 ms tick
+        // (1024 at 17.1 ms / 2048 at 38.3 ms on the committed profile). Above it
+        // the wizard shows a non-blocking hint; it never disables generate.
+        interactiveOrder : 1024,
         // maxBranching is the practical cap; the hard limit is order - 1, enforced in parseRandomSpec().
         minBranching : 1,
         maxBranching : 8,

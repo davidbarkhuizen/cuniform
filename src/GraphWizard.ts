@@ -45,6 +45,8 @@ export class GraphWizard {
     readonly countLabel: HTMLElement;
     readonly emptyLabel: HTMLElement;
     readonly validationLabel: HTMLElement;
+    /** A non-blocking large-graph hint, separate from validation semantics. */
+    readonly hintLabel: HTMLElement;
 
     private readonly body: HTMLElement;
     private readonly options: GraphWizardOptions;
@@ -101,8 +103,19 @@ export class GraphWizard {
             this.choiceButtons.push({ kind, element: button });
         }
 
-        this.orderInput = this.numberField(random, "nodes");
-        this.branchingInput = this.numberField(random, "new edges per node");
+        this.orderInput = this.numberField(random, "nodes", K.chooser.minOrder, K.chooser.maxOrder);
+        this.branchingInput = this.numberField(
+            random,
+            "new edges per node",
+            K.chooser.minBranching,
+            K.chooser.maxBranching
+        );
+
+        // A hint, not a validation message: it never disables generate, so it is
+        // a separate element from validationLabel.
+        this.hintLabel = document.createElement("p");
+        this.hintLabel.className = "wizardHint";
+        random.appendChild(this.hintLabel);
 
         this.validationLabel = document.createElement("p");
         this.validationLabel.className = "wizardValidation";
@@ -214,7 +227,9 @@ export class GraphWizard {
         return element;
     }
 
-    private numberField(parent: HTMLElement, label: string): HTMLInputElement {
+    // The input's native min/max/step mirror parseRandomSpec()'s bounds, from the
+    // same K constants, so the spinner and the validation can never drift.
+    private numberField(parent: HTMLElement, label: string, min: number, max: number): HTMLInputElement {
 
         const field = document.createElement("div");
         field.className = "wizardField";
@@ -224,6 +239,9 @@ export class GraphWizard {
         const input = document.createElement("input");
         input.className = "wizardInput";
         input.setAttribute("type", "number");
+        input.setAttribute("min", String(min));
+        input.setAttribute("max", String(max));
+        input.setAttribute("step", "1");
 
         // A bare sibling <label> is neither click-through nor announced; naming
         // the input ties the caption to the field it labels.
@@ -362,11 +380,20 @@ export class GraphWizard {
         if (result.ok) {
             this.generateButton.disabled = false;
             this.validationLabel.innerHTML = "";
+
+            // Above the interactive size the layout still runs, just below 20 Hz;
+            // the hint says so without disabling generate.
+            this.hintLabel.innerHTML = result.spec.order > K.chooser.interactiveOrder
+                ? `${result.spec.order} nodes: layout advances below 20 Hz`
+                : "";
             return;
         }
 
         this.generateButton.disabled = true;
         this.validationLabel.innerHTML = result.message;
+
+        // A parse error is not a size warning; the hint stays empty.
+        this.hintLabel.innerHTML = "";
     }
 
     private applyFilter(): void {

@@ -200,6 +200,54 @@ test("branching is validated against the order as it is typed", () => {
     });
 });
 
+test("the number inputs carry the chooser bounds from K", () => {
+    withWizard(({ wizard }) => {
+        assert.equal(el(wizard.orderInput).getAttribute("min"), String(K.chooser.minOrder));
+        assert.equal(el(wizard.orderInput).getAttribute("max"), String(K.chooser.maxOrder));
+        assert.equal(el(wizard.orderInput).getAttribute("step"), "1");
+
+        assert.equal(el(wizard.branchingInput).getAttribute("min"), String(K.chooser.minBranching));
+        assert.equal(el(wizard.branchingInput).getAttribute("max"), String(K.chooser.maxBranching));
+        assert.equal(el(wizard.branchingInput).getAttribute("step"), "1");
+    });
+});
+
+test("an order above interactiveOrder shows a hint without disabling generate", () => {
+    withWizard(({ wizard }) => {
+        wizard.open("random");
+        assert.equal(wizard.hintLabel.innerHTML, "", "the seeded default is below the threshold");
+
+        const large = K.chooser.interactiveOrder + 1;
+        wizard.orderInput.value = String(large);
+        wizard.branchingInput.value = "2";
+        el(wizard.orderInput).dispatch("input");
+
+        assert.equal(wizard.generateButton.disabled, false, "the hint must not block generate");
+        assert.match(wizard.hintLabel.innerHTML, new RegExp(`^${large} nodes:`));
+        assert.equal(wizard.validationLabel.innerHTML, "", "the hint is not a validation message");
+    });
+});
+
+test("the hint clears at or below interactiveOrder and on a parse error", () => {
+    withWizard(({ wizard }) => {
+        wizard.open("random");
+
+        wizard.orderInput.value = String(K.chooser.maxOrder);
+        el(wizard.orderInput).dispatch("input");
+        assert.notEqual(wizard.hintLabel.innerHTML, "", "the large order must warn first");
+
+        wizard.orderInput.value = String(K.chooser.interactiveOrder);
+        el(wizard.orderInput).dispatch("input");
+        assert.equal(wizard.hintLabel.innerHTML, "", "the threshold itself must not warn");
+        assert.equal(wizard.generateButton.disabled, false);
+
+        wizard.orderInput.value = "0";
+        el(wizard.orderInput).dispatch("input");
+        assert.equal(wizard.hintLabel.innerHTML, "", "a parse error clears the hint");
+        assert.equal(wizard.generateButton.disabled, true);
+    });
+});
+
 test("generate calls onComplete once with the parsed numbers and closes", () => {
     withWizard(({ wizard, completed, counts }) => {
         wizard.open("random");
