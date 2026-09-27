@@ -42,6 +42,59 @@ export function singleNode(label = "a") {
     return { graph, a, fdg: new ForceDirectedGraph(graph) };
 }
 
+/**
+ * `components` disjoint paths of `nodesPerComponent` nodes each, seeded as a
+ * symmetric arrangement about each piece's own centroid, with those centroids
+ * spread along x at `componentSpacing` intervals. Disconnected by construction,
+ * so the component anchor is the only force between the pieces, and both the
+ * labelling and the resulting motion are a deterministic function of the
+ * arguments.
+ *
+ * The default - two 6-node components centred at x = -250 and x = +250 - is the
+ * workplan's drift fixture: on a graph with no anchor the two pieces separate
+ * without bound. `offset` shifts the whole arrangement, which lets a test place
+ * a single congruent component at a chosen centroid.
+ */
+export function disconnectedPaths(
+    componentSpacing = 500,
+    nodesPerComponent = 6,
+    components = 2,
+    offset: Point3D = { x: 0, y: 0, z: 0 }
+) {
+    const graph = new Graph();
+    const tags: Tag[] = [];
+    const componentOf: number[] = [];
+
+    for (let c = 0; c < components; c++) {
+
+        const centre = (c - (components - 1) / 2) * componentSpacing + offset.x;
+        const path: Tag[] = [];
+
+        // A path along y, centred on `centre`, so each component's own centroid
+        // is exactly its centre.
+        for (let i = 0; i < nodesPerComponent; i++) {
+            const tag = new Tag(
+                {
+                    x: centre,
+                    y: (i - (nodesPerComponent - 1) / 2) * K.physics.equilibriumDisplacement + offset.y,
+                    z: offset.z,
+                },
+                `c${c}n${i}`
+            );
+
+            graph.addNode(tag);
+            tags.push(tag);
+            path.push(tag);
+            componentOf.push(c);
+        }
+
+        for (let i = 1; i < path.length; i++)
+            graph.addEdge(path[i - 1], path[i]);
+    }
+
+    return { graph, tags, componentOf, fdg: new ForceDirectedGraph(graph) };
+}
+
 export function tag(label: string, x = 0, y = 0): Tag {
     return new Tag({ x, y, z: 0 }, label);
 }
@@ -95,6 +148,33 @@ export function maxAbsPosition(
     }
 
     return max;
+}
+
+/**
+ * Step until the solver reports `settleFrames` consecutive steps quieter than
+ * `settleEpsilon`, or until `maxSteps` is reached. Returns the number of steps
+ * run and the final per-step travel.
+ *
+ * The detector can fire a few steps short of the fixed point, so a test that
+ * needs genuine rest should re-read the returned count and keep going; this
+ * helper's contract is only "as quiet as the detector gets".
+ */
+export function stepsUntilQuiet(
+    fdg: ForceDirectedGraph,
+    maxSteps: number = 20000
+): { steps: number; travel: number } {
+    let quiet = 0;
+    let steps = 0;
+    let travel = Number.POSITIVE_INFINITY;
+
+    while (quiet < K.physics.settleFrames && steps < maxSteps) {
+        steps++;
+        fdg.stepPhysics();
+        travel = fdg.lastMaxDisplacement;
+        quiet = travel < K.physics.settleEpsilon ? quiet + 1 : 0;
+    }
+
+    return { steps, travel };
 }
 
 export function mean(xs: number[]): number {

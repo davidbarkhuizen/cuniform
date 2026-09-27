@@ -55,6 +55,24 @@ export function springMagnitude(r: number): number {
 }
 
 /**
+ * The component-anchor magnitude for a component whose centroid is `r` model
+ * units from the origin: `k * max(0, r - componentAnchorRadius)`.
+ *
+ * Zero inside the dead zone, so a component that is already home feels nothing
+ * and the reference layout is untouched; beyond it, a linear restoring pull
+ * with a root at the origin. The single home for the law: the solver's step pass
+ * and its object-returning reference both call it, so they cannot drift.
+ *
+ * Proportional, not a constant magnitude, deliberately: a constant pull has no
+ * root at the origin and limit-cycles a lone node, which defeats the settle
+ * detector. Unlike the two pairwise laws this one is not part of the reference
+ * model; it is a documented non-reference extension, like the singularity guard.
+ */
+export function componentAnchorMagnitude(r: number): number {
+    return K.physics.componentAnchorStrength * Math.max(0, r - K.physics.componentAnchorRadius);
+}
+
+/**
  * One damped semi-implicit Euler velocity update, `v' = v*friction + F*timeStep`.
  *
  * `stepPhysics()` and `velocityAtTag()` both call it, so the integration law -

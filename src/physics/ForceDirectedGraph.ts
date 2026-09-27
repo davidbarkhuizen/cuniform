@@ -1,7 +1,8 @@
 import { otherEndpoint } from "../graph/Edge";
 import { Graph } from "../graph/Graph";
+import { labelComponents } from "../graph/Components";
 import { K } from "../core/K";
-import { integrateVelocity, radialComponentsInto, radius, repulsionMagnitude, springMagnitude } from "./Kernel";
+import { componentAnchorMagnitude, integrateVelocity, radialComponentsInto, radius, repulsionMagnitude, springMagnitude } from "./Kernel";
 import { Octree } from "./Octree";
 import { point3, Point3D, zero3 } from "../core/Point3D";
 import { projectGraph } from "../view/Projection";
@@ -26,6 +27,24 @@ export class ForceDirectedGraph {
     private springY = new Float64Array(0);
     private springZ = new Float64Array(0);
 
+    // Connected-component labelling and the per-component anchor scratch, in the
+    // same pooled style as the force buffers above: one label per vertex, one
+    // centroid accumulator per component, and one uniform force vector per
+    // component. Component ids are assigned 0..C-1 in vertices order
+    // (graph/Components.ts), so the buffers hold at most one entry per vertex.
+    // The labelling is cached across steps because topology changes far less
+    // often than positions; `labelledEdges` is the staleness sentinel (see
+    // ensureComponents()).
+    private componentId: Int32Array<ArrayBuffer> = new Int32Array(0);
+    private labelledEdges = -1;
+    private componentCount = new Int32Array(0);
+    private centroidX = new Float64Array(0);
+    private centroidY = new Float64Array(0);
+    private centroidZ = new Float64Array(0);
+    private componentAnchorX = new Float64Array(0);
+    private componentAnchorY = new Float64Array(0);
+    private componentAnchorZ = new Float64Array(0);
+
     // Projection destination, reused per node; see Projector.projectInto().
     // The projection pass itself lives in Projection.ts, so a render backend can
     // run it without the solver.
@@ -35,6 +54,10 @@ export class ForceDirectedGraph {
     // allocate nothing steady-state.
     private readonly radialScratch = new Float64Array(3);
     private readonly springScratch = new Float64Array(3);
+
+    // Reference-only destination for anchorForceInto(), which is not on the step
+    // path; the step pass writes the pooled per-component buffers instead.
+    private readonly anchorScratch = new Float64Array(3);
 
     // The Barnes-Hut tree, rebuilt from the pre-step positions each step. It owns
     // its own pooled buffers, so it also allocates nothing steady-state.
@@ -62,6 +85,40 @@ export class ForceDirectedGraph {
         this.springX = new Float64Array(n);
         this.springY = new Float64Array(n);
         this.springZ = new Float64Array(n);
+
+        // Sized in the same growth path: a component holds at most n vertices,
+        // so one slot per vertex is a bound on both the labels and the
+        // centroids. Resizing drops the cached labelling, so the next
+        // ensureComponents() relabels (labelledEdges = -1 marks it stale).
+        this.componentId = new Int32Array(n);
+        this.componentCount = new Int32Array(n);
+        this.centroidX = new Float64Array(n);
+        this.centroidY = new Float64Array(n);
+        this.centroidZ = new Float64Array(n);
+        this.componentAnchorX = new Float64Array(n);
+        this.componentAnchorY = new Float64Array(n);
+        this.componentAnchorZ = new Float64Array(n);
+        this.labelledEdges = -1;
+    }
+
+    // Relabel only when the cached labelling is stale. `Graph` is append-only -
+    // addNode/addEdge and no removal - so staleness is two monotonic counts,
+    // checked in O(1). The edge count is load-bearing as well as the vertex
+    // count: a new edge at constant N merges two components, and a stale label
+    // array is a correctness hazard, not just a stale result, because an
+    // out-of-range read of a typed array yields undefined and turns every
+    // arithmetic result into NaN.
+    private ensureComponents(): void {
+
+        const n = this.graph.vertices.length;
+
+        if (this.componentId.length === n && this.labelledEdges === this.graph.edges.length)
+            return;
+
+        this.ensureCapacity(n);
+
+        this.componentId = labelComponents(this.graph);
+        this.labelledEdges = this.graph.edges.length;
     }
 
 	netElectrostaticForceAtNode(tagA: Tag): Point3D {
@@ -256,11 +313,173 @@ export class ForceDirectedGraph {
 		this.springZ[index] = this.springScratch[2];
 	};
 
+	// Pass 2b: the per-component anchor, accumulated onto the force buffers the
+	// caller already holds - after repulsion and springs, so the buffer's value is
+	// the same three-term sum netForceAtNode() returns. O(N + C), allocation-free,
+	// and it evaluates no Math.pow, so it leaves the pairwise-repulsion cost and
+	// the pow pair counter untouched. The force buffers are only written when some
+	// component is outside the dead zone: the `anyActive` gate is what makes "a
+	// graph whose component centroids are all inside the dead zone steps
+	// bit-for-bit as before" a structural property rather than an argument about
+	// x + 0 === x.
+	private accumulateComponentAnchor(n: number): void {
+
+		this.ensureComponents();
+
+		const vertices = this.graph.vertices;
+		const componentId = this.componentId;
+
+		// Centroid accumulators start at zero; a component's slot is written and
+		// divided before it is read.
+		for (let c = 0; c < n; c++) {
+			this.centroidX[c] = 0;
+			this.centroidY[c] = 0;
+			this.centroidZ[c] = 0;
+			this.componentCount[c] = 0;
+		}
+
+		// In vertices order: the same order (and so the same rounding) as
+		// anchorForceInto()'s reference walk. Every slot is a real component, so
+		// its count ends positive and the divide below is never by zero.
+		for (let i = 0; i < n; i++) {
+			const c = componentId[i];
+			const position = vertices[i].position;
+
+			this.centroidX[c] += position.x;
+			this.centroidY[c] += position.y;
+			this.centroidZ[c] += position.z;
+			this.componentCount[c]++;
+		}
+
+		const anchorRadius = K.physics.componentAnchorRadius;
+
+		let anyActive = false;
+
+		for (let c = 0; c < n; c++) {
+
+			const count = this.componentCount[c];
+
+			if (count === 0)
+				continue;
+
+			const cx = this.centroidX[c] / count;
+			const cy = this.centroidY[c] / count;
+			const cz = this.centroidZ[c] / count;
+
+			const r = radius(cx, cy, cz);
+
+			if (r === 0) {
+				this.componentAnchorX[c] = 0;
+				this.componentAnchorY[c] = 0;
+				this.componentAnchorZ[c] = 0;
+				continue;
+			}
+
+			if (r > anchorRadius)
+				anyActive = true;
+
+			const magnitude = componentAnchorMagnitude(r);
+
+			this.componentAnchorX[c] = (magnitude * -cx) / r;
+			this.componentAnchorY[c] = (magnitude * -cy) / r;
+			this.componentAnchorZ[c] = (magnitude * -cz) / r;
+		}
+
+		if (!anyActive)
+			return;
+
+		for (let i = 0; i < n; i++) {
+			const c = componentId[i];
+
+			this.repulsionX[i] += this.componentAnchorX[c];
+			this.repulsionY[i] += this.componentAnchorY[c];
+			this.repulsionZ[i] += this.componentAnchorZ[c];
+		}
+	};
+
 	netSpringForceAtNode(tag: Tag): Point3D {
 
 		this.springForceInto(tag, this.springScratch);
 
 		return point3(this.springScratch[0], this.springScratch[1], this.springScratch[2]);
+	};
+
+	/**
+	 * The uniform component-anchor force on `tag`, written into `out`.
+	 *
+	 * The tag's component centroid is recomputed on demand with an O(N) walk in
+	 * `vertices` order, because the anchor has one magnitude per component, not
+	 * one per node. Reference-only: the step path never calls this, so the O(N)
+	 * cost is irrelevant; its contract is that it returns exactly the vector the
+	 * step pass adds, which keeps velocityAtTag()'s default force consistent with
+	 * the velocity the step writes (see netForceAtNode()).
+	 *
+	 * Public because it is part of the object-returning reference surface: the
+	 * anchor tests assert uniformity (every member of a component gets this same
+	 * vector) and the three-term decomposition of netForceAtNode().
+	 */
+	anchorForceInto(tag: Tag, out: Float64Array): void {
+
+		this.ensureComponents();
+
+		const vertices = this.graph.vertices;
+		const index = vertices.indexOf(tag);
+
+		// Total, like the rest of the reference surface: a tag that is not in this
+		// graph belongs to no component, so it feels no anchor. Without the guard
+		// the label lookup would be out of range and the whole force would become
+		// NaN rather than the zero the pairwise references return for a foreign tag.
+		if (index === -1) {
+			out[0] = 0;
+			out[1] = 0;
+			out[2] = 0;
+			return;
+		}
+
+		const component = this.componentId[index];
+
+		let cx = 0;
+		let cy = 0;
+		let cz = 0;
+		let count = 0;
+
+		// Summed in vertices order, over exactly the members of `tag`'s component,
+		// so the rounding matches the step pass's accumulation.
+		for (let i = 0; i < vertices.length; i++) {
+
+			if (this.componentId[i] !== component)
+				continue;
+
+			const position = vertices[i].position;
+
+			cx += position.x;
+			cy += position.y;
+			cz += position.z;
+			count++;
+		}
+
+		cx /= count;
+		cy /= count;
+		cz /= count;
+
+		const r = radius(cx, cy, cz);
+
+		if (r === 0) {
+			out[0] = 0;
+			out[1] = 0;
+			out[2] = 0;
+			return;
+		}
+
+		// A zero centroid radius has no direction, and the magnitude is zero there
+		// for any dead zone, so the explicit branch above is about the direction
+		// only. Every node of the component gets this same vector, which is what
+		// makes the anchor a pure translation of the component.
+		const magnitude = componentAnchorMagnitude(r);
+
+		out[0] = (magnitude * -cx) / r;
+		out[1] = (magnitude * -cy) / r;
+		out[2] = (magnitude * -cz) / r;
 	};
 
 	// Pure: reads no cached field, so it is meaningful before the first step()
@@ -271,9 +490,15 @@ export class ForceDirectedGraph {
 		var e = this.netElectrostaticForceAtNode(tag);
 		var s = this.netSpringForceAtNode(tag);
 
-		var nX = e.x + s.x;
-		var nY = e.y + s.y;
-		var nZ = e.z + s.z;
+		this.anchorForceInto(tag, this.anchorScratch);
+
+		// Three terms, in the order the step pass folds them into the force
+		// buffers: repulsion, then springs, then the anchor. Keeping the same
+		// order is what lets velocityAtTag()'s default force agree with the
+		// velocity the step writes bit-for-bit.
+		var nX = e.x + s.x + this.anchorScratch[0];
+		var nY = e.y + s.y + this.anchorScratch[1];
+		var nZ = e.z + s.z + this.anchorScratch[2];
 
 		return point3(nX, nY, nZ);
 	};
@@ -357,6 +582,17 @@ export class ForceDirectedGraph {
 			this.repulsionY[i] += this.springY[i];
 			this.repulsionZ[i] += this.springZ[i];
 		}
+
+		// Pass 2b: the component anchor, from the same frozen pre-step positions.
+		// One uniform vector per connected component is added to every member, so
+		// the force can only translate a component and cannot deform it.
+		//
+		// Folded in after the springs so the buffer holds (repulsion + spring) and
+		// then + anchor, which is exactly the order netForceAtNode() sums in.
+		// Adding it before the spring instead would differ in the last bits, and
+		// that is the one place velocityAtTag()'s default force could disagree
+		// with the velocity the step writes.
+		this.accumulateComponentAnchor(n);
 
 		// The displacement the settle detector reads: position advances by the
 		// velocity, so the largest speed is the largest travel this step.

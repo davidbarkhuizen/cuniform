@@ -8,6 +8,7 @@ import { Projector } from "../src/view/Projector";
 import { Tag } from "../src/graph/Tag";
 import { Viewport } from "../src/view/Viewport";
 import { assertClose } from "./support/assert";
+import { stepsUntilQuiet } from "./support/physics";
 
 const W0 = K.space.W_0;
 const H0 = K.space.H_0;
@@ -86,12 +87,73 @@ test("step() caches translatedPosition and depth through the projector", () => {
 });
 
 test("nothing clamps a node to the model cube", () => {
+    // The model has no boundary, so a node seeded outside the 600 cube is never
+    // snapped back into it. The one radial force on a lone node is the component
+    // anchor: a proportional pull with a dead zone, not a clamp and not a fixed
+    // speed. test/anchor.test.ts covers the force's own behaviour; this fixture
+    // is the clearest case of a node it acts on, so the pull is pinned here too.
     const graph = new Graph();
     const far = new Tag({ x: 5000, y: -5000, z: 5000 }, "far");
     graph.addNode(far);
 
     const solver = new ForceDirectedGraph(graph);
+
+    const r = Math.hypot(far.position.x, far.position.y, far.position.z);
+    const pull = K.physics.componentAnchorStrength * (r - K.physics.componentAnchorRadius);
+    const expected = pull * K.physics.timeStep;
+
     solver.step(800, 600);
 
-    assert.deepEqual(far.position, { x: 5000, y: -5000, z: 5000 }, "an isolated node must be free to drift");
+    const displacement = Math.hypot(far.position.x - 5000, far.position.y + 5000, far.position.z - 5000);
+
+    assertClose(displacement, expected, 1e-9, `the anchor must pull gently, moved ${displacement}`);
+    assert.ok(
+        Math.hypot(far.position.x, far.position.y, far.position.z) < r,
+        `the pull must be toward the origin, distance went ${r} -> ${Math.hypot(far.position.x, far.position.y, far.position.z)}`
+    );
+
+    // Run it to rest. No step may teleport it, it must never be flung outward,
+    // and it must settle around the dead zone rather than cross the origin for
+    // ever. A hard clamp or a constant-magnitude pull each fail one of these.
+    let previous = { x: far.position.x, y: far.position.y, z: far.position.z };
+    let outermost = 0;
+    let teleport = 0;
+
+    for (let guard = 0; guard < 5000; guard++) {
+        solver.step(800, 600);
+
+        const travel = Math.hypot(
+            far.position.x - previous.x,
+            far.position.y - previous.y,
+            far.position.z - previous.z
+        );
+
+        teleport = Math.max(teleport, travel);
+        outermost = Math.max(outermost, Math.hypot(far.position.x, far.position.y, far.position.z));
+        previous = { x: far.position.x, y: far.position.y, z: far.position.z };
+
+        if (solver.lastMaxDisplacement < K.physics.settleEpsilon)
+            break;
+    }
+
+    assert.ok(teleport < r / 4, `a step must not teleport the node, worst step moved ${teleport}`);
+    assert.ok(outermost <= r, `the node must never be flung outward, reached ${outermost}`);
+    assert.ok(
+        Math.hypot(far.position.x, far.position.y, far.position.z) <= K.physics.componentAnchorRadius * 1.1,
+        `a lone node must settle around the dead zone, at ${Math.hypot(far.position.x, far.position.y, far.position.z)}`
+    );
+    assert.ok(
+        Number.isFinite(far.position.x) && Number.isFinite(far.position.y) && Number.isFinite(far.position.z),
+        "a drifting node must stay finite"
+    );
+
+    // The anchor has a root at the origin, so the node does stop: given the
+    // quiet threshold, a step is then below the settle epsilon, not a limit
+    // cycle.
+    const last = stepsUntilQuiet(solver);
+
+    assert.ok(
+        last.travel < K.physics.settleEpsilon,
+        `a lone node must stop moving, final travel ${last.travel}`
+    );
 });

@@ -23,7 +23,7 @@ import { CameraView, Projector } from "../src/view/Projector";
 import { openingAngleFor } from "../src/physics/Quality";
 import { render } from "../src/render/Renderer";
 import { FakeContext2D } from "../test/support/dom";
-import { seededRandom, sparseGraph } from "../test/support/physics";
+import { disconnectedPaths, seededRandom, sparseGraph } from "../test/support/physics";
 
 const CANVAS_W = 1280;
 const CANVAS_H = 800;
@@ -74,6 +74,65 @@ function benchSolver(): void {
 
         const ms = timePer(() => { solver.step(CANVAS_W, CANVAS_H, () => false, projector); }, reps);
         row(`${order} / ${graph.edges.length}`, ms.toFixed(2));
+    }
+}
+
+/**
+ * Time the component anchor on identical work: one component whose centroid is
+ * inside the dead zone, where the `anyActive` gate skips the pass, and the same
+ * component shifted so its centroid is outside, where the pass runs. Both have
+ * the same node and edge counts and the same internal (relative) geometry, and
+ * their rows are timed alternately on identical states, so the delta is the
+ * anchor's cost. Read the delta against the run-to-run spread reported for one
+ * row, not as an absolute zero: the pass is O(N + C) over pooled buffers, so on
+ * this machine its cost sits inside the noise of a few hundredths of a
+ * millisecond per step.
+ */
+function benchComponentAnchor(): void {
+    console.log("\n== per-component anchor (same topology, dead zone vs engaged) ==");
+    row("N / E", "skipped ms | engaged ms | delta | run spread");
+
+    const cases: Array<[number, number]> = [[1024, 12], [4096, 4]];
+
+    for (const [order, reps] of cases) {
+        // One path, so internal forces cancel in the centroid exactly and the
+        // component translates as a rigid body. The engaged copy is shifted far
+        // enough that its centroid is well outside the 150-unit dead zone.
+        const skipped = disconnectedPaths(0, order, 1);
+        const engaged = disconnectedPaths(0, order, 1, { x: 4000, y: 0, z: 0 });
+
+        // Alternate the two so neither pays a first-run warm-up the other does
+        // not, and so both see the same spread of positions.
+        const step = (fixture: ReturnType<typeof disconnectedPaths>) =>
+            fixture.fdg.stepPhysics();
+
+        step(skipped);
+        step(engaged);
+
+        const skippedRuns: number[] = [];
+        const engagedRuns: number[] = [];
+
+        for (let rep = 0; rep < reps; rep++) {
+            let start = process.hrtime.bigint();
+            step(skipped);
+            skippedRuns.push(Number(process.hrtime.bigint() - start) / 1e6);
+
+            start = process.hrtime.bigint();
+            step(engaged);
+            engagedRuns.push(Number(process.hrtime.bigint() - start) / 1e6);
+        }
+
+        const average = (runs: number[]) => runs.reduce((sum, ms) => sum + ms, 0) / runs.length;
+        const spread = (runs: number[]) => Math.max(...runs) - Math.min(...runs);
+
+        const skippedMs = average(skippedRuns);
+        const engagedMs = average(engagedRuns);
+        const delta = engagedMs - skippedMs;
+
+        row(
+            `${order} / ${skipped.graph.edges.length}`,
+            `${skippedMs.toFixed(3)} | ${engagedMs.toFixed(3)} | ${delta >= 0 ? "+" : ""}${delta.toFixed(3)} | ${spread(skippedRuns).toFixed(3)} / ${spread(engagedRuns).toFixed(3)}`
+        );
     }
 }
 
@@ -427,6 +486,7 @@ async function main(): Promise<void> {
 
     benchGeneration();
     benchSolver();
+    benchComponentAnchor();
     benchRepulsion();
     benchOpeningAngle();
     benchQuality();
