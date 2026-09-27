@@ -7,7 +7,7 @@ import { CameraView, defaultCameraView } from "../src/Projector";
 import { render } from "../src/Renderer";
 import { Tag } from "../src/Tag";
 import { assertClose } from "./support/assert";
-import { FakeContext2D } from "./support/dom";
+import { FakeContext2D, withRendererSettings } from "./support/dom";
 
 const NODE_DEFAULT = K.colours.nodeDefault;
 const NODE_SELECTED = K.colours.nodeSelected;
@@ -349,29 +349,12 @@ test("render sizes nodes with the focal length of the camera it is given", () =>
 
 // ---------------------------------------------------------- size-gated scaling
 
-/** Run `fn` with a `K.renderer` override, always restoring it. */
-function withRendererSetting<T>(
-    key: "labelMaxNodes" | "batchEdgesMinEdges",
-    value: number,
-    fn: () => T
-): T {
-    const original = K.renderer[key];
-
-    K.renderer[key] = value;
-
-    try {
-        return fn();
-    } finally {
-        K.renderer[key] = original;
-    }
-}
-
 test("above labelMaxNodes only the selection and its neighbours are labelled", () => {
     const { graph, b } = build();
     b.isSelected = true;
 
     // The fixture is a-b-c-d, so b's neighbours are a and c; d is two hops away.
-    const context = withRendererSetting("labelMaxNodes", graph.vertices.length, () => draw(graph));
+    const context = withRendererSettings({ labelMaxNodes: graph.vertices.length }, () => draw(graph));
 
     assert.deepEqual([...context.textLabels].sort(), ["a", "b", "c"]);
 });
@@ -379,7 +362,7 @@ test("above labelMaxNodes only the selection and its neighbours are labelled", (
 test("above labelMaxNodes nothing is labelled without a selection", () => {
     const { graph } = build();
 
-    const context = withRendererSetting("labelMaxNodes", graph.vertices.length, () => draw(graph));
+    const context = withRendererSettings({ labelMaxNodes: graph.vertices.length }, () => draw(graph));
 
     assert.deepEqual(context.textLabels, [], "an unselected large graph carries no labels");
 });
@@ -387,7 +370,7 @@ test("above labelMaxNodes nothing is labelled without a selection", () => {
 test("below labelMaxNodes every label is still drawn", () => {
     const { graph } = build();
 
-    const context = withRendererSetting("labelMaxNodes", graph.vertices.length + 1, () => draw(graph));
+    const context = withRendererSettings({ labelMaxNodes: graph.vertices.length + 1 }, () => draw(graph));
 
     assert.equal(context.textLabels.length, graph.vertices.length);
 });
@@ -407,7 +390,7 @@ test("at equal depths the explicit comparator keeps edges before nodes", () => {
 test("a forced batch frame represents every edge and bounds stroke calls", () => {
     const { graph } = build();
 
-    const context = withRendererSetting("batchEdgesMinEdges", 0, () => draw(graph));
+    const context = withRendererSettings({ batchEdgesMinEdges: 0 }, () => draw(graph));
 
     assert.equal(context.moveTos.length, graph.edges.length, "every edge needs a moveTo");
     assert.equal(context.lineTos.length, graph.edges.length, "every edge needs a lineTo");
@@ -421,7 +404,7 @@ test("a forced batch frame represents every edge and bounds stroke calls", () =>
 test("batch mode draws every edge before any node", () => {
     const { graph } = build();
 
-    const context = withRendererSetting("batchEdgesMinEdges", 0, () => draw(graph));
+    const context = withRendererSettings({ batchEdgesMinEdges: 0 }, () => draw(graph));
     const kinds = context.ops.map(op => op.kind);
 
     const lastStroke = kinds.lastIndexOf("stroke");
@@ -435,7 +418,7 @@ test("batched edges keep the incident highlight", () => {
     const { graph, b } = build();
     b.isSelected = true;
 
-    const context = withRendererSetting("batchEdgesMinEdges", 0, () => draw(graph));
+    const context = withRendererSettings({ batchEdgesMinEdges: 0 }, () => draw(graph));
 
     assert.ok(context.strokes.includes(EDGE_INCIDENT), `strokes were ${context.strokes}`);
     assert.ok(context.strokes.includes(EDGE_DEFAULT), `strokes were ${context.strokes}`);
@@ -444,8 +427,8 @@ test("batched edges keep the incident highlight", () => {
 test("batch and per-edge modes agree on which edges and nodes are drawn", () => {
     const { graph } = build();
 
-    const batched = withRendererSetting("batchEdgesMinEdges", 0, () => draw(graph));
-    const unbatched = withRendererSetting("batchEdgesMinEdges", 1000, () => draw(graph));
+    const batched = withRendererSettings({ batchEdgesMinEdges: 0 }, () => draw(graph));
+    const unbatched = withRendererSettings({ batchEdgesMinEdges: 1000 }, () => draw(graph));
 
     assert.deepEqual(batched.moveTos, unbatched.moveTos, "the same segments, in the same order");
     assert.deepEqual(batched.lineTos, unbatched.lineTos);
@@ -458,24 +441,11 @@ test("batch and per-edge modes agree on which edges and nodes are drawn", () => 
 
 // ---------------------------------------------------- coarse large-graph preset
 
-/** Run `fn` with the coarse preset forced on (0) or off (Infinity), restoring it. */
-function withCoarsePreset<T>(minNodes: number, fn: () => T): T {
-    const original = K.renderer.performance.minNodes;
-
-    K.renderer.performance.minNodes = minNodes;
-
-    try {
-        return fn();
-    } finally {
-        K.renderer.performance.minNodes = original;
-    }
-}
-
 test("the coarse preset collapses every node fill to one fill per colour", () => {
     const { graph, b } = build();
     b.isSelected = true;
 
-    const context = withCoarsePreset(0, () => draw(graph));
+    const context = withRendererSettings({ minNodes: 0 }, () => draw(graph));
 
     assert.deepEqual(context.fills, [NODE_DEFAULT, NODE_SELECTED], "one fill per colour, default first");
     assert.equal(context.arcs.length, graph.vertices.length, "every visible node still contributes an arc");
@@ -487,7 +457,7 @@ test("the coarse preset draws every edge and drops the selection-ring stroke", (
     const { graph, b } = build();
     b.isSelected = true;
 
-    const context = withCoarsePreset(0, () => draw(graph));
+    const context = withRendererSettings({ minNodes: 0 }, () => draw(graph));
 
     assert.equal(context.moveTos.length, graph.edges.length, "every edge needs a moveTo");
     assert.equal(context.lineTos.length, graph.edges.length, "every edge needs a lineTo");
@@ -501,7 +471,7 @@ test("the coarse preset fills every node's colour and labels the selection's nei
     const { graph, b } = build();
     b.isSelected = true;
 
-    const context = withCoarsePreset(0, () => draw(graph));
+    const context = withRendererSettings({ minNodes: 0 }, () => draw(graph));
 
     // b's neighbours are a and c; d is two hops away and unlabelled.
     assert.deepEqual([...context.textLabels].sort(), ["a", "b", "c"]);
@@ -512,8 +482,8 @@ test("a coarse frame is deterministic", () => {
     const { graph, b } = build();
     b.isSelected = true;
 
-    const first = withCoarsePreset(0, () => draw(graph));
-    const second = withCoarsePreset(0, () => draw(graph));
+    const first = withRendererSettings({ minNodes: 0 }, () => draw(graph));
+    const second = withRendererSettings({ minNodes: 0 }, () => draw(graph));
 
     assert.deepEqual(first.ops, second.ops);
 });
@@ -524,7 +494,7 @@ test("coarse node arcs keep painter order inside each colour group", () => {
     const { graph, nodes } = withDepths([100, 300, 200], ["near", "far", "mid"]);
     nodes[1].isSelected = true;
 
-    const context = withCoarsePreset(0, () => draw(graph));
+    const context = withRendererSettings({ minNodes: 0 }, () => draw(graph));
 
     // x encodes the insertion index: mid (80), near (0), then the selected far (40).
     assert.deepEqual(context.arcs.map(arc => arc[0]), [80, 0, 40]);
@@ -535,7 +505,7 @@ test("forcing the coarse preset off reproduces the small-graph golden exactly", 
     b.isSelected = true;
 
     const plain = draw(graph);
-    const forcedOff = withCoarsePreset(Infinity, () => draw(graph));
+    const forcedOff = withRendererSettings({ minNodes: Infinity }, () => draw(graph));
 
     assert.deepEqual(forcedOff.ops, plain.ops);
     assert.deepEqual(forcedOff.strokes, plain.strokes);
