@@ -14,6 +14,7 @@ import {
 } from "./RenderProtocol";
 import { RenderSurface, resizeBackingStore } from "./RenderSurface";
 import { Tag } from "./Tag";
+import { WorkerPort } from "./WorkerChannel";
 
 /**
  * The main-thread owner of the drawing, mirroring `PhysicsRunner`: the canvas's
@@ -27,17 +28,8 @@ import { Tag } from "./Tag";
 /** How drawing is routed. `main` forces the in-process backend: the A/B control. */
 export type RenderMode = "worker" | "main";
 
-/**
- * The slice of `Worker` the runner uses. A fake can stand in for tests, and the
- * real Worker is adapted at the factory without the runner depending on it.
- */
-export interface RenderWorkerPort {
-    postMessage(message: RenderRequest, transfer: Transferable[]): void;
-    terminate(): void;
-    onmessage: ((event: { data: RenderResponse }) => void) | null;
-    /** Fired when the worker script itself fails to load or throws. */
-    onerror: ((event: unknown) => void) | null;
-}
+/** The main-thread view of the render worker. */
+export type RenderWorkerPort = WorkerPort<RenderRequest, RenderResponse>;
 
 export type RenderWorkerFactory = (canvas: HTMLCanvasElement) => RenderWorkerPort | null;
 

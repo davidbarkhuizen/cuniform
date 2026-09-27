@@ -2,6 +2,7 @@ import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { Graph } from "./Graph";
 import { readPositions, writePositions } from "./MirrorGraph";
 import { initRequest, PositionsResponse, stepWithPin, StepRequest, WorkerRequest } from "./PhysicsProtocol";
+import { WorkerPort } from "./WorkerChannel";
 
 /**
  * The main-thread owner of the physics: either an in-process solver or a
@@ -11,17 +12,8 @@ import { initRequest, PositionsResponse, stepWithPin, StepRequest, WorkerRequest
  * only the force integration moves. See the README's "Cadence" section.
  */
 
-/**
- * The slice of `Worker` the runner uses. A fake can stand in for tests, and the
- * real Worker is adapted at the factory without the runner depending on it.
- */
-export interface PhysicsWorkerPort {
-    postMessage(message: WorkerRequest): void;
-    terminate(): void;
-    onmessage: ((event: { data: PositionsResponse }) => void) | null;
-    /** Fired when the worker script itself fails to load or throws. */
-    onerror: ((event: unknown) => void) | null;
-}
+/** The main-thread view of the physics worker. */
+export type PhysicsWorkerPort = WorkerPort<WorkerRequest, PositionsResponse>;
 
 export type WorkerFactory = () => PhysicsWorkerPort | null;
 

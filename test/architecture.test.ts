@@ -57,6 +57,7 @@ const PURE_MODULES = [
     "State.ts",
     "Smiles.ts",
     "Molecules.ts",
+    "WorkerChannel.ts",
     "K.ts",
 ];
 

@@ -7,13 +7,7 @@
 
 import { ExportRequest, FrameRequest, InitRequest, RenderWorkerEngine } from "./RenderProtocol";
 import { RenderSurface } from "./RenderSurface";
-
-// Typed locally rather than through the WebWorker lib, which cannot be combined
-// with the DOM lib the rest of the project needs.
-interface WorkerScope {
-    onmessage: ((event: { data: WorkerRequest }) => void) | null;
-    postMessage: (message: unknown, transfer: Transferable[]) => void;
-}
+import { WorkerScope } from "./WorkerChannel";
 
 /**
  * The `OffscreenCanvas` subset this entry uses. Typed locally because the
@@ -30,7 +24,7 @@ interface RenderCanvas {
 /** The init message also carries the transferred canvas; only this entry reads it. */
 type WorkerRequest = (InitRequest & { canvas?: RenderCanvas }) | FrameRequest | ExportRequest;
 
-const scope = self as unknown as WorkerScope;
+const scope = self as unknown as WorkerScope<WorkerRequest>;
 const engine = new RenderWorkerEngine();
 
 // The canvas arrives by transfer on the init message, so the element on the main
