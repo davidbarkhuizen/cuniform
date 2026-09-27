@@ -3,7 +3,8 @@ import { MoleculeTopology, parseSmiles } from "./Smiles";
 
 // The molecule catalog: one flagship example per indole-alkaloid family, each
 // row PubChem-verified; the SMILES and formula must agree on heavy-atom count (a test asserts it).
-// Chlorophylls a and b are the deliberate exceptions: chlorins rather than indole alkaloids.
+// Chlorophylls a and b and heme b are the deliberate exceptions: the chlorophylls are
+// chlorins and heme b a porphyrin, so none of the three is an indole alkaloid.
 
 export interface Molecule {
     /** Kebab-case key used by a GraphSpec. */
@@ -13,8 +14,9 @@ export interface Molecule {
     parentSystem: string;
     family: string;
     formula: string;
-    /** Isomeric SMILES, verified against `pubchemCid`; the chlorophylls use the PDB CCD's
-     * chelated-magnesium forms, since PubChem writes those metals as separate components. */
+    /** Isomeric SMILES, verified against `pubchemCid`; the metal-bearing entries (the
+     * chlorophylls and heme b) use the PDB CCD's chelated forms, since PubChem writes
+     * those metals as separate components. */
     smiles: string;
     pubchemCid: number;
     /** Also matched by search. */
@@ -280,6 +282,18 @@ export const MOLECULES: Molecule[] = [
         pubchemCid: 11593175,
         synonyms: ["Chl b"],
         note: "chlorophyll a's partner: the same chlorin with a formyl where a carries a methyl, which shifts its absorption toward the blue",
+    },
+    {
+        id: "heme-b",
+        commonName: "Heme b",
+        systematicName: "3-[18-(2-carboxyethyl)-8,13-bis(ethenyl)-3,7,12,17-tetramethylporphyrin-21,23-diid-2-yl]propanoic acid;iron(2+)",
+        parentSystem: "protoporphyrin IX",
+        family: "Heme (porphyrin)",
+        formula: "C34H32FeN4O4",
+        smiles: "Cc1c2n3c(c1CCC(=O)O)C=C4C(=C(C5=[N]4[Fe]36[N]7=C(C=C8N6C(=C5)C(=C8C)C=C)C(=C(C7=C2)C)C=C)C)CCC(=O)O",
+        pubchemCid: 4973,
+        synonyms: ["haem b", "protoheme IX", "protoporphyrin IX containing Fe"],
+        note: "haemoglobin's prosthetic group: the iron porphyrin that actually binds oxygen, an open porphyrin rather than a chlorophyll's chlorin",
     },
 ];
 

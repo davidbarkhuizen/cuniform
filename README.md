@@ -100,8 +100,8 @@ panel's drag surface.
   **molecule**:
   - *random* — the node count and the maximum new edges per node, validated as
     you type; `generate` is disabled while either field is out of range;
-  - *molecules* — a searchable word cloud of twenty-two molecules: twenty indole
-    alkaloids plus chlorophylls a and b. The chip
+  - *molecules* — a searchable word cloud of twenty-three molecules: twenty indole
+    alkaloids, chlorophylls a and b, and heme b. The chip
     is the common name; its tooltip and accessible name carry the full
     systematic name, the family, the formula and the flagship note. Typing
     filters by common name, systematic name, parent ring system, family, formula
@@ -137,24 +137,26 @@ a discriminated value the chooser produces and the controller remembers:
 
 ### The molecule catalog
 
-[`src/Molecules.ts`](src/Molecules.ts) holds twenty-two molecules: twenty indole
-alkaloids, one flagship example per structural family, plus chlorophylls a and b
-— the two entries outside the class, and the two compounds of one family. The
-families run tryptamine, β-carboline, ergoline, yohimban, ibogan, aspidosperman,
-ajmaline, sarpagan, akuammilan, strychnan, camptothecin, bisindole, Rauwolfia,
-carbazole, oxindole, pyrroloindoline, eburnane, gelsemium, pyridocarbazole and
-uleine; the chlorophylls add the chlorin. Each row carries its PubChem CID, its
-published molecular formula, its IUPAC systematic name and an isomeric SMILES
-verified against that CID — except the chlorophylls, whose connected SMILES comes
-from the PDB chemical component dictionary (CLA for a, CHL for b), because
-PubChem writes their chelated magnesium as a separate ionic component.
+[`src/Molecules.ts`](src/Molecules.ts) holds twenty-three molecules: twenty indole
+alkaloids, one flagship example per structural family, plus three outside the
+class — chlorophylls a and b, the two compounds of the chlorin family, and heme b,
+the iron porphyrin at haemoglobin's core. The families run tryptamine,
+β-carboline, ergoline, yohimban, ibogan, aspidosperman, ajmaline, sarpagan,
+akuammilan, strychnan, camptothecin, bisindole, Rauwolfia, carbazole, oxindole,
+pyrroloindoline, eburnane, gelsemium, pyridocarbazole and uleine; the
+chlorophylls add the chlorin and heme b the porphyrin. Each row carries its
+PubChem CID, its published molecular formula, its IUPAC systematic name and an
+isomeric SMILES verified against that CID — except the metal-bearing entries
+(chlorophylls a and b and heme b), whose connected SMILES come from the PDB
+chemical component dictionary (`CLA`, `CHL` and `HEM`), because PubChem writes
+their chelated metals as separate ionic components.
 
 The SMILES string is the artifact that can be checked at the source, so the
 catalog stores it rather than a hand-copied adjacency list.
 [`src/Smiles.ts`](src/Smiles.ts) reads the subset the catalog needs — the
 organic and aromatic subsets, bracket atoms, branches, ring closures, explicit
 and directional bonds, disconnection — and rejects malformed notation with a
-position-carrying `SmilesError`. A test parses all twenty-two entries and asserts
+position-carrying `SmilesError`. A test parses all twenty-three entries and asserts
 that the heavy-atom count derived from the SMILES equals the non-hydrogen count
 of the formula, so a transcription error in either field fails CI rather than
 silently distorting the graph.
