@@ -325,12 +325,26 @@ function withRendererThresholds<T>(labelMaxNodes: number, batchEdgesMinEdges: nu
     }
 }
 
+/** Run `fn` with the coarse preset's node threshold forced, always restoring it. */
+function withCoarsePreset<T>(minNodes: number, fn: () => T): T {
+    const original = K.renderer.performance.minNodes;
+
+    K.renderer.performance.minNodes = minNodes;
+
+    try {
+        return fn();
+    } finally {
+        K.renderer.performance.minNodes = original;
+    }
+}
+
 function benchRender(): void {
     console.log(
         `\n== renderer (FakeContext2D: JS overhead only; labels culled above ` +
-        `N=${K.renderer.labelMaxNodes}, edges batched above E=${K.renderer.batchEdgesMinEdges}) ==`
+        `N=${K.renderer.labelMaxNodes}, edges batched above E=${K.renderer.batchEdgesMinEdges}, ` +
+        `coarse preset at N>=${K.renderer.performance.minNodes}) ==`
     );
-    row("N / E", "ms legacy -> scaled   ops legacy -> scaled   texts/frame");
+    row("N / E", "ms legacy -> scaled -> coarse   ops legacy -> scaled -> coarse   texts");
 
     for (const order of RENDER_ORDERS) {
         const graph = sparseGraph(order, 4321 + order);
@@ -343,14 +357,20 @@ function benchRender(): void {
         const reps = order <= 1024 ? 10 : 3;
 
         // Thresholds forced off is the pre-Plan-5 frame: every label, one path per
-        // edge. Measuring both on the same harness keeps the comparison fair.
-        const legacy = withRendererThresholds(Infinity, Infinity, () => measureRender(graph, projector.camera, reps));
+        // edge. The coarse preset is forced off too, or it would still run at
+        // 4096+. "coarse" forces the large-graph preset on the same fixture. The ms
+        // columns are JS-work proxies only: the fake context charges nothing for
+        // real arc/fill rasterisation, so they are not a real frame time.
+        const legacy = withCoarsePreset(Infinity, () =>
+            withRendererThresholds(Infinity, Infinity, () => measureRender(graph, projector.camera, reps))
+        );
         const scaled = measureRender(graph, projector.camera, reps);
+        const coarse = withCoarsePreset(0, () => measureRender(graph, projector.camera, reps));
 
         row(
             `${order} / ${graph.edges.length}`,
-            `${legacy.ms.toFixed(2)} -> ${scaled.ms.toFixed(2)}   ` +
-            `${legacy.ops} -> ${scaled.ops}   ${scaled.texts}`
+            `${legacy.ms.toFixed(2)} -> ${scaled.ms.toFixed(2)} -> ${coarse.ms.toFixed(2)}   ` +
+            `${legacy.ops} -> ${scaled.ops} -> ${coarse.ops}   ${scaled.texts}`
         );
     }
 }

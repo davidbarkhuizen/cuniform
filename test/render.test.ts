@@ -455,3 +455,90 @@ test("batch and per-edge modes agree on which edges and nodes are drawn", () => 
     // The saving is the point: one path per group instead of one per edge.
     assert.ok(batched.strokes.length < unbatched.strokes.length, "batch mode must stroke fewer times");
 });
+
+// ---------------------------------------------------- coarse large-graph preset
+
+/** Run `fn` with the coarse preset forced on (0) or off (Infinity), restoring it. */
+function withCoarsePreset<T>(minNodes: number, fn: () => T): T {
+    const original = K.renderer.performance.minNodes;
+
+    K.renderer.performance.minNodes = minNodes;
+
+    try {
+        return fn();
+    } finally {
+        K.renderer.performance.minNodes = original;
+    }
+}
+
+test("the coarse preset collapses every node fill to one fill per colour", () => {
+    const { graph, b } = build();
+    b.isSelected = true;
+
+    const context = withCoarsePreset(0, () => draw(graph));
+
+    assert.deepEqual(context.fills, [NODE_DEFAULT, NODE_SELECTED], "one fill per colour, default first");
+    assert.equal(context.arcs.length, graph.vertices.length, "every visible node still contributes an arc");
+
+    assert.equal(new Set(context.fillAlphas).size, 1, "the collapsed fade gives the fills one alpha");
+});
+
+test("the coarse preset draws every edge and drops the selection-ring stroke", () => {
+    const { graph, b } = build();
+    b.isSelected = true;
+
+    const context = withCoarsePreset(0, () => draw(graph));
+
+    assert.equal(context.moveTos.length, graph.edges.length, "every edge needs a moveTo");
+    assert.equal(context.lineTos.length, graph.edges.length, "every edge needs a lineTo");
+
+    // Three edges collapse to the incident and default edge groups; the per-node
+    // ring stroke is gone, so no fourth stroke appears.
+    assert.equal(context.strokes.length, 2, `strokes were ${context.strokes}`);
+});
+
+test("the coarse preset fills every node's colour and labels the selection's neighbourhood", () => {
+    const { graph, b } = build();
+    b.isSelected = true;
+
+    const context = withCoarsePreset(0, () => draw(graph));
+
+    // b's neighbours are a and c; d is two hops away and unlabelled.
+    assert.deepEqual([...context.textLabels].sort(), ["a", "b", "c"]);
+    assert.equal(context.fills.length, 2, "the selected fill must still be drawn");
+});
+
+test("a coarse frame is deterministic", () => {
+    const { graph, b } = build();
+    b.isSelected = true;
+
+    const first = withCoarsePreset(0, () => draw(graph));
+    const second = withCoarsePreset(0, () => draw(graph));
+
+    assert.deepEqual(first.ops, second.ops);
+});
+
+test("coarse node arcs keep painter order inside each colour group", () => {
+    // The default-colour group stays (depth descending); the selected group is a
+    // separate fill, so it follows the whole default path.
+    const { graph, nodes } = withDepths([100, 300, 200], ["near", "far", "mid"]);
+    nodes[1].isSelected = true;
+
+    const context = withCoarsePreset(0, () => draw(graph));
+
+    // x encodes the insertion index: mid (80), near (0), then the selected far (40).
+    assert.deepEqual(context.arcs.map(arc => arc[0]), [80, 0, 40]);
+});
+
+test("forcing the coarse preset off reproduces the small-graph golden exactly", () => {
+    const { graph, b } = build();
+    b.isSelected = true;
+
+    const plain = draw(graph);
+    const forcedOff = withCoarsePreset(Infinity, () => draw(graph));
+
+    assert.deepEqual(forcedOff.ops, plain.ops);
+    assert.deepEqual(forcedOff.strokes, plain.strokes);
+    assert.deepEqual(forcedOff.fills, plain.fills);
+    assert.deepEqual(forcedOff.textLabels, plain.textLabels);
+});
