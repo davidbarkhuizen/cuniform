@@ -31,6 +31,13 @@ export class ForceDirectedGraph {
     // its own pooled buffers (Plan 1), so it also allocates nothing steady-state.
     private readonly octree = new Octree();
 
+    /**
+     * The largest distance any node travelled during the most recent step
+     * (equivalently, the largest speed; pinned nodes count as zero). Plan 6's
+     * settle detector reads it to stop stepping once the layout is quiet.
+     */
+    lastMaxDisplacement = 0;
+
     constructor(graph: Graph) {
         this.graph = graph;
     }
@@ -388,6 +395,10 @@ export class ForceDirectedGraph {
 		const friction = K.physics.friction;
 		const timeStep = K.physics.timeStep;
 
+		// The displacement the settle detector reads: position advances by the
+		// velocity, so the largest speed is the largest travel this step.
+		let maxDisplacement = 0;
+
 		// Pass 3: velocity before position, so a stiff spring stays stable. This
 		// is the first pass that may write a Tag, so no force can observe it.
 		for (let i = 0; i < n; i++) {
@@ -405,10 +416,17 @@ export class ForceDirectedGraph {
 			tag.velocity.y = (tag.velocity.y * friction) + (this.repulsionY[i] * timeStep);
 			tag.velocity.z = (tag.velocity.z * friction) + (this.repulsionZ[i] * timeStep);
 
+			const travel = radius(tag.velocity.x, tag.velocity.y, tag.velocity.z);
+
+			if (travel > maxDisplacement)
+				maxDisplacement = travel;
+
 			tag.position.x = tag.position.x + tag.velocity.x;
 			tag.position.y = tag.position.y + tag.velocity.y;
 			tag.position.z = tag.position.z + tag.velocity.z;
 		}
+
+		this.lastMaxDisplacement = maxDisplacement;
 
 		// Pass 4: one projector for the whole pass: the camera and viewport are
 		// loop invariants, resolved once per tick, not per node. An indexed loop,

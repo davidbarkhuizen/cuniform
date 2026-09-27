@@ -1,7 +1,8 @@
 # Plan 6 — Simulation cadence and a physics worker
 
-Status: proposed · Depends on: Plan 2 (flat buffers) and ideally Plan 1 (so the
-step is small enough to be worth scheduling) · Blocks: usable input at 4k+ nodes
+Status: 6a implemented; 6b proposed · Depends on: Plan 2 (flat buffers) and
+ideally Plan 1 (so the step is small enough to be worth scheduling) · Blocks:
+usable input at 4k+ nodes
 
 ## Objective
 

@@ -110,7 +110,7 @@ test("completing with a random spec swaps the graph and re-registers nothing", (
         controller.state.camera.dolly(1);
 
         const cameraBefore = cameraState(controller);
-        const timersBefore = dom.intervals.length;
+        const framesBefore = dom.animationFrames.length;
 
         controller.onReset();
 
@@ -123,7 +123,7 @@ test("completing with a random spec swaps the graph and re-registers nothing", (
         assert.ok(controller.wizard === null, "the chooser closes on completion");
         assert.equal(controller.spec?.kind, "random");
 
-        assert.equal(dom.intervals.length, timersBefore, "the timer must not be churned");
+        assert.equal(dom.animationFrames.length, framesBefore, "the simulation loop must not be churned");
         assert.equal(elements.body.children.length, 1, "no second context menu");
 
         for (const type of CANVAS_EVENTS)
@@ -201,7 +201,7 @@ test("cancelling leaves the graph, timer, listeners and camera untouched", () =>
 
         const graph = controller.solver.graph;
         const cameraBefore = cameraState(controller);
-        const timersBefore = dom.intervals.length;
+        const framesBefore = dom.animationFrames.length;
 
         controller.onReset();
         const wizard = controller.wizard!;
@@ -211,7 +211,7 @@ test("cancelling leaves the graph, timer, listeners and camera untouched", () =>
 
         assert.equal(controller.solver.graph, graph, "the graph object is identical");
         assert.ok(controller.wizard === null, "the chooser is closed");
-        assert.equal(dom.intervals.length, timersBefore, "the timer is untouched");
+        assert.equal(dom.animationFrames.length, framesBefore, "the simulation loop is untouched");
         assert.deepEqual(cameraState(controller), cameraBefore, "the camera is untouched");
 
         for (const type of CANVAS_EVENTS)

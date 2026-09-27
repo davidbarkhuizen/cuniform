@@ -27,6 +27,16 @@ export const K = {
         barnesHutMinNodes: 64,
         // Bucket near-coincident points instead of recursing forever.
         barnesHutMaxDepth: 28,
+
+        // Simulation cadence (docs/performance/06). Physics still advances in
+        // fixed timerTickPeriodMS steps; the scheduler accumulates real time and
+        // runs at most maxStepsPerFrame of them per animation frame, discarding
+        // the remainder so a slow frame cannot spiral. Stepping stops once the
+        // largest node travel stays below settleEpsilon for settleFrames steps,
+        // and any interaction resumes it.
+        maxStepsPerFrame: 2,
+        settleEpsilon: 0.01,
+        settleFrames: 10,
     },
 
     ui: {

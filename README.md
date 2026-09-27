@@ -178,10 +178,12 @@ The model is a 3D port of the reference implementation documented in
 [`pygforce/force-directed-graph-physics.md`](https://github.com/davidbarkhuizen/pygforce/blob/master/force-directed-graph-physics.md).
 Both force kernels are purely radial — the magnitude is a function of the scalar
 distance `r` only, and the direction is the unit vector along the separation — so
-making the space three-dimensional needs only a third component and a third
-argument to `Math.hypot`. It is a damped relaxation, not an energy minimisation:
+making the space three-dimensional needs only a third component. It is a damped
+relaxation, not an energy minimisation:
 
-- **Repulsion** — every node repels every other node, all pairs:
+- **Repulsion** — every node repels every other node, all pairs below
+  `barnesHutMinNodes` and approximated by the Barnes-Hut octree above it (see
+  [Complexity](#complexity)):
 
       F = k*q^2 / r^1.9
 
@@ -223,6 +225,22 @@ argument to `Math.hypot`. It is a damped relaxation, not an energy minimisation:
 Each step runs in fixed passes — all repulsion, all springs, all velocities, then
 all positions — so every node sees the same frozen snapshot of positions and the
 result is independent of iteration order.
+
+### Cadence
+
+Physics still advances in fixed `timerTickPeriodMS` steps, but `setInterval` no
+longer drives them. Where `requestAnimationFrame` exists the browser paints on
+its own clock and the scheduler accumulates real elapsed time, runs at most
+`maxStepsPerFrame` physics steps per animation frame, and discards the
+remainder, so a slow frame cannot spiral into a backlog. A frame draws exactly
+once, however many steps it ran.
+
+Once the largest node travel stays below `settleEpsilon` for `settleFrames`
+consecutive steps the layout is settled and stepping stops, leaving only the
+draw. A drag, orbit, dolly, console rotation, resize or graph swap starts it
+again. Without `requestAnimationFrame` the controller falls back to the original
+fixed-interval tick; `onTimerTick()` still means exactly one tick plus one draw,
+which is what the tests and the fallback use.
 
 ### Model, camera and canvas space
 
@@ -326,6 +344,9 @@ All tuning lives in [`src/K.ts`](src/K.ts):
 | `timeStep` | `0.1` | integration gain, **not** seconds |
 | `friction` | `0.9` | per-step velocity retained |
 | `timerTickPeriodMS` | `50` | one simulation step per tick |
+| `maxStepsPerFrame` | `2` | physics steps a single animation frame may run |
+| `settleEpsilon` | `0.01` | per-step travel below which a step is quiet |
+| `settleFrames` | `10` | consecutive quiet steps before stepping stops |
 | `minimumNodeSelectionRadiusPx` | `15.0` | click hit radius, CSS pixels |
 | `camera.focalLength` | `1024` | projection focal length, model units; constant |
 | `camera.distance` | `1024` | default camera distance; equal to `focalLength` for the 1:1 anchor |
