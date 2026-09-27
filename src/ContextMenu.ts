@@ -1,3 +1,5 @@
+import { advanceIndex } from "./FocusRing";
+
 export interface ContextMenuItem {
     label: string;
     onSelect: () => void;
@@ -124,7 +126,8 @@ export class ContextMenu {
         event.preventDefault();
 
         const step = event.key === 'ArrowDown' ? 1 : -1;
-        this.focusedIndex = (this.focusedIndex + step + this.entries.length) % this.entries.length;
+
+        this.focusedIndex = advanceIndex(this.focusedIndex, step, this.entries.length);
         this.entries[this.focusedIndex].element.focus();
     }
 

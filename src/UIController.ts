@@ -1,4 +1,12 @@
-import { CameraAxis, cameraScratch, copyCameraView, sameCameraView } from "./Camera";
+import {
+	CameraAxis,
+	CameraDirection,
+	cameraScratch,
+	copyCameraView,
+	isCameraAxis,
+	isCameraDirection,
+	sameCameraView,
+} from "./Camera";
 import { ContextMenu } from "./ContextMenu";
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { Graph } from "./Graph";
@@ -23,8 +31,6 @@ import { Tag } from "./Tag";
 export type GraphSource = (spec: GraphSpec) => Graph;
 
 const defaultGraphSource: GraphSource = spec => new GraphFactory().build(spec);
-
-type CameraDirection = 'cw' | 'acw';
 
 // A parsed console button: which camera axis and which way.
 interface CameraButton {
@@ -345,10 +351,12 @@ export class UIController {
 		const axis = element.getAttribute('data-axis');
 		const direction = element.getAttribute('data-direction');
 
-		if (axis !== 'x' && axis !== 'y' && axis !== 'z')
+		// The guards are the runtime half of the CameraAxis/CameraDirection
+		// vocabularies, so this cannot accept a value the type does not name.
+		if (!isCameraAxis(axis))
 			return null;
 
-		if (direction !== 'cw' && direction !== 'acw')
+		if (!isCameraDirection(direction))
 			return null;
 
 		return { axis, direction };
