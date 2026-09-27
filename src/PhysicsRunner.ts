@@ -8,7 +8,7 @@ import { Tag } from "./Tag";
  * physics worker, behind one interface so nothing above it knows which.
  *
  * Projection, hit-testing, selection and rendering all stay on the main thread;
- * only the force integration moves. See docs/performance/06-simulation-worker.md.
+ * only the force integration moves. See the README's "Cadence" section.
  */
 
 /**

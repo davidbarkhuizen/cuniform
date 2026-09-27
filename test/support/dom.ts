@@ -287,7 +287,7 @@ export interface FakeDomOptions {
 
 // Install DOM/timer stubs on globalThis, returning a restore handle.
 // setInterval is stubbed so an initialized UIController cannot keep node alive,
-// and requestAnimationFrame is stubbed so the Plan 6 scheduler can be driven by
+// and requestAnimationFrame is stubbed so the cadence scheduler can be driven by
 // hand instead of by the host's frame clock.
 export function installFakeDom(
     elements: Record<string, FakeElement> = {},

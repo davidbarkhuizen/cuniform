@@ -15,7 +15,7 @@ export const K = {
         // law is evaluated at max(r, minimumInteractionRadius), bounding the r -> 0 blow-up.
         minimumInteractionRadius : 10.0,
 
-        // Barnes-Hut far-field approximation (docs/performance/01). Below
+        // Barnes-Hut far-field approximation (README, "Performance"). Below
         // barnesHutMinNodes the exact pairwise kernel runs, preserving demo-scale
         // behaviour bit-for-bit; above it the octree replaces the O(N^2) pass.
         // The traversal never accepts the cell that contains the body as an
@@ -28,7 +28,7 @@ export const K = {
         // Bucket near-coincident points instead of recursing forever.
         barnesHutMaxDepth: 28,
 
-        // Simulation cadence (docs/performance/06). Physics still advances in
+        // Simulation cadence (README, "Cadence"). Physics still advances in
         // fixed timerTickPeriodMS steps; the scheduler accumulates real time and
         // runs at most maxStepsPerFrame of them per animation frame, discarding
         // the remainder so a slow frame cannot spiral. Stepping stops once the
@@ -125,9 +125,10 @@ export const K = {
     },
 
     chooser: {
-        // Random-graph chooser bounds. maxOrder keeps the chooser at or below the
-        // exact/Barnes-Hut crossover (barnesHutMinNodes); raising it and adding
-        // large-graph UX is the deferred follow-up in docs/performance/README.md.
+        // Random-graph chooser bounds. maxOrder is still pinned at the old
+        // exact/Barnes-Hut crossover (barnesHutMinNodes), from when repulsion was
+        // O(N^2) per tick; raising it and adding large-graph UX is the first next
+        // step in the README's "Performance" section.
         // minOrder is 2 because a one-node graph has no edges.
         minOrder : 2,
         maxOrder : 64,

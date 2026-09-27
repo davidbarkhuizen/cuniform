@@ -1,4 +1,4 @@
-// The physics worker entry (docs/performance/06-simulation-worker.md).
+// The physics worker entry (README, "Cadence").
 //
 // Deliberately not in PURE_MODULES: this is the one module that touches the
 // worker globals. The physics and the message protocol live in

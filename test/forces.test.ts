@@ -221,7 +221,7 @@ test("one step evaluates repulsion once per unordered pair", () => {
 
     // repulsionMagnitude calls Math.pow once per pair, and this graph is
     // springless, so pow is a faithful pair counter now that hypot is gone from
-    // the kernel (Plan 3).
+    // the kernel.
     const realPow = Math.pow;
     let calls = 0;
 

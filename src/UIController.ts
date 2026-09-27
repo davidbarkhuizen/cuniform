@@ -50,7 +50,7 @@ export class UIController {
 
     /**
      * The setInterval handle when the fallback scheduler is in use, else null.
-     * Plan 6 drives the simulation from requestAnimationFrame where it exists.
+     * Where it exists, requestAnimationFrame drives the simulation instead.
      */
     timer: ReturnType<typeof setInterval> | null = null;
 

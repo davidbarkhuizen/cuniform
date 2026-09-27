@@ -385,28 +385,120 @@ style note. With the defaults the gain is exactly `1`, a single edge settles at
 `r ~= 65.46` model units (not at `l = 30` — repulsion pushes past the rest
 length), and an underdamped mode decays by `sqrt(friction) ~= 0.9487` per step.
 
-### Complexity
+## Performance
 
-Repulsion is Barnes-Hut above `K.physics.barnesHutMinNodes` (64) nodes: the
-octree in `src/Octree.ts` approximates the far field with each cell's charge
-total at its centre of mass, `O(N log N)` per step. Below the crossover the
-exact all-pairs kernel still runs, so demo-scale layouts are unchanged, and the
-tree never accepts the cell containing a body as an aggregate, so no opening
-angle can make a node repel itself. `K.physics.barnesHutTheta` (0.5) trades
-force error for speed; the committed benchmark reports the error against the
-exact reference.
+What a step, a frame and a generated graph cost, and what to do next. The
+measurable claims live in `bench/physics.bench.ts`; run `npm run bench` (or
+`./cli bench`) for numbers on the machine at hand. It is not part of `npm test` —
+it takes seconds, not milliseconds, and its numbers are machine-dependent.
 
-The radius helper in `src/Kernel.ts` uses `Math.sqrt(dx*dx + dy*dy + dz*dz)`
-rather than `Math.hypot`, which is variadic and rescaled and so cannot compile
-to a square root plus two multiplies.
+### Measured profile
 
-The spring pass walks each node's incident edges from an adjacency list that
-`Graph` maintains alongside its edge list, so it is `O(N + E)` rather than
-`O(N*E)`, and a step runs over pooled flat buffers, so it allocates nothing in
-steady state. The renderer's depth sort adds `O((N + E) log(N + E))` per frame.
+Node 25, one thread, sparse graphs (average degree 3), 1280x800 canvas, at the
+default `K`. Repulsion is the exact all-pairs reference below the 64-node
+crossover and the octree above it, so every row below the first is approximate;
+the error columns are against the exact pairwise kernel, and the renderer column
+is `FakeContext2D`, so it counts JavaScript work only. The step column was not
+measured at 8192, where a step would take seconds in the harness. These are the
+current figures, not a target.
 
-The measured baseline and the six work plans for supporting larger graphs are in
-[`docs/performance/`](docs/performance/README.md).
+| N | generate ms | step ms | repulsion ms | mean / max force error | render ms (`ops` / `fillText`) |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 512 | 2.1 | 7.3 | 5.1 | 0.50% / 2.0% | 0.5 (`1280` / 0) |
+| 1024 | 3.1 | 17.1 | 12.8 | 0.43% / 1.1% | 1.2 (`2560` / 0) |
+| 2048 | 6.7 | 38.3 | 35.8 | 0.38% / 1.3% | 3.7 (`2056` / 0) |
+| 4096 | 12.6 | 101.0 | 86.3 | 0.32% / 0.7% | 7.7 (`4104` / 0) |
+| 8192 | 26.6 | — | 264.7 | 0.30% / 0.6% | 23.7 (`8200` / 0) |
+
+The tick budget is `K.physics.timerTickPeriodMS` = 50 ms, i.e. 20 Hz, and
+`maxStepsPerFrame` caps a frame at two steps. So the *solver* is interactive to
+about 1024 nodes on this machine and usable to 4096; above that the worker keeps
+input alive while the layout advances slower than real time. Rendering is
+cheaper than physics on the fake context at every measured size, but the fake
+context charges nothing for real `arc`/`fill`/`fillText` rasterisation, so treat
+that column as a lower bound and the real canvas as the eventual ceiling.
+Steady-state GC is 0–2% of wall time; the projection loop is 0.39 ms at N=4096
+and has not been a problem at any measured size.
+
+### Scaling and complexity
+
+- **Repulsion** is Barnes-Hut above `K.physics.barnesHutMinNodes` (64) nodes:
+  the octree in [`src/Octree.ts`](src/Octree.ts) approximates the far field with
+  each cell's charge total at its centre of mass, `O(N log N)` per step. Below
+  the crossover the exact all-pairs kernel still runs, so demo-scale layouts are
+  unchanged, and the tree never accepts the cell containing a body as an
+  aggregate, so no opening angle can make a node repel itself.
+  `K.physics.barnesHutTheta` (0.5) trades force error for speed: at N=4096 the
+  measured repulsion pass is 80 ms at theta 0.5 (0.3% mean error) and 22 ms at
+  0.9 (1.8% mean), roughly the three.js default. A cut-off radius is
+  deliberately *not* used: the law is long range, so truncating it changes the
+  physics rather than approximating it.
+- **The radius helper** in [`src/Kernel.ts`](src/Kernel.ts) uses
+  `Math.sqrt(dx*dx + dy*dy + dz*dz)` rather than `Math.hypot`, which is variadic
+  and rescaled and so cannot compile to a square root plus two multiplies; the
+  benchmark measures about 10x on the kernel alone. `Math.pow(r, 1.9)` is kept:
+  splitting the exponent measured inside noise, and it would move the force
+  values.
+- **Springs** walk each node's incident edges from an adjacency list `Graph`
+  maintains beside its edge list, so the pass is `O(N + E)`; `hasEdge` is an O(1)
+  neighbour-set lookup, which is what makes generation `O(V + E)` rather than
+  rejection over a filtered candidate list.
+- **Allocation**: a step runs over pooled flat buffers and the draw path over
+  reusable frame scratch, so both are allocation-free in steady state.
+- **The frame** adds `O((N + E) log(N + E))` for the depth sort. Above the
+  `K.renderer` thresholds the draw path changes shape (label culling, batched
+  edges, see [Depth cue](#depth-cue)).
+
+### Next steps
+
+Ordered by roughly the ratio of payoff to risk. The first five are small, local
+changes; the last three are larger pieces of work with their own design and
+should be separate PRs.
+
+| # | change | why, and what it touches |
+| ---: | --- | --- |
+| 1 | Raise `K.chooser.maxOrder` and adapt the chooser | It is still `64`, pinned low back when repulsion was `O(N^2)`. The solver is now comfortable well past that, so the smallest useful change is to raise it to a measured ceiling and let the chooser's validation messages follow `K` as they already do. `src/K.ts`, `src/GraphSpec.ts`, `src/GraphWizard.ts`. |
+| 2 | A coarse-rendering / large-graph preset above a threshold | Labels are already culled and edges already batched, but the debug cost is still real: at 8192 nodes the `FakeContext2D` frame issues 8200 ops. A single "performance" preset could thin edges further (hide them behind a distance or degree filter), drop the depth fade to one bucket, and skip the selection ring on hover; today all of it is always on. `src/K.ts`, `src/Renderer.ts`. |
+| 3 | Skip the frame entirely when nothing moved | The settle detector stops *stepping* once the layout is quiet, but the rAF loop still redraws. Track the last drawn camera and the settle flag and skip `render()` while the camera is still; hover, selection and a resize are the only things that must force a redraw. This is the cheapest possible frame and it is the highest-value item at large N. `src/UIController.ts`, `src/Renderer.ts`. |
+| 4 | Default the opening angle from the graph size, and expose a quality setting | `barnesHutTheta` is fixed at 0.5. The table above shows 0.9 is 3.7x faster at N=4096 and still 1.8% mean error, so a "fast" mode is defensible for large graphs where the eye cannot see the difference. Decide it in one place (the controller or the solver) rather than exposing theta as a raw knob; report the error whenever the timing is reported. `src/K.ts`, `src/ForceDirectedGraph.ts`. |
+| 5 | Stop re-scanning for the selection once per tick | `graph.selectedVertex()` is an `O(N)` walk called from inside `render()`, once per tick. `render` already takes the graph and camera; pass the selected vertex in from the controller, which knows when the selection changes, and drop the scan. `src/Renderer.ts`, `src/UIController.ts`. |
+| 6 | Make the octree incrementally cheaper, not asymptotically better | The remaining cost is the per-body traversal and the per-step tree rebuild. Candidate work, each measurable by itself: reuse the traversal stack explicitly instead of recursion, tune leaf capacity and `barnesHutMaxDepth` for the measured graph sizes (a shallower tree with a larger bucket is often faster than a deep one), inline the theta test and the distance computation into the traversal, and keep the body-to-cell mapping so an incremental rebuild can skip unchanged cells. `src/Octree.ts`. |
+| 7 | Revisit the worker boundary | Positions cross as a transferable `Float64Array` once per step and are copied onto the `Tag` objects, then projected. Copying is no longer the bottleneck at the measured sizes, but if the step count rises the boundary is next: a runner-owned position buffer that the graph does not own, or shared memory behind `SharedArrayBuffer` when the page is cross-origin isolated. `SharedArrayBuffer` remains out of reach for the `file://` demo, so it stays a feature-detected upgrade. `src/PhysicsRunner.ts`, `src/PhysicsProtocol.ts`. |
+| 8 | Rendering or physics beyond canvas 2D | If the real canvas becomes the wall, the next step is `OffscreenCanvas`/WebGL (instanced points and lines) rather than further batch tuning. If force computation becomes the wall, the options are a tuned native/WASM kernel, a pool of workers splitting the octree, or GPU forces. Both are separate designs with different failure modes (context loss, shader precision, determinism across devices) and neither is committed. |
+
+### Invariants any change must keep
+
+The suite enforces these, so they are the contract rather than suggestions:
+
+1. **The pure modules stay DOM-free.** `test/architecture.test.ts` pins
+   `PURE_MODULES`, and every DOM-facing module is listed with the marker that
+   justifies it (`simulation.worker.ts` for `self`, `PhysicsRunner.ts` for
+   `Worker`, `UIController.ts` for `window`, `Renderer.ts` for the canvas type).
+   A new solver or geometry module joins `PURE_MODULES`; only `Renderer.ts`
+   draws.
+2. **One projector per tick.** `UIController.onTimerTick()` resolves the
+   projector once and passes the same camera to `step()` and `render()`, so the
+   renderer's cull boundary sees the depth values cached with that camera.
+3. **Frozen pre-step snapshot.** Every force in a step is computed from
+   positions as they were at the start of the step, so no node sees a
+   half-updated neighbour.
+4. **Deterministic order.** Iteration follows the `vertices`/`edges` insertion
+   order, and the painter sort is an explicit `(depth descending, insertion
+   index ascending)` comparator, so equal depths keep edge-before-node order and
+   a layout is reproducible.
+5. **Pinned-node semantics.** A dragged node keeps the position the pointer
+   writes, has its velocity zeroed, is skipped by integration, and still exerts
+   forces. Dragging never teleports depth.
+6. **The exact 2D reduction.** With the identity orientation, `focalLength ==
+   distance` and `z == 0`, projection reduces bit-exactly to the 2D viewport
+   mapping.
+7. **`Tag` owns its points.** The solver never aliases a `Tag.position` into
+   scratch state in a way that lets a read observe a half-written step.
+
+When timing a change, time it with the committed benchmark and report force
+error alongside any time that moves an approximation; "it feels faster" is not
+evidence, and neither is a fake-context render time presented as a real frame
+cost.
 
 ## Known limitations
 
