@@ -2,7 +2,8 @@
     "compilerOptions": {
         "target": "es2019",
         "module": "commonjs",
-        "moduleResolution": "node",
+        "moduleResolution": "bundler",
+        "isolatedModules": true,
         "sourceMap": true,
         "declaration": true,
         "outDir": "./dist",
