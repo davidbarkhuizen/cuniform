@@ -1,5 +1,12 @@
 // The innermost arithmetic shared by every force consumer: the solver's exact
-// pairwise pass, the per-node reference, and (Plan 1) the Barnes-Hut octree.
+// pairwise pass, the per-node reference, and the Barnes-Hut octree.
+
+import { K } from "./K";
+
+// k*q^2, the numerator of the repulsion law. Hoisted because repulsionMagnitude
+// runs at least once per interaction and the factors are constants.
+const CHARGE_PRODUCT =
+    K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge;
 
 /**
  * Euclidean length of a delta vector.
@@ -20,4 +27,18 @@
  */
 export function radius(dx: number, dy: number, dz: number): number {
     return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+/**
+ * The repulsion magnitude law, k*q^2 / max(r, minimumInteractionRadius)^1.9.
+ *
+ * The single home for the law: the exact pairwise kernel, the per-node reference
+ * and the Barnes-Hut aggregate all call it, so they cannot drift apart. Only the
+ * far-field *evaluation* differs between them. The clamp bounds the r -> 0
+ * singularity; callers still use the true radius for direction.
+ */
+export function repulsionMagnitude(r: number): number {
+    var r_law = Math.max(r, K.physics.minimumInteractionRadius);
+
+    return CHARGE_PRODUCT / Math.pow(r_law, K.physics.repulsionExponent);
 }

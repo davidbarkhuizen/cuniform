@@ -13,13 +13,13 @@
 import { PerformanceObserver } from "perf_hooks";
 
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
-import { Graph } from "../src/Graph";
 import { GraphFactory } from "../src/GraphFactory";
+import { K } from "../src/K";
 import { radius } from "../src/Kernel";
 import { Projector } from "../src/Projector";
 import { render } from "../src/Renderer";
-import { Tag } from "../src/Tag";
 import { FakeContext2D } from "../test/support/dom";
+import { seededRandom, sparseGraph } from "../test/support/physics";
 
 const CANVAS_W = 1280;
 const CANVAS_H = 800;
@@ -27,65 +27,11 @@ const AVERAGE_DEGREE = 3;
 
 const GENERATION_ORDERS = [512, 1024, 2048, 4096, 8192];
 const STEP_CASES: Array<[number, number]> = [[256, 8], [512, 6], [1024, 4], [2048, 2], [4096, 1]];
-const REPULSION_ORDERS = [256, 512, 1024, 2048];
+const REPULSION_ORDERS = [256, 512, 1024, 2048, 4096, 8192];
 const RENDER_ORDERS = [512, 1024, 2048, 4096];
 const GC_ORDER = 1024;
 const KERNEL_SAMPLES = 1000000;
-
-/** Deterministic xorshift32, so runs are comparable. */
-function makeRandom(seed: number): () => number {
-    let state = seed >>> 0 || 1;
-
-    return () => {
-        state ^= state << 13;
-        state >>>= 0;
-        state ^= state >>> 17;
-        state ^= state << 5;
-        state >>>= 0;
-        return state / 0x100000000;
-    };
-}
-
-// A sparse graph built directly, not through generateGraph, so the solver
-// sections exclude generation cost and the shape is reproducible.
-function makeSparseGraph(order: number, random: () => number): Graph {
-    const graph = new Graph();
-    const tags: Tag[] = [];
-
-    for (let i = 0; i < order; i++) {
-        const tag = new Tag(
-            { x: random() * 600 - 300, y: random() * 600 - 300, z: random() * 600 - 300 },
-            `n${i}`
-        );
-        graph.addNode(tag);
-        tags.push(tag);
-    }
-
-    const target = Math.floor((order * AVERAGE_DEGREE) / 2);
-    const seen = new Set<string>();
-
-    let edges = 0;
-    let guard = 0;
-
-    while (edges < target && guard++ < target * 20) {
-        const a = Math.floor(random() * order);
-        const b = Math.floor(random() * order);
-
-        if (a === b)
-            continue;
-
-        const key = a < b ? `${a}:${b}` : `${b}:${a}`;
-
-        if (seen.has(key))
-            continue;
-
-        seen.add(key);
-        graph.addEdge(tags[a], tags[b]);
-        edges++;
-    }
-
-    return graph;
-}
+const ERROR_SAMPLE = 64;
 
 function row(label: string, value: string): void {
     console.log(label.padEnd(26) + value);
@@ -118,7 +64,7 @@ function benchSolver(): void {
     row("N / E", "step ms");
 
     for (const [order, reps] of STEP_CASES) {
-        const graph = makeSparseGraph(order, makeRandom(1234 + order));
+        const graph = sparseGraph(order, 1234 + order);
         const solver = new ForceDirectedGraph(graph);
         const projector = Projector.forCanvas(CANVAS_W, CANVAS_H);
 
@@ -127,18 +73,107 @@ function benchSolver(): void {
     }
 }
 
+interface RepulsionMeasurement {
+    ms: number;
+    mean: number;
+    max: number;
+}
+
+/** Time the repulsion pass and measure its error against the exact reference. */
+function measureRepulsion(order: number, seed: number, reps: number): RepulsionMeasurement {
+    const graph = sparseGraph(order, seed);
+    const solver = new ForceDirectedGraph(graph);
+    const out = graph.vertices.map(() => ({ x: 0, y: 0, z: 0 }));
+
+    // Zeroed each call: accumulateRepulsion adds onto its input.
+    const ms = timePer(() => {
+        for (const point of out) {
+            point.x = 0;
+            point.y = 0;
+            point.z = 0;
+        }
+        solver.accumulateRepulsion(out);
+    }, reps);
+
+    for (const point of out) {
+        point.x = 0;
+        point.y = 0;
+        point.z = 0;
+    }
+    solver.accumulateRepulsion(out);
+
+    // Bounded-error check against the exact per-node reference, on a fixed
+    // stride sample so one O(N) reference call per sampled node stays cheap.
+    const stride = Math.max(1, Math.floor(order / ERROR_SAMPLE));
+    const exact: Array<{ x: number; y: number; z: number }> = [];
+
+    let exactTotal = 0;
+
+    for (let i = 0; i < order; i += stride) {
+        const force = solver.netElectrostaticForceAtNode(graph.vertices[i]);
+
+        exact.push(force);
+        exactTotal += Math.hypot(force.x, force.y, force.z);
+    }
+
+    // Normalised by the mean exact force magnitude: a body near a force balance
+    // has an exact magnitude near zero and would otherwise dominate a per-node
+    // ratio while its absolute error stays tiny.
+    const scale = exactTotal / exact.length;
+
+    let total = 0;
+    let worst = 0;
+
+    exact.forEach((force, k) => {
+        const approximate = out[k * stride];
+
+        const error = Math.hypot(
+            approximate.x - force.x,
+            approximate.y - force.y,
+            approximate.z - force.z
+        ) / scale;
+
+        total += error;
+        worst = Math.max(worst, error);
+    });
+
+    return { ms, mean: total / exact.length, max: worst };
+}
+
+function reportRepulsion(label: string, measurement: RepulsionMeasurement): void {
+    row(
+        label,
+        `${measurement.ms.toFixed(2)}   ` +
+        `${(100 * measurement.mean).toFixed(2)}% / ${(100 * measurement.max).toFixed(2)}%`
+    );
+}
+
 function benchRepulsion(): void {
-    console.log("\n== repulsion pass alone (all pairs) ==");
-    row("N", "ms");
+    console.log(
+        `\n== repulsion pass alone (exact below N=${K.physics.barnesHutMinNodes}, ` +
+        `Barnes-Hut above at theta=${K.physics.barnesHutTheta}) ==`
+    );
+    row("N", "ms   mean err / max err");
 
     for (const order of REPULSION_ORDERS) {
-        const graph = makeSparseGraph(order, makeRandom(99 + order));
-        const solver = new ForceDirectedGraph(graph);
-        const out = graph.vertices.map(() => ({ x: 0, y: 0, z: 0 }));
-        const reps = order <= 512 ? 6 : 2;
+        const reps = order <= 1024 ? 4 : 2;
+        reportRepulsion(String(order), measureRepulsion(order, 99 + order, reps));
+    }
+}
 
-        const ms = timePer(() => { solver.accumulateRepulsion(out); }, reps);
-        row(String(order), ms.toFixed(2));
+function benchOpeningAngle(): void {
+    console.log("\n== opening angle, N=4096 ==");
+    row("theta", "ms   mean err / max err");
+
+    const original = K.physics.barnesHutTheta;
+
+    try {
+        for (const theta of [0.5, 0.9]) {
+            K.physics.barnesHutTheta = theta;
+            reportRepulsion(String(theta), measureRepulsion(4096, 99 + 4096, 2));
+        }
+    } finally {
+        K.physics.barnesHutTheta = original;
     }
 }
 
@@ -146,7 +181,7 @@ function benchKernel(): void {
     console.log("\n== distance kernel ==");
     row("variant", "ms / 1e6 calls");
 
-    const random = makeRandom(24680);
+    const random = seededRandom(24680);
     const deltas = new Float64Array(KERNEL_SAMPLES * 3);
 
     for (let i = 0; i < deltas.length; i++)
@@ -178,7 +213,7 @@ function benchKernel(): void {
 function benchProjection(): void {
     console.log("\n== projection loop ==");
 
-    const graph = makeSparseGraph(4096, makeRandom(7));
+    const graph = sparseGraph(4096, 7);
     const projector = Projector.forCanvas(CANVAS_W, CANVAS_H);
 
     const ms = timePer(() => {
@@ -197,7 +232,7 @@ function benchRender(): void {
     row("N / E", "render ms (canvas ops/frame)");
 
     for (const order of RENDER_ORDERS) {
-        const graph = makeSparseGraph(order, makeRandom(4321 + order));
+        const graph = sparseGraph(order, 4321 + order);
         const projector = Projector.forCanvas(CANVAS_W, CANVAS_H);
         const solver = new ForceDirectedGraph(graph);
 
@@ -260,7 +295,7 @@ async function benchGc(): Promise<void> {
     console.log("\n== GC during 20 repetitions ==");
     row("workload", "wall ms / GC ms / GC %");
 
-    const graph = makeSparseGraph(GC_ORDER, makeRandom(555));
+    const graph = sparseGraph(GC_ORDER, 555);
     const solver = new ForceDirectedGraph(graph);
     const projector = Projector.forCanvas(CANVAS_W, CANVAS_H);
     const unpinned = () => false;
@@ -279,6 +314,7 @@ async function main(): Promise<void> {
     benchGeneration();
     benchSolver();
     benchRepulsion();
+    benchOpeningAngle();
     benchKernel();
     benchProjection();
     benchRender();

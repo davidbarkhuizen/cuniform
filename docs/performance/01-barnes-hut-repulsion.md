@@ -1,6 +1,6 @@
 # Plan 1 — Barnes–Hut repulsion
 
-Status: proposed · Depends on: Plans 2 and 3 (recommended first) · Blocks:
+Status: implemented · Depends on: Plans 2 and 3 (recommended first) · Blocks:
 interactive graphs above ~1k nodes
 
 ## Objective
@@ -78,10 +78,20 @@ produced ~250% force errors.)
 ### Self-exclusion bound
 
 The cell that *contains* body `i` must never be accepted as an aggregate, or
-the node would repel itself. Because `i` lies inside that cell,
-`d ≤ √3 · half`, so `s / d ≥ 2/√3 ≈ 1.155`. Therefore any `θ < 1.155` makes the
-containing cell fail the opening test and recurse. Document this bound in `K`
-and clamp/validate `barnesHutTheta` below it.
+the node would repel itself. The implementation does this explicitly: the
+traversal records, for each cell on its stack, whether that cell holds body
+`i`, and never accepts such a cell. The child on the body's side of each split
+inherits the flag, so the guarantee is exact for every opening angle and does
+not depend on `theta` at all.
+
+> Implementation note: the θ-only argument sketched below is therefore not
+> relied on. It is also too loose: the centre of mass can sit at the opposite
+> corner of the cell from the body, so a θ-only guarantee would need
+> θ < 1/√3 ≈ 0.577. `barnesHutTheta` is still clamped to the documented
+> 2/√3 ceiling as a sanity bound.
+
+The original θ argument, kept for reference: because `i` lies inside that cell,
+`d ≤ √3 · half`, so `s / d ≥ 2/√3 ≈ 1.155`.
 
 ### Exact fast path
 

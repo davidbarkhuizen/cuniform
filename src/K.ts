@@ -14,6 +14,19 @@ export const K = {
         // Robustness guard, not part of the reference model: the repulsion power
         // law is evaluated at max(r, minimumInteractionRadius), bounding the r -> 0 blow-up.
         minimumInteractionRadius : 10.0,
+
+        // Barnes-Hut far-field approximation (docs/performance/01). Below
+        // barnesHutMinNodes the exact pairwise kernel runs, preserving demo-scale
+        // behaviour bit-for-bit; above it the octree replaces the O(N^2) pass.
+        // The traversal never accepts the cell that contains the body as an
+        // aggregate, so no opening angle can make a node repel itself; the
+        // ceiling below is a sanity clamp, not the self-exclusion mechanism.
+        // (A theta-only guarantee would need theta < 1/sqrt(3) ~= 0.577, because
+        // the centre of mass can sit at the opposite corner of the cell.)
+        barnesHutTheta: 0.5,
+        barnesHutMinNodes: 64,
+        // Bucket near-coincident points instead of recursing forever.
+        barnesHutMaxDepth: 28,
     },
 
     ui: {
@@ -87,8 +100,10 @@ export const K = {
     },
 
     chooser: {
-        // Random-graph chooser bounds. maxOrder is capped because repulsion is O(N^2) per
-        // tick; minOrder is 2 because a one-node graph has no edges.
+        // Random-graph chooser bounds. maxOrder keeps the chooser at or below the
+        // exact/Barnes-Hut crossover (barnesHutMinNodes); raising it and adding
+        // large-graph UX is the deferred follow-up in docs/performance/README.md.
+        // minOrder is 2 because a one-node graph has no edges.
         minOrder : 2,
         maxOrder : 64,
         // maxBranching is the practical cap; the hard limit is order - 1, enforced in parseRandomSpec().
