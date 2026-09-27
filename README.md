@@ -342,9 +342,24 @@ path:
   per group, instead of one path per edge. Batch mode draws all edges before the
   depth-sorted nodes, so edges no longer slip in front of nearer nodes; that
   divergence is deliberate and applies only above the threshold.
+- **Coarse preset** — at or above `K.renderer.performance.minNodes` (4096) the
+  frame also collapses the depth fade to one bucket
+  (`performance.edgeAlphaBuckets`) and batches node fills by colour: one path and
+  one `fill()` per colour instead of one per node, so at most two fills however
+  many nodes. The selection-ring stroke is dropped
+  (`performance.selectionRing: false`), but the selected node keeps its selected
+  fill, so selection stays visible. Only the selection and its incident
+  neighbours are labelled, bounding the per-node work by the selected node's
+  degree rather than by N. Batching same-colour opaque nodes unions their
+  coverage instead of compositing per node; that divergence is deliberate and
+  size-gated. `arc()` still runs once per node, so this is a
+  call-count/state-change saving, not a rasterisation one.
 
 Below every threshold the frame is unchanged, and the whole draw path runs over
-reusable frame scratch, so it allocates nothing in steady state.
+reusable frame scratch, so it allocates nothing in steady state. The coarse
+preset's degree filter for thinning edges was specified with the plan but is not
+implemented: its benefit is real-canvas-only, so it waits for a real-browser
+measurement rather than the fake-context `ops` count.
 
 ### Constants
 
@@ -379,6 +394,8 @@ All tuning lives in [`src/K.ts`](src/K.ts):
 | `camera.dollyPerWheelNotch` | `1.1` | wheel zoom rate |
 | `depthCue.minNodeRadiusPx` / `maxNodeRadiusPx` | `2.0` / `12.0` | perspective size clamp |
 | `depthCue.minAlpha` / `maxAlpha` | `0.35` / `1.0` | depth fade range |
+| `renderer.performance.minNodes` | `4096` | coarse frame at or above this node count |
+| `renderer.performance.edgeAlphaBuckets` / `batchNodeFills` / `selectionRing` | `1` / `true` / `false` | coarse depth-fade buckets, colour-batched fills, and the dropped selection ring |
 | `chooser.minOrder` / `maxOrder` | `2` / `4096` | random-graph node-count bounds; `maxOrder` is the measured usability cap |
 | `chooser.interactiveOrder` | `1024` | above this the chooser warns that the layout may advance below 20 Hz |
 | `chooser.minBranching` / `maxBranching` | `1` / `8` | random-graph edges-per-node bounds; `order - 1` is the hard cap |
@@ -407,17 +424,19 @@ crossover and the octree above it, so every row below the first is approximate;
 the error columns are against the exact pairwise kernel, and the renderer column
 is `FakeContext2D`, so it counts JavaScript work only. The effective-theta column
 is what `K.physics.quality` = `"auto"` selected: 0.5 below
-`barnesHutFastMinNodes` (2048), 0.9 at or above. The step column was not measured
-at 8192, where a step would take seconds in the harness. These are the current
-figures, not a target.
+`barnesHutFastMinNodes` (2048), 0.9 at or above. The renderer column reflects the
+default thresholds, including the coarse preset at 4096 and above, which is why
+its `ops` count collapses there. The step column was not measured at 8192, where a
+step would take seconds in the harness. These are the current figures, not a
+target.
 
 | N | generate ms | step ms | repulsion ms | eff. theta | mean / max force error | render ms (`ops` / `fillText`) |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 512 | 2.5 | 7.7 | 4.7 | 0.5 | 0.50% / 2.0% | 0.6 (`1280` / 0) |
-| 1024 | 4.4 | 16.0 | 11.9 | 0.5 | 0.43% / 1.1% | 1.9 (`2560` / 0) |
-| 2048 | 8.6 | 12.4 | 9.3 | 0.9 | 1.98% / 6.2% | 3.6 (`2056` / 0) |
-| 4096 | 12.6 | 27.4 | 22.2 | 0.9 | 1.84% / 6.3% | 7.4 (`4104` / 0) |
-| 8192 | 32.8 | — | 54.9 | 0.9 | 1.73% / 6.3% | 22.6 (`8200` / 0) |
+| 1024 | 4.4 | 16.0 | 11.9 | 0.5 | 0.43% / 1.1% | 1.3 (`2560` / 0) |
+| 2048 | 8.6 | 12.4 | 9.3 | 0.9 | 1.98% / 6.2% | 2.8 (`2056` / 0) |
+| 4096 | 12.6 | 27.4 | 22.2 | 0.9 | 1.84% / 6.3% | 5.9 (`2` / 0) |
+| 8192 | 32.8 | — | 54.9 | 0.9 | 1.73% / 6.3% | 17.1 (`2` / 0) |
 
 The tick budget is `K.physics.timerTickPeriodMS` = 50 ms, i.e. 20 Hz, and
 `maxStepsPerFrame` caps a frame at two steps. With the default size-based angle
@@ -461,20 +480,19 @@ eventual ceiling. Steady-state GC is 0–2% of wall time; the projection loop is
   reusable frame scratch, so both are allocation-free in steady state.
 - **The frame** adds `O((N + E) log(N + E))` for the depth sort. Above the
   `K.renderer` thresholds the draw path changes shape (label culling, batched
-  edges, see [Depth cue](#depth-cue)).
+  edges, and above `performance.minNodes` the coarse preset's colour-batched node
+  fills, see [Depth cue](#depth-cue)).
 
 ### Next steps
 
-Ordered by roughly the ratio of payoff to risk. The first is a small, local
-change; the rest are larger pieces of work with their own design and should be
-separate PRs.
+Ordered by roughly the ratio of payoff to risk. These are larger pieces of work,
+each with its own design, and should be separate PRs.
 
 | # | change | why, and what it touches |
 | ---: | --- | --- |
-| 1 | A coarse-rendering / large-graph preset above a threshold | Labels are already culled and edges already batched, but the debug cost is still real: at 8192 nodes the `FakeContext2D` frame issues 8200 ops. A single "performance" preset could thin edges further (hide them behind a distance or degree filter), drop the depth fade to one bucket, and skip the selection ring on hover; today all of it is always on. `src/K.ts`, `src/Renderer.ts`. |
-| 2 | Make the octree incrementally cheaper, not asymptotically better | The remaining cost is the per-body traversal and the per-step tree rebuild. Candidate work, each measurable by itself: reuse the traversal stack explicitly instead of recursion, tune leaf capacity and `barnesHutMaxDepth` for the measured graph sizes (a shallower tree with a larger bucket is often faster than a deep one), inline the theta test and the distance computation into the traversal, and keep the body-to-cell mapping so an incremental rebuild can skip unchanged cells. `src/Octree.ts`. |
-| 3 | Revisit the worker boundary | Positions cross as a transferable `Float64Array` once per step and are copied onto the `Tag` objects, then projected. Copying is no longer the bottleneck at the measured sizes, but if the step count rises the boundary is next: a runner-owned position buffer that the graph does not own, or shared memory behind `SharedArrayBuffer` when the page is cross-origin isolated. `SharedArrayBuffer` remains out of reach for the `file://` demo, so it stays a feature-detected upgrade. `src/PhysicsRunner.ts`, `src/PhysicsProtocol.ts`. |
-| 4 | Rendering or physics beyond canvas 2D | If the real canvas becomes the wall, the next step is `OffscreenCanvas`/WebGL (instanced points and lines) rather than further batch tuning. If force computation becomes the wall, the options are a tuned native/WASM kernel, a pool of workers splitting the octree, or GPU forces. Both are separate designs with different failure modes (context loss, shader precision, determinism across devices) and neither is committed. |
+| 1 | Make the octree incrementally cheaper, not asymptotically better | The remaining cost is the per-body traversal and the per-step tree rebuild. Candidate work, each measurable by itself: reuse the traversal stack explicitly instead of recursion, tune leaf capacity and `barnesHutMaxDepth` for the measured graph sizes (a shallower tree with a larger bucket is often faster than a deep one), inline the theta test and the distance computation into the traversal, and keep the body-to-cell mapping so an incremental rebuild can skip unchanged cells. `src/Octree.ts`. |
+| 2 | Revisit the worker boundary | Positions cross as a transferable `Float64Array` once per step and are copied onto the `Tag` objects, then projected. Copying is no longer the bottleneck at the measured sizes, but if the step count rises the boundary is next: a runner-owned position buffer that the graph does not own, or shared memory behind `SharedArrayBuffer` when the page is cross-origin isolated. `SharedArrayBuffer` remains out of reach for the `file://` demo, so it stays a feature-detected upgrade. `src/PhysicsRunner.ts`, `src/PhysicsProtocol.ts`. |
+| 3 | Rendering or physics beyond canvas 2D | If the real canvas becomes the wall, the next step is `OffscreenCanvas`/WebGL (instanced points and lines) rather than further batch tuning. If force computation becomes the wall, the options are a tuned native/WASM kernel, a pool of workers splitting the octree, or GPU forces. Both are separate designs with different failure modes (context loss, shader precision, determinism across devices) and neither is committed. |
 
 ### Invariants any change must keep
 

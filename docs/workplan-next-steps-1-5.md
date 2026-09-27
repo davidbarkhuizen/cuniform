@@ -1,12 +1,16 @@
 # Workplan — README "Next steps" items 1 through 5
 
-Status: **not started**. Scope is the first five rows of the README's
+Status: **landed**. All five items shipped as focused PRs in the sequenced order
+(item 5, 1, 4, 3, 2); the README's Performance section carries the live figures
+and divergences, and its "Next steps" table now starts at the octree item. This
+document is kept as the record of what was planned and why; it is no longer a
+forward plan. Scope was the first five rows of the README's
 [`Performance → Next steps`](../README.md#next-steps) table; the four scope
 decisions were resolved on 2026-09-27 (see
-[Resolved decisions](#resolved-decisions)). Items 6–8 are explicitly out of
-scope: they are larger designs with their own failure modes (octree traversal
-strategy, the worker boundary, and WebGL/OffscreenCanvas or a native kernel) and
-land as separate plans and PRs.
+[Resolved decisions](#resolved-decisions)). Items 6–8 remain out of scope: they
+are larger designs with their own failure modes (octree traversal strategy, the
+worker boundary, and WebGL/OffscreenCanvas or a native kernel) and land as
+separate plans and PRs.
 
 This is one plan, executed as **five focused PRs**. Each item below is
 independently landable and independently revertible; the sequencing section at

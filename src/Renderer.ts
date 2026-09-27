@@ -1,3 +1,4 @@
+import { otherEndpoint } from "./Edge";
 import { Graph } from "./Graph";
 import { K } from "./K";
 import { CameraView, isDepthCulled } from "./Projector";
@@ -100,7 +101,10 @@ function ensureGroupCapacity(n: number): void {
  *
  * Above the `K.renderer` thresholds the frame switches to a cheaper, size-gated
  * path: labels are culled to the selection and its neighbours, and edges are
- * batched into one stroke per (style x alpha bucket).
+ * batched into one stroke per (style x alpha bucket). Above
+ * `K.renderer.performance.minNodes` a second, coarser preset also batches the
+ * node fills by colour and collapses the depth fade to one bucket, keeping only
+ * the selection ring and the labels as per-node work.
  *
  * `selected` is the caller's cached selection, not a scan: the controller knows
  * when the selection changes, so the renderer never walks O(N) per frame. The
@@ -193,13 +197,48 @@ export function render(
 	// Frame constant: nothing drawn in the loop changes the font.
 	context.font = K.label.fontFamily;
 
+	// The coarse large-graph preset: at or above performance.minNodes the frame
+	// batches node fills by colour and drops to one depth-fade bucket. It is off
+	// below the threshold, so every small-graph frame is byte-for-byte the old
+	// one.
+	const coarse =
+		K.renderer.performance.batchNodeFills &&
+		vertices.length >= K.renderer.performance.minNodes;
+
 	// Opt-in by size, so below every threshold the frame is byte-for-byte the old
-	// one and the small-graph golden tests are untouched.
-	const batchEdges = edges.length >= K.renderer.batchEdgesMinEdges;
+	// one and the small-graph golden tests are untouched. A coarse frame always
+	// batches edges: the per-item pass that would draw them per edge is skipped.
+	const batchEdges = coarse || edges.length >= K.renderer.batchEdgesMinEdges;
 	const labelAll = vertices.length < K.renderer.labelMaxNodes;
 
+	// One bucket means one alpha for the whole frame; below the coarse threshold the
+	// configured quantization is kept.
+	const buckets = coarse
+		? K.renderer.performance.edgeAlphaBuckets
+		: K.renderer.edgeAlphaBuckets;
+
 	if (batchEdges)
-		drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected);
+		drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets);
+
+	if (coarse) {
+
+		drawBatchedNodeFills(
+			context,
+			vertices,
+			itemKind,
+			itemIndex,
+			itemDepth,
+			itemOrder,
+			itemCount,
+			focalLength,
+			hasRange
+		);
+
+		// The fills are done; only the ring and the labels remain per-node work.
+		drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
+
+		return;
+	}
 
 	for (let k = 0; k < itemCount; k++) {
 
@@ -313,10 +352,11 @@ function drawBatchedEdges(
 	minDepth: number,
 	maxDepth: number,
 	hasRange: boolean,
-	selected: Tag | null
+	selected: Tag | null,
+	configuredBuckets: number
 ): void {
 
-	const buckets = Math.max(1, Math.floor(K.renderer.edgeAlphaBuckets));
+	const buckets = Math.max(1, Math.floor(configuredBuckets));
 	const groups = 2 * buckets;
 	const span = K.depthCue.maxAlpha - K.depthCue.minAlpha;
 
@@ -379,6 +419,143 @@ function drawBatchedEdges(
 
 		context.stroke();
 	}
+}
+
+/**
+ * Coarse frame: one path and one `fill()` per node colour instead of one fill
+ * per node - a bounded 2 fills however many nodes. The arcs are appended in the
+ * already-sorted painter order, so each colour group keeps
+ * (depth descending, insertion index ascending). Every visible node still
+ * contributes its own `arc()`, so this saves the fill call and its state change,
+ * not the subpath; real rasterisation still pays N circles.
+ *
+ * Compositing divergence, size-gated: overlapping opaque nodes of one colour are
+ * unioned into a single fill instead of compositing per node. Only above
+ * `performance.minNodes`, and only within one colour.
+ */
+function drawBatchedNodeFills(
+	context: CanvasRenderingContext2D,
+	vertices: Array<Tag>,
+	itemKind: Uint8Array,
+	itemIndex: Int32Array,
+	itemDepth: Float64Array,
+	itemOrder: number[],
+	itemCount: number,
+	focalLength: number,
+	hasRange: boolean
+): void {
+
+	// The depth fade collapsed to one bucket: the midpoint of the whole ramp,
+	// matching what a 1-bucket edge batch draws at.
+	const span = K.depthCue.maxAlpha - K.depthCue.minAlpha;
+	const alpha = bucketAlpha(0, 1, hasRange, span);
+
+	// Selected last, matching the per-node path's selected fill over the default.
+	for (let pass = 0; pass < 2; pass++) {
+
+		const wantSelected = pass === 1;
+
+		context.globalAlpha = alpha;
+		context.fillStyle = wantSelected ? K.colours.nodeSelected : K.colours.nodeDefault;
+		context.beginPath();
+
+		let any = false;
+
+		for (let k = 0; k < itemCount; k++) {
+
+			const item = itemOrder[k];
+
+			if (itemKind[item] !== NODE_ITEM)
+				continue;
+
+			const node = vertices[itemIndex[item]];
+
+			if (node.isSelected !== wantSelected)
+				continue;
+
+			context.arc(
+				node.translatedPosition.x,
+				node.translatedPosition.y,
+				radiusAt(itemDepth[item], focalLength),
+				CIRCLE_START_ANGLE,
+				CIRCLE_END_ANGLE,
+				CIRCLE_CLOCKWISE
+			);
+
+			any = true;
+		}
+
+		if (any)
+			context.fill();
+	}
+}
+
+/**
+ * Coarse frame: the only per-node work left is the selection ring (when the
+ * preset keeps it) and the labels. In production the coarse threshold is far
+ * above `labelMaxNodes`, so `labelAll` is false and the labels are the selection
+ * and its incident neighbours - bounded by `degree(selected) + 1`, not by N.
+ * There is no hover feature, so nothing else forces a per-node draw.
+ *
+ * `incidentEdges()` hands back the adjacency array, so this allocates nothing; a
+ * duplicate edge can label a neighbour twice, which is invisible (opaque text
+ * over itself) and still bounded by the degree.
+ */
+function drawCoarseNodeWork(
+	context: CanvasRenderingContext2D,
+	graph: Graph,
+	focalLength: number,
+	nearPlane: number,
+	minDepth: number,
+	maxDepth: number,
+	hasRange: boolean,
+	selected: Tag | null
+): void {
+
+	if (selected === null)
+		return;
+
+	drawCoarseNode(context, selected, true, focalLength, nearPlane, minDepth, maxDepth, hasRange);
+
+	for (const edge of graph.incidentEdges(selected)) {
+
+		const neighbour = otherEndpoint(edge, selected);
+
+		if (neighbour !== null)
+			drawCoarseNode(context, neighbour, false, focalLength, nearPlane, minDepth, maxDepth, hasRange);
+	}
+}
+
+function drawCoarseNode(
+	context: CanvasRenderingContext2D,
+	node: Tag,
+	ring: boolean,
+	focalLength: number,
+	nearPlane: number,
+	minDepth: number,
+	maxDepth: number,
+	hasRange: boolean
+): void {
+
+	// The batched fill already skipped culled nodes; the ring and label must too.
+	if (isDepthCulled(node.depth, nearPlane))
+		return;
+
+	const x = node.translatedPosition.x;
+	const y = node.translatedPosition.y;
+
+	context.globalAlpha = alphaAt(node.depth, minDepth, maxDepth, hasRange);
+	context.fillStyle = K.colours.label;
+
+	if (ring && K.renderer.performance.selectionRing) {
+		const radius = radiusAt(node.depth, focalLength);
+
+		circlePath(context, x, y, (SELECTION_RADIUS * radius) / NODE_RADIUS);
+		context.strokeStyle = K.colours.nodeSelected;
+		context.stroke();
+	}
+
+	context.fillText(node.label, x + K.label.horizontalSpacing, y - K.label.verticalSpacing);
 }
 
 /** Quantized bucket for a depth's fade alpha: 0 is nearest, buckets-1 farthest. */

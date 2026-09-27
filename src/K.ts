@@ -75,6 +75,30 @@ export const K = {
         batchEdgesMinEdges: 2000,
         // Depth-fade quantization for the batched edge strokes.
         edgeAlphaBuckets: 8,
+
+        // Coarse large-graph preset (README, "Depth cue"). At or above
+        // minNodes the frame switches to a cheaper path: one depth-fade bucket,
+        // node fills batched by colour, and no selection-ring stroke. Below it
+        // every frame is byte-for-byte the small-graph one, so only a frame at
+        // or above this size can differ. The threshold is on vertices.length and
+        // is independent of labelMaxNodes/batchEdgesMinEdges; lining it up with
+        // the chooser's measured cap is a coincidence of the profile, not a
+        // coupling to encode.
+        performance: {
+            // At or above this many vertices the coarse path runs.
+            minNodes: 4096,
+            // Collapse the depth fade to a single bucket, so the batched edge
+            // groups and the batched node fills collapse to one alpha each.
+            edgeAlphaBuckets: 1,
+            // One beginPath/fill per node colour instead of one fill per node.
+            // Batching same-colour opaque nodes unions their coverage instead of
+            // compositing them per node; that divergence is deliberate and
+            // size-gated.
+            batchNodeFills: true,
+            // The selected node keeps its selected fill; the ring stroke is
+            // dropped. There is no hover feature, so nothing else is skipped.
+            selectionRing: false,
+        },
     },
 
     space: {
