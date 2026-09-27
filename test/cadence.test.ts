@@ -20,13 +20,13 @@ function settledGraph(): Graph {
 /** Count physics steps by wrapping the controller's solver. */
 function countSteps(controller: UIController): () => number {
     const solver = controller.solver;
-    const realStep = solver.step.bind(solver);
+    const realStep = solver.stepPhysics.bind(solver);
 
     let steps = 0;
 
-    solver.step = (width, height, isPinned, projector) => {
+    solver.stepPhysics = isPinned => {
         steps++;
-        realStep(width, height, isPinned, projector);
+        realStep(isPinned);
     };
 
     return () => steps;

@@ -8,6 +8,7 @@ import { GraphWizard } from "./GraphWizard";
 import { K } from "./K";
 import { point, Point2D } from "./Point2D";
 import { point3 } from "./Point3D";
+import { PhysicsRunner } from "./PhysicsRunner";
 import { CameraView, Projector } from "./Projector";
 import { render } from "./Renderer";
 import { handleNodeSelectionAttempt } from "./Selection";
@@ -76,6 +77,10 @@ export class UIController {
     readonly state: State = new State();
 
     private solverRef: ForceDirectedGraph | null = null;
+
+    // The physics owner: an in-process solver, or a worker behind the same
+    // interface. Null until the solver exists.
+    private runnerRef: PhysicsRunner | null = null;
 
     body: HTMLElement;
     canvas: HTMLCanvasElement;
@@ -154,6 +159,14 @@ export class UIController {
             this.solverRef = new ForceDirectedGraph(this.initialGraph());
 
         return this.solverRef;
+    }
+
+    /** The physics owner, built lazily alongside the solver. */
+    get runner(): PhysicsRunner {
+        if (this.runnerRef === null)
+            this.runnerRef = new PhysicsRunner(this.solver);
+
+        return this.runnerRef;
     }
 
 	onMouseOut = () => {
@@ -538,6 +551,11 @@ export class UIController {
 
 		this.solverRef = new ForceDirectedGraph(graph);
 
+		// Re-initialise the physics owner, dropping any in-flight worker message
+		// from the graph that was just replaced.
+		if (this.runnerRef !== null)
+			this.runnerRef.setGraph(this.solverRef);
+
 		// A swap happens between gestures, so no button may still be held.
 		this.state.reset();
 
@@ -608,15 +626,27 @@ export class UIController {
 		this.onCameraRotateTick();
 
 		const projector = this.projector();
+		const graph = this.solver.graph;
 
-		// The solver receives the pinned-node predicate as a value, so it never
-		// reads browser state itself.
-		this.solver.step(
-			this.width,
-			this.height,
-			tag => tag.isSelected && this.state.b0Down,
-			projector
+		// The pin is expressed as an index and a position, so it crosses to a
+		// worker as data and the solver never reads browser state itself.
+		const selected = this.state.b0Down ? graph.selectedVertex() : null;
+		const pinnedIndex = selected === null ? -1 : graph.vertices.indexOf(selected);
+		const pinnedPosition = pinnedIndex >= 0 ? graph.vertices[pinnedIndex].position : null;
+
+		this.runner.step(
+			pinnedIndex,
+			pinnedPosition?.x ?? 0,
+			pinnedPosition?.y ?? 0,
+			pinnedPosition?.z ?? 0
 		);
+
+		// A worker answers asynchronously; this copies whatever it last reported
+		// onto the tags before projecting. In-process it is already current.
+		this.runner.sync(graph);
+
+		// Projection stays on the main thread: it is cheap and needs this camera.
+		this.solver.project(projector);
 
 		this.trackSettle();
 
@@ -631,7 +661,7 @@ export class UIController {
 	// interaction calls wake() to start it again.
 	private trackSettle(): void {
 
-		if (this.solver.lastMaxDisplacement < K.physics.settleEpsilon) {
+		if (this.runner.maxDisplacement < K.physics.settleEpsilon) {
 			this.quietSteps++;
 
 			if (this.quietSteps >= K.physics.settleFrames)
@@ -837,6 +867,11 @@ export class UIController {
 		// The default placeholder guarantees a valid graph, so no render path
 		// needs a "no graph" special case; the first-run chooser replaces it.
 		this.solverRef = new ForceDirectedGraph(this.initialGraph());
+
+		// One physics owner for this run: a worker when the browser has one, else
+		// the in-process solver.
+		this.runnerRef = new PhysicsRunner(this.solverRef);
+
 		this.updateCurrentGraphLabel();
 
 		this.buildContextMenu();
@@ -859,6 +894,12 @@ export class UIController {
 				window.cancelAnimationFrame(this.frameHandle);
 
 			this.frameHandle = null;
+		}
+
+		// Stop the physics owner too: a worker must not outlive the controller.
+		if (this.runnerRef !== null) {
+			this.runnerRef.terminate();
+			this.runnerRef = null;
 		}
 
 		// A button held across a reset must not keep turning the new graph.

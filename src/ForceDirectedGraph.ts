@@ -357,12 +357,7 @@ export class ForceDirectedGraph {
 	// Fixed passes over solver-owned buffers: every force reads the frozen
 	// pre-step positions, no node sees a half-updated neighbour, and the whole
 	// step allocates nothing.
-	step(
-		canvasWidth: number,
-		canvasHeight: number,
-		isPinned: (tag: Tag) => boolean = () => false,
-		projector: Projector = Projector.forCanvas(canvasWidth, canvasHeight)
-	) {
+	stepPhysics(isPinned: (tag: Tag) => boolean = () => false): void {
 
 		const vertices = this.graph.vertices;
 		const n = vertices.length;
@@ -427,11 +422,21 @@ export class ForceDirectedGraph {
 		}
 
 		this.lastMaxDisplacement = maxDisplacement;
+	};
 
-		// Pass 4: one projector for the whole pass: the camera and viewport are
-		// loop invariants, resolved once per tick, not per node. An indexed loop,
-		// like the passes above, so no array iterator is allocated.
-		for (let i = 0; i < n; i++) {
+	/**
+	 * Cache each node's canvas position and view depth for one projector. Split
+	 * from stepPhysics() so Plan 6's worker can advance the physics while the
+	 * main thread keeps projecting with its own camera.
+	 */
+	project(projector: Projector): void {
+
+		const vertices = this.graph.vertices;
+
+		// One projector for the whole pass: the camera and viewport are loop
+		// invariants, resolved once per tick, not per node. An indexed loop, so no
+		// array iterator is allocated.
+		for (let i = 0; i < vertices.length; i++) {
 			const node = vertices[i];
 
 			projector.projectInto(node.position, this.projected);
@@ -442,5 +447,17 @@ export class ForceDirectedGraph {
 			);
 			node.depth = this.projected.depth;
 		}
+	};
+
+	/** One full step: physics then projection, as every pre-Plan-6 caller expects. */
+	step(
+		canvasWidth: number,
+		canvasHeight: number,
+		isPinned: (tag: Tag) => boolean = () => false,
+		projector: Projector = Projector.forCanvas(canvasWidth, canvasHeight)
+	): void {
+
+		this.stepPhysics(isPinned);
+		this.project(projector);
 	};
 };

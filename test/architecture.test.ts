@@ -22,6 +22,7 @@ const PURE_MODULES = [
     "GraphSpec.ts",
     "Kernel.ts",
     "Octree.ts",
+    "PhysicsProtocol.ts",
     "Camera.ts",
     "Projector.ts",
     "Mat3.ts",
@@ -37,6 +38,18 @@ const PURE_MODULES = [
     "K.ts",
 ];
 
+/**
+ * The DOM-facing modules, with the marker that justifies each exemption. Listing
+ * them explicitly is what keeps the worker boundary narrow: a purity regression
+ * in the solver cannot hide by being "not in PURE_MODULES".
+ */
+const DOM_MODULES: Array<[string, RegExp]> = [
+    ["simulation.worker.ts", /\bself\b/],
+    ["PhysicsRunner.ts", /new Worker\b/],
+    ["UIController.ts", /\bwindow\b/],
+    ["Renderer.ts", /CanvasRenderingContext2D/],
+];
+
 test("the solver, projection and data stay free of browser globals", () => {
     for (const name of PURE_MODULES) {
         const source = sources[name];
@@ -45,6 +58,16 @@ test("the solver, projection and data stay free of browser globals", () => {
         assert.ok(!/\bwindow\b/.test(source), `${name} must not reference window`);
         assert.ok(!/\bdocument\b/.test(source), `${name} must not reference document`);
         assert.ok(!/CanvasRenderingContext2D/.test(source), `${name} must not name a canvas type`);
+    }
+});
+
+test("the modules that touch browser globals are classified explicitly", () => {
+    for (const [name, marker] of DOM_MODULES) {
+        const source = sources[name];
+
+        assert.ok(source, `${name} is missing from src/`);
+        assert.ok(marker.test(source), `${name} must justify its DOM classification`);
+        assert.ok(!PURE_MODULES.includes(name), `${name} must not be listed as pure`);
     }
 });
 
