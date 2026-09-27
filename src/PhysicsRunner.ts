@@ -1,8 +1,7 @@
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { Graph } from "./Graph";
 import { readPositions, writePositions } from "./MirrorGraph";
-import { initRequest, PositionsResponse, StepRequest, WorkerRequest } from "./PhysicsProtocol";
-import { Tag } from "./Tag";
+import { initRequest, PositionsResponse, stepWithPin, StepRequest, WorkerRequest } from "./PhysicsProtocol";
 
 /**
  * The main-thread owner of the physics: either an in-process solver or a
@@ -40,13 +39,6 @@ export interface PhysicsBackend {
     terminate(): void;
 }
 
-function pinnedTagOf(graph: Graph, index: number): Tag | null {
-    if (index < 0 || index >= graph.vertices.length)
-        return null;
-
-    return graph.vertices[index];
-}
-
 /** The default: a Worker when the browser has one, else null (in-process). */
 function defaultWorkerFactory(): PhysicsWorkerPort | null {
     if (typeof Worker === "undefined")
@@ -77,15 +69,9 @@ class InProcessBackend implements PhysicsBackend {
 
     step(pinnedIndex: number, x: number, y: number, z: number): void {
 
-        const pinned = pinnedTagOf(this.solver.graph, pinnedIndex);
-
-        if (pinned !== null) {
-            pinned.position.x = x;
-            pinned.position.y = y;
-            pinned.position.z = z;
-        }
-
-        this.solver.stepPhysics(tag => tag === pinned);
+        // The same helper the worker engine uses, so a pin means the same thing
+        // on both backends.
+        stepWithPin(this.solver, this.solver.graph, pinnedIndex, x, y, z);
     }
 
     positions(): Float64Array {

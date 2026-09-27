@@ -56,6 +56,43 @@ export function initRequest(graph: Graph, generation: number): InitRequest {
     return { type: "init", generation, positions: wire.positions, edges: wire.edges };
 }
 
+/** The tag at `index`, or null when the index pins nothing. `-1` is the wire's
+ * "no pin" sentinel, and an out-of-range index is treated the same way. */
+export function pinnedTagOf(graph: Graph, index: number): Tag | null {
+    if (index < 0 || index >= graph.vertices.length)
+        return null;
+
+    return graph.vertices[index];
+}
+
+/**
+ * Write the pin's pointer position onto its tag, then advance the solver one
+ * step with that tag pinned. An index that pins nothing steps every node.
+ *
+ * The single home for the pin rule, so the main thread's in-process backend and
+ * the worker engine cannot apply a pin differently; that sameness is what makes
+ * the two backends deterministic under one seed.
+ */
+export function stepWithPin(
+    solver: ForceDirectedGraph,
+    graph: Graph,
+    pinnedIndex: number,
+    x: number,
+    y: number,
+    z: number
+): void {
+
+    const pinned = pinnedTagOf(graph, pinnedIndex);
+
+    if (pinned !== null) {
+        pinned.position.x = x;
+        pinned.position.y = y;
+        pinned.position.z = z;
+    }
+
+    solver.stepPhysics(tag => tag === pinned);
+}
+
 /**
  * The worker-side physics. It rebuilds the same `Tag` graph locally so it runs
  * the exact same `stepPhysics()` the main thread would, which is what makes the
@@ -65,8 +102,6 @@ export class PhysicsWorkerEngine {
 
     graph: Graph | null = null;
     solver: ForceDirectedGraph | null = null;
-
-    private pinned: Tag | null = null;
 
     /** Apply one request; returns the response to post, or null when none is due. */
     handle(request: WorkerRequest): PositionsResponse | null {
@@ -79,19 +114,10 @@ export class PhysicsWorkerEngine {
         if (this.graph === null || this.solver === null)
             return null;
 
-        this.pinned = request.pinned >= 0 ? this.graph.vertices[request.pinned] ?? null : null;
-
         // The main thread writes the pin's pointer position before asking for a
-        // step; here it arrives in the message and is applied the same way.
-        if (this.pinned !== null) {
-            this.pinned.position.x = request.x;
-            this.pinned.position.y = request.y;
-            this.pinned.position.z = request.z;
-        }
-
-        const pinned = this.pinned;
-
-        this.solver.stepPhysics(tag => tag === pinned);
+        // step; here it arrives in the message. Both realms apply it through the
+        // same helper, so the pin rule cannot drift between them.
+        stepWithPin(this.solver, this.graph, request.pinned, request.x, request.y, request.z);
 
         return {
             type: "positions",
@@ -110,7 +136,6 @@ export class PhysicsWorkerEngine {
 
         this.graph = graph;
         this.solver = new ForceDirectedGraph(graph);
-        this.pinned = null;
     }
 
     /** A fresh flat copy of the positions, safe to transfer to the main thread. */

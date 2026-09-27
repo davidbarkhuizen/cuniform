@@ -4,7 +4,7 @@ import { buildMirrorGraph, packMirror, writePositions } from "./MirrorGraph";
 import { projectGraph } from "./Projection";
 import { CameraView, Projector } from "./Projector";
 import { render } from "./Renderer";
-import { RenderSurface } from "./RenderSurface";
+import { RenderSurface, resizeBackingStore } from "./RenderSurface";
 
 /**
  * The message protocol between the main thread and a dedicated render worker,
@@ -263,11 +263,9 @@ export class RenderWorkerEngine {
         if (target === null || surface === null)
             return;
 
-        target.width = width * dpr;
-        target.height = height * dpr;
-
-        // Assigning width/height resets the context transform, so it is set after.
-        surface.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // The same helper the in-process backend uses, so both realms size the
+        // backing store and set the transform identically.
+        resizeBackingStore(target, surface, width, height, dpr);
     }
 
     private build(request: InitRequest): void {

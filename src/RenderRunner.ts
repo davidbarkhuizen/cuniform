@@ -12,7 +12,7 @@ import {
     RenderRequest,
     RenderResponse,
 } from "./RenderProtocol";
-import { RenderSurface } from "./RenderSurface";
+import { RenderSurface, resizeBackingStore } from "./RenderSurface";
 import { Tag } from "./Tag";
 
 /**
@@ -161,11 +161,9 @@ class InProcessBackend implements RenderBackend {
 
     resize(width: number, height: number, dpr: number): void {
 
-        this.canvas.width = width * dpr;
-        this.canvas.height = height * dpr;
-
-        // Assigning width/height resets the context transform, so it is set after.
-        this.surface.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // The same helper the worker engine uses, so both realms size the
+        // backing store and set the transform identically.
+        resizeBackingStore(this.canvas, this.surface, width, height, dpr);
     }
 
     setGraph(_graph: Graph): void {

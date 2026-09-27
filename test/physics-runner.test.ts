@@ -2,12 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
+import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { PhysicsRunner, PhysicsWorkerPort } from "../src/PhysicsRunner";
 import { PhysicsWorkerEngine, PositionsResponse, WorkerRequest } from "../src/PhysicsProtocol";
 import { Projector } from "../src/Projector";
 import { openingAngleFor } from "../src/Quality";
-import { sparseGraph } from "./support/physics";
+import { CANVAS_H, CANVAS_W, sparseGraph } from "./support/physics";
 import { withUIController } from "./support/dom";
 
 /**
@@ -178,6 +179,28 @@ test("a pinned node behaves identically through both backends", () => {
         assert.equal(workerGraph.vertices[i].position.y, inProcessGraph.vertices[i].position.y, `node ${i} y`);
         assert.equal(workerGraph.vertices[i].position.z, inProcessGraph.vertices[i].position.z, `node ${i} z`);
     }
+});
+
+test("a -1 or out-of-range index steps with nothing pinned", () => {
+    const order = 12;
+
+    // The reference: one plain step, no pin involved.
+    const reference = sparseGraph(order, 5);
+    new ForceDirectedGraph(reference).step(CANVAS_W, CANVAS_H);
+
+    // -1 is the wire's "no pin" sentinel.
+    const sentinel = sparseGraph(order, 5);
+    new PhysicsRunner(new ForceDirectedGraph(sentinel), () => null).step(-1, 999, 999, 999);
+
+    // An index past the last node must be treated the same, never indexed.
+    const outOfRange = sparseGraph(order, 5);
+    new PhysicsRunner(new ForceDirectedGraph(outOfRange), () => null).step(order + 5, 999, 999, 999);
+
+    const snapshot = (graph: Graph) =>
+        graph.vertices.map(tag => ({ x: tag.position.x, y: tag.position.y, z: tag.position.z }));
+
+    assert.deepEqual(snapshot(sentinel), snapshot(reference), "-1 must pin nothing");
+    assert.deepEqual(snapshot(outOfRange), snapshot(reference), "an out-of-range index must pin nothing");
 });
 
 test("a response from a superseded generation is dropped", () => {
