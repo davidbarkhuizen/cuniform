@@ -6,14 +6,44 @@ is implemented. It covers the OffscreenCanvas half of the README's
 physics beyond canvas 2D") and the rendering half of row 2 ("Revisit the worker
 boundary"). WebGL, GPU forces, WASM kernels and the octree work are out of scope.
 
-This is one plan executed as **five focused PRs**: one measurement gate and four
+This is one plan executed as **five focused PRs**: one instrument, and four
 construction steps. Each item is independently landable and independently
 revertible; [Sequencing and PR breakdown](#sequencing-and-pr-breakdown) fixes the
-order.
+order. The work does not depend on the instrument's verdict — it is motivated by
+the component goal below.
 
 ---
 
 ## 0. Ground rules for every item
+
+### Why: a re-usable component, not just this demo
+
+The long-run goal is to turn cuniform into a component a host page can embed. A
+host's main thread is not ours: it owns the host's own animation, layout, input
+and rendering, and a widget that spends milliseconds per frame issuing canvas
+commands steals that frame budget from the page around it. Today's measured
+5.9 ms at 4096 and 17.1 ms at 8192 are the *fake* context (`README.md:438`), so
+they are a lower bound; the real per-frame cost on the host's thread is larger,
+and it grows with the node count.
+
+Per-frame work proportional to N therefore has to leave the main thread as a
+matter of architecture, not of this demo's current frame rate. The demo is one
+host, with one graph, on one machine; the budget that matters belongs to whoever
+embeds the component. A component that draws O(N) subpaths on the host's main
+thread is the wrong component even when this demo still renders acceptably.
+
+The consequence for scope: the end state is **all** per-frame heavy work —
+physics, projection and drawing — off the host's main thread, with the main
+thread owning input, camera state and DOM chrome only. The dedicated render
+worker is the first step of that trajectory, not its terminus; the routes to the
+end state are in
+[End state](#end-state--all-heavy-work-off-the-main-thread).
+
+The real-canvas harness (Item 3) exists to **quantify and guard** the main
+thread's occupancy — it produces the number the component publishes and the
+threshold a regression tripwire watches. It is not a permission slip: a flat
+measurement re-orders priorities and sets thresholds, it does not make host-
+thread O(N) drawing correct.
 
 ### The constraint that shapes the whole design: the transfer is one-way
 
@@ -93,13 +123,18 @@ before it builds the worker (Item 3) and re-measures after (Item 5). The
 fake-context `ops` count remains the *correctness* oracle (identical output), not
 the performance one.
 
+The measurement sets the component's budget and its regression tripwire; it does
+not gate the move ([§0](#why-a-re-usable-component-not-just-this-demo)). Whatever
+it reports, a host that embeds the component must not be the thread doing per-node
+drawing.
+
 Two honest caveats the plan must respect:
 
-- Browsers already rasterise much of canvas 2D off the main thread, so the win is
-  bounded by the *command-building* JS (`arc`, `fill`, `stroke`, `fillText`,
-  `setTransform`) plus any main-thread raster fallback, not by total CPU. The
-  metric is therefore "main-thread time between animation frames and the number
-  of tasks over 50 ms", not "the canvas got cheaper".
+- Browsers already rasterise much of canvas 2D off the main thread, so the
+  main-thread saving is bounded by the *command-building* JS (`arc`, `fill`,
+  `stroke`, `fillText`, `setTransform`) plus any main-thread raster fallback, not
+  by total CPU. The metric is therefore "main-thread time between animation frames
+  and the number of tasks over 50 ms", not "the canvas got cheaper".
 - At N ≥ `K.renderer.labelMaxNodes` (150) labels are already culled to the
   selection and its neighbours (`README.md:337-339`), and at N ≥ 4096 the coarse
   preset batches fills (`README.md:345-356`), so the per-frame command count is
@@ -136,22 +171,27 @@ worker**, separate from the physics worker.
 
 | | Placement | Extra per-step copy | Physics/render concurrency | Isolation | Verdict |
 | --- | --- | --- | --- | --- | --- |
-| **A** | New `render.worker.js` owns the `OffscreenCanvas`; the physics worker is untouched | One `Float64Array` main → render (~98 KB at 4096, one `set()` + transfer) | Physics in worker P, drawing in worker R, main thread nearly idle | A rendering fault cannot stop the layout; a physics fault cannot stop drawing | **Chosen** |
-| **B** | The existing physics worker also draws | None: it already owns positions and a mirror graph (`PhysicsProtocol.ts:82-165`) | Physics and drawing **serialise** in one thread, where today they overlap across threads | One fault takes out both; the fallback matrix doubles | Rejected as the first step; the natural end state if A's copy ever measures badly ([Deferred](#deferred--one-worker-or-a-worker-to-worker-channel)) |
-| **C** | One merged "simulation worker" with a `MessageChannel` wired physics → render | None between the two, but a second worker is still needed for the channel to be worth it | Best overlap | Most moving parts: two ports, two generations, one lifecycle | Rejected; deferred with B |
+| **A** | New `render.worker.js` owns the `OffscreenCanvas`; the physics worker is untouched | One `Float64Array` main → render (~98 KB at 4096, one `set()` + transfer) | Physics in worker P, drawing in worker R, main thread nearly idle | A rendering fault cannot stop the layout; a physics fault cannot stop drawing | **Chosen** — the first step of the [end state](#end-state--all-heavy-work-off-the-main-thread), and the cheapest one to land and revert |
+| **B** | The existing physics worker also draws | None: it already owns positions and a mirror graph (`PhysicsProtocol.ts:82-165`) | Physics and drawing **serialise** in one thread, where today they overlap across threads | One fault takes out both, and the canvas transfer becomes part of the physics worker's fallback | Right end state for packaging, wrong first step ([end-state route 2](#end-state--all-heavy-work-off-the-main-thread)) |
+| **C** | Two workers wired by a `MessageChannel` (physics → render), so positions never reach the main thread | None on the main thread: the physics worker posts straight to the render worker | Best overlap, and the main thread does no per-frame O(N) work at all | Two ports, two generations, two lifecycles to keep in step | Not a first step (nothing to channel until A exists); it is [end-state route 1](#end-state--all-heavy-work-off-the-main-thread) |
 
-Why A wins on the numbers: today the main thread is the only thread doing frame
-work, and at 4096 the fake context already charges it 5.9 ms of pure JS per frame
-(`README.md:438`) with real rasterisation on top. A moves both to a thread that
-otherwise sleeps. The cost is one typed-array copy per step — the same order as
-the one `PhysicsRunner.WorkerBackend.receive()` → `sync()` already performs
+Why A wins as the first step: it moves the drawing to a thread that otherwise
+sleeps without touching the physics protocol at all, so it lands small, tests
+headlessly, and reverts cleanly. At 4096 the fake context already charges the main
+thread 5.9 ms of pure JS per frame (`README.md:438`) with real rasterisation on
+top. The cost is one typed-array copy per step — the same order as the one
+`PhysicsRunner.WorkerBackend.receive()` → `sync()` already performs
 (`src/PhysicsRunner.ts:188-190, 209-218`), which the README records as "no longer
 the bottleneck at the measured sizes" (`README.md:494`).
 
-B's serialisation is the decisive argument against it. Stepping at 4096 is
-27.4 ms and a frame is 5.9 ms before rasterisation (`README.md:438`); merged, one
-thread would spend ~33 ms+ per frame doing both, coupling the layout rate to the
-paint rate in exactly the way the current split avoids.
+B's serialisation is why it is the wrong *first* step, not why it is wrong
+forever. Stepping at 4096 is 27.4 ms and a frame is 5.9 ms before rasterisation
+(`README.md:438`); merged, one thread would spend ~33 ms+ per frame doing both,
+coupling the layout rate to the paint rate in exactly the way the current split
+avoids. As an end state it is a packaging trade — one bundle, one lifecycle and one
+failure mode against camera smoothness during a long step — and the
+[end state](#end-state--all-heavy-work-off-the-main-thread) section settles it with
+the embedding API rather than with this plan's numbers.
 
 ### The frame contract
 
@@ -435,12 +475,14 @@ precision. No new timing claim.
 
 ---
 
-## 4. Item 3 — A real-canvas frame harness, and the gate
+## 4. Item 3 — A real-canvas frame harness (the instrument)
 
-**Why.** The payoff claim is main-thread frame time on a real canvas, and the
-repository has no way to measure it. `FakeContext2D` deliberately cannot
-(`README.md:526-529`). This item builds the instrument and records the baseline;
-it is also what Item 5's PR quotes.
+**Why.** The component goal is to keep per-frame work off the host's main thread
+([§0](#why-a-re-usable-component-not-just-this-demo)), and the repository has no
+way to measure what the main thread is actually spending on a real canvas.
+`FakeContext2D` deliberately cannot (`README.md:526-529`). This item builds the
+instrument, records the baseline, and turns the number into a published budget and
+a regression tripwire for the component. It is also what Item 5's PR quotes.
 
 ### Change
 
@@ -459,18 +501,32 @@ unchanged) and **not** part of `dist/main.js` or the app.
 - Prints a copy-pasteable block, in the style of `bench/physics.bench.ts:343-373`,
   to paste into the PR and into the README's measured profile.
 
-### The gate
+### What the measurement decides — and what it does not
 
-If the baseline shows the main thread is not the wall — no long task over 50 ms at
-N = 4096 and a p95 frame well inside the tick — then **the plan stops here** and
-the README records the measurement and the decision *not* to move rendering,
-exactly as the repository treats a measured negative result elsewhere. Item 2
-remains a net improvement on its own; Items 4–5 are not started.
+It **decides**:
 
-The gate is expected to pass: at 4096 the fake context alone charges 5.9 ms of
-main-thread JS per frame (`README.md:438`) with rasterisation on top, and 8192 is
-17.1 ms — a whole 60 Hz frame — before any real drawing. But the plan does not
-assume it.
+- the baseline the later PRs are judged against, and the "before" column of Item
+  5's evidence;
+- the **budget** the component publishes: the main-thread milliseconds and long
+  tasks a host should expect per node count, which is the number an embedder
+  needs and the number a regression tripwire watches;
+- the accepted **threshold** and the size range the worker is enabled for by
+  default, if the cost turns out to be negligible at small N and material at
+  large N;
+- whether the extra position copy is worth removing early, i.e. whether the
+  [end-state](#end-state--all-heavy-work-off-the-main-thread) routes are pulled
+  forward or left as the component API is designed.
+
+It **does not** decide whether the work happens. The motivation is architectural
+and measurement-independent: the host's main thread is not the component's to
+spend. If the baseline comes back flat, that changes the priority order and the
+threshold, and the plan proceeds — the result is recorded in the README as the
+budget, not as a reason to leave O(N) drawing on the embedder's thread.
+
+For expectation, not justification: at 4096 the fake context alone charges 5.9 ms
+of main-thread JS per frame (`README.md:438`) with rasterisation on top, and 8192
+is 17.1 ms — a whole 60 Hz frame — before any real drawing. Those are already
+host-frame-sized numbers, and they are a floor.
 
 ### Tests
 
@@ -483,12 +539,14 @@ sits outside the suite's runtime budget).
   in the list, and reports the columns above.
 - The numbers are reproducible within a stated spread (report best-of-N as the
   other bench does).
-- The gate decision is recorded in the PR, with the numbers that decided it.
+- The baseline is recorded in the PR and in the README's measured profile, with
+  the sizes and dpr settings that form the component's published budget.
 
 ### Evidence
 
 The baseline block itself, on named hardware and browser, becomes the "before"
-half of every later PR's evidence.
+half of every later PR's evidence and the component's published main-thread
+budget.
 
 ### Risks and mitigations
 
@@ -724,10 +782,12 @@ and long tasks, not total CPU.
 - *A frame backlog builds up.* Prevented by one-in-flight plus latest-state
   coalescing; tested.
 - *Per-frame allocation creeps back in.* Prevented by the zero-allocation test.
-- *The win is smaller than expected because rasterisation is already off-main.*
-  This is the harness's job to settle; the honest fallback is to keep the seam and
-  never enable the worker by default (one constant), which is a legitimate outcome
-  recorded in the README.
+- *The main-thread saving is smaller than expected because rasterisation is
+  already off-main.* Expected: the saving is the command-building JS, which is the
+  part that blocks the host's thread. It changes the published budget and the size
+  at which the worker is worth enabling by default, not whether the host thread
+  keeps the drawing; the in-process path stays available as the documented
+  fallback and as the harness's control.
 - *`translatedPosition` reads stale on the main thread.* No reader outside the
   drawer and `bench/`; documented on `Tag.ts` and asserted by keeping the bench's
   own projection step (`bench/physics.bench.ts:253-259`).
@@ -737,13 +797,16 @@ and long tasks, not total CPU.
   `render.worker.js`; state the size delta in the PR.
 - *Two workers, three graph copies.* Bounded by N and small; the memory delta at
   8192 is measured and reported. If it is the blocker, the
-  [deferred](#deferred--one-worker-or-a-worker-to-worker-channel) options apply.
+  [end-state](#end-state--all-heavy-work-off-the-main-thread) routes apply.
 
 ### Documentation
 
 - README "Cadence" (`README.md:230-261`): rendering joins physics off the main
   thread; the probe/fallback rule; the one-frame-in-flight rule; the `file://`
   caveat now covers both workers.
+- README intro/"Cadence": state the embedding target plainly — a host's main
+  thread is not the component's to spend — so the worker boundary reads as
+  architecture rather than as an optimisation for this demo.
 - README invariant 2 (`README.md:507-509`): restated as one projector per frame,
   resolved in whichever realm draws.
 - README invariant 8 (allocation) gains the boundary: the returned-buffer pool.
@@ -751,29 +814,69 @@ and long tasks, not total CPU.
 - README "Constants": `renderer.workerReadyTimeoutMS`.
 - README "Next steps": row 3 loses its OffscreenCanvas half and keeps WebGL
   (`instanced points and lines`) as the remaining canvas-2D escape; row 2 (worker
-  boundary) gains the new main → render copy and points at the deferred options.
+  boundary) gains the new main → render copy and points at the end-state routes.
 - `webpack.config.js` comment: the third entry and why.
 
 ---
 
-## Deferred — one worker, or a worker-to-worker channel
+## End state — all heavy work off the main thread
 
-Two follow-ups are deliberately **not** in this plan; both are only worth their
-complexity if Item 5's harness shows the extra per-step copy or the third graph
-copy is material.
+The target is fixed by the component goal: on the host's main thread, a frame
+costs only input handling, camera state and DOM chrome — no physics, no
+projection and no canvas commands proportional to N. Reaching it takes one of two
+routes after this plan's render worker lands; which one is settled when the
+embedding API is designed, because the API is what decides how many workers the
+host is asked to host.
+
+After this plan, exactly two per-frame O(N) tasks are left on the main thread,
+both small but both avoidable, and the routes differ in which they remove:
+
+- the position copy and forward to the render worker (~98 KB `set()` at 4096);
+- the depth write-back loop, kept only so the drag can unproject on the selected
+  node's plane ([the depth write-back](#the-depth-write-back)).
 
 1. **A `MessageChannel` between the physics worker and the render worker.** The
-   physics worker would post each `positions` response to both the main thread and
-   a port held by the render worker, removing the main thread's copy and forward.
-   Cost: the render worker must exist before the physics worker is constructed,
-   two generations must agree, and `setGraph` must re-init both in the right
-   order. `src/PhysicsRunner.ts`, `src/PhysicsProtocol.ts`, `src/RenderProtocol.ts`.
+   physics worker posts each `positions` response to both the main thread and a
+   port held by the render worker, which removes the copy and forward. The depth
+   write-back stays: the drag still needs the selected node's depth on the main
+   thread. Cost: the render worker must exist before the physics worker is
+   constructed, two generations must agree, and `setGraph` must re-init both in
+   the right order. `src/PhysicsRunner.ts`, `src/PhysicsProtocol.ts`,
+   `src/RenderProtocol.ts`.
 2. **One simulation worker that owns physics, projection and drawing.** Removes
-   every position copy between domains and one lifecycle, at the cost of
-   serialising physics and rendering in a single thread (B in
-   [the placement table](#1-where-the-boundary-goes)) and of a 2×2 fallback
-   matrix. Justified only if the harness shows the copy, not the drawing, is the
-   remaining main-thread cost.
+   every position copy between domains, and — because the worker then owns both
+   the graph and the pointer's target — lets hit-testing and the drag's
+   unprojection move in with it: the main thread sends canvas coordinates and
+   reads back a selection index, so the depth write-back goes too and the
+   remaining per-frame O(N) work on the main thread is zero. Benefit: one bundle
+   to ship, one lifecycle, one failure mode, and the two independent fallback
+   axes collapse to one. Cost: physics and rendering serialise inside the one
+   worker (B in [the placement table](#1-where-the-boundary-goes)), which caps
+   camera responsiveness at step + draw where two workers would overlap them.
+
+Both routes take the heavy work off the host's main thread; they differ in
+packaging, in how much camera smoothness is worth during a long step, and in
+whether hit-testing moves with the graph. Route 1 is the smaller change and keeps
+the existing `Selection.ts` contract; route 2 is the cleaner component.
+
+### Packaging for reuse
+
+Whichever route lands, the worker boundary must stop being demo-shaped before this
+is a component:
+
+- The default worker URLs are hard-coded relative paths
+  (`src/PhysicsRunner.ts:79`, and the render worker in Item 5). A host's bundler
+  resolves its own asset graph, so the component must accept an injected worker
+  factory/URL — the `WorkerFactory` seam already exists for tests
+  (`src/PhysicsRunner.ts:26`) and becomes the public one.
+- The component must not require the host to have a `document` at import time, and
+  must degrade to the in-process path when `Worker`/`OffscreenCanvas` are absent —
+  the [fallback rules](#6-item-5--wire-it-in-handshake-transfer-resize-export-depth-write-back)
+  already cover the second; the first is a packaging checklist item.
+- The published budget from Item 3 (main-thread ms and long tasks per node count)
+  is part of the component's contract, not an internal number.
+
+This is deliberately not an item in this plan; it is the plan *after* this one.
 
 ---
 
@@ -785,7 +888,7 @@ Recommended order (each PR off up-to-date `main`, squash-merged, branch deleted)
 | ---: | --- | --- | --- |
 | 1 | **Item 1** — `RenderSurface` | `refactor/render-surface` | Type-only; makes the engine pure and removes the casts. No behaviour to review. |
 | 2 | **Item 2** — render backend seam | `refactor/render-backend-seam` | In-process only; no pixels change, so the seam's review is mechanical. Builds on 1's surface. |
-| 3 | **Item 3** — real-canvas harness + gate | `perf/real-canvas-frame-harness` | Defines the metric and the acceptance numbers before any worker exists. Gate: may end the plan. |
+| 3 | **Item 3** — real-canvas harness | `perf/real-canvas-frame-harness` | Fixes the metric, the baseline and the component's published budget before any worker exists. Records the numbers; does not gate the work. |
 | 4 | **Item 4** — protocol, engine, worker entry | `feat/render-worker-engine` | Headless and testable; the `ops`-identity proof lands before anything is wired. |
 | 5 | **Item 5** — wire it in | `feat/offscreen-render-worker` | The transfer, handshake, backpressure, resize and export; the harness then supplies before/after. |
 
@@ -794,8 +897,10 @@ Dependency notes:
 - Items overlap in `Renderer.ts` (1, 4), `UIController.ts` (2, 5),
   `RenderRunner.ts` (2, 5) and `test/support/dom.ts` (2, 5); the order above
   serialises them.
-- Item 3 is the only one that can legitimately end the plan; landing it before
-  Item 4 means the "stop" decision costs two small PRs, not a half-built worker.
+- Item 3 lands before Item 4 so the "before" column exists before anything moves,
+  and so the budget the component publishes is measured on the code a host would
+  otherwise get. It cannot end the plan; a flat baseline re-orders priorities and
+  sets the threshold.
 - If a reviewer prefers fewer PRs, 1 + 2 form one coherent "make the seam" change
   and 4 + 5 one "add the worker" change, at the cost of the identity proof sharing
   a PR with the wiring.
@@ -818,15 +923,19 @@ Per item:
 
 ## Decisions
 
-Decision 1 was settled on 2026-09-27: the boundary is a **dedicated render
-worker**, separate from the physics worker. The rest carry a recommendation and
-are settled at review of the item that implements them.
+Decision 1 and decision 7 were settled on 2026-09-27: the boundary is a
+**dedicated render worker**, separate from the physics worker, and the component
+goal — all per-frame heavy work off the host's main thread — justifies the work
+independently of any frame measurement. The rest carry a recommendation and are
+settled at review of the item that implements them.
 
 | # | Decision | Recommendation | Consequence |
 | --- | --- | --- | --- |
-| 1 | Where the boundary goes | **A: a dedicated render worker**, separate from the physics worker | One extra position copy per step in exchange for physics/render concurrency and fault isolation. B and C deferred with named triggers. |
+| 1 | Where the boundary goes | **A: a dedicated render worker**, separate from the physics worker | One extra position copy per step in exchange for physics/render concurrency and fault isolation. The end state picks between the merge and the channel later; neither is a precondition. |
 | 2 | How frames reach the canvas | **`transferControlToOffscreen`**, with a probe-then-transfer handshake | Zero-copy presentation; the transfer is one-way, so the probe and the ready timeout are mandatory, not optional. |
 | 3 | What crosses per frame | **Model positions + camera in; depths + returned buffer out** — the worker projects | Removes the main thread's O(N) per-tick projection; keeps the cull boundary and the depth cache in one realm; keeps the drag reading `Tag.depth`. |
 | 4 | Backpressure | **One frame in flight, latest-state coalescing, pooled returned buffers** | A slow worker cannot queue frames; steady state allocates nothing. |
 | 5 | What happens if the worker fails | **In-process fallback**, never a dead canvas | The probe prevents the unrecoverable case; a post-transfer crash is left as documented hardening. |
 | 6 | Is the worker the default once it works | **Yes, feature-detected, with `?render=main` as the escape hatch** | The `file://` demo and Node tests keep the in-process path; the harness can A/B in one build. |
+| 7 | Why the work happens at all | **The component goal**: every per-frame O(N) task — physics, projection, drawing — belongs off the host's main thread | The motivation is architectural and measurement-independent. Item 3 sets the budget and the regression threshold; a flat baseline re-orders priorities, it does not cancel the work. |
+| 8 | How the worker is constructed in a host | **An injectable worker factory/URL**, with the demo path as this repo's default | `src/PhysicsRunner.ts:79`'s relative path is demo-shaped; the component API exposes the seam. Part of the packaging plan, not this one. |
