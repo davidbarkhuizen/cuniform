@@ -98,9 +98,9 @@ export class UIController {
     // interface. Null until the solver exists.
     private runnerRef: PhysicsRunner | null = null;
 
-    // The drawing owner: the canvas's own context today, and a worker once Item 5
-    // of the render-worker workplan lands. Null until initialize() (or the lazy
-    // getter a handler can reach before it) builds one.
+    // The drawing owner: an in-process canvas backend, or a render worker behind
+    // the same interface. Null until initialize() (or the lazy getter a handler
+    // can reach before it) builds one.
     private renderRunnerRef: RenderRunner | null = null;
 
     body: HTMLElement;
@@ -970,7 +970,7 @@ export class UIController {
 	};
 
 	// The browser loop: requestAnimationFrame where it exists, else the original
-	// fixed interval. The fallback keeps the pre-Plan-6 behaviour exactly.
+	// fixed interval. The fallback keeps the pre-cadence behaviour exactly.
 	private startSimulationLoop(): void {
 
 		if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {

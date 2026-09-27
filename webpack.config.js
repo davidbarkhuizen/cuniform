@@ -9,8 +9,9 @@ module.exports = {
   // 'production', which hides stack traces in this dev-oriented script.
   mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
   // Four entries: the app, the physics worker the app constructs by URL (see
-  // src/PhysicsRunner.ts), the render worker (see src/RenderRunner.ts, workplan
-  // Item 5) and the real-canvas frame harness (bench/render-frame.html, Item 3).
+  // src/PhysicsRunner.ts and the README's "Cadence"), the render worker (see
+  // src/RenderRunner.ts) and the real-canvas frame harness
+  // (bench/render-frame.html, see the README's "Performance").
   // A Worker must be a separate bundle, because it cannot share the main
   // bundle's module scope; the harness is separate so it never lands in
   // dist/main.js or the app.

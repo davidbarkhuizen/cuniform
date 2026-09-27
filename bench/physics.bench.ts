@@ -351,7 +351,7 @@ function benchRender(): void {
 
         const reps = order <= 1024 ? 10 : 3;
 
-        // Thresholds forced off is the pre-Plan-5 frame: every label, one path per
+        // Thresholds forced off is the unbatched frame: every label, one path per
         // edge. The coarse preset is forced off too, or it would still run at
         // 4096+. "coarse" forces the large-graph preset on the same fixture. The ms
         // columns are JS-work proxies only: the fake context charges nothing for

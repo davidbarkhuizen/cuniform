@@ -34,6 +34,10 @@ which the app constructs by URL (see [Cadence](#cadence)), and for the
 real-canvas frame harness (`dist/render-frame.js`, see
 [Performance](#performance)).
 
+Tests never construct a real `Worker` or `OffscreenCanvas`: both cross the seams
+as injected ports ([`test/support/dom.ts`](test/support/dom.ts)), so the worker
+paths run under `node --test` with in-memory fakes.
+
 The simulation is deliberately decoupled from the browser: `ForceDirectedGraph.stepPhysics()`
 is pure physics and touches neither `window` nor the canvas, so the whole model can
 be exercised headlessly in `test/`. The projection is split out the same way:
@@ -118,7 +122,9 @@ panel's drag surface.
   way a new graph is created. Step one picks a **random** graph or a
   **molecule**:
   - *random* — the node count and the maximum new edges per node, validated as
-    you type; `generate` is disabled while either field is out of range;
+    you type; `generate` is disabled while either field is out of range, and an
+    order above `K.chooser.interactiveOrder` (1024) shows a non-blocking hint
+    that the layout may advance below 20 Hz;
   - *molecules* — a searchable word cloud of twenty-three molecules: twenty indole
     alkaloids, chlorophylls a and b, and heme b. The chip
     is the common name; its tooltip and accessible name carry the full
@@ -148,7 +154,8 @@ a discriminated value the chooser produces and the controller remembers:
   final degree: the graph is undirected, so a node also collects the edges its
   neighbours start, and its degree can exceed `branching` — a 3-node graph with
   `branching = 1` is often a triangle. `order` is bounded by `K.chooser`
-  (`2..64`: the chooser stays at or below the exact/Barnes-Hut crossover) and
+  (`2..4096`: `maxOrder` is a measured usability cap, not the old
+  exact/Barnes-Hut crossover; see [Constants](#constants)) and
   `branching` by
   `min(K.chooser.maxBranching, order - 1)` — a node cannot start more than
   `order - 1` distinct edges, so a larger value would silently start fewer edges
@@ -294,6 +301,28 @@ input stay on the main thread, which needs the live camera and is cheap:
   element's own `toDataURL` in process. A placeholder canvas's `toDataURL` is not
   reliable after a transfer, which is why export is not left on the element.
 
+The render worker is deliberately separate from the physics worker rather than
+sharing its thread: merged, a long step would stall the camera and one fault
+would take out both, at the cost of one position copy per step.
+
+**The render protocol.** Everything per-frame is a typed array; nothing per frame
+is a graph object or a string. The messages are:
+
+| Direction | Message | Payload |
+| --- | --- | --- |
+| main → worker | `init` | `labels: string[]`, `edges: Int32Array` (2E), `positions: Float64Array` (3N), `generation` |
+| main → worker | `frame` | camera (13 numbers), `positions` (3N, transferred), `selected` index, `width`/`height`/`dpr`, `generation`, `frameId` |
+| main → worker | `export` | `requestId` |
+| worker → main | `ready` | — |
+| worker → main | `drawn` | `frameId`, the frame's `positions` buffer returned, `depths: Float64Array` (N, transferred), `generation` |
+| worker → main | `png` | `requestId`, `blob: Blob` |
+
+At 4096 that is about 98 KB in and 33 KB out per frame, all by pointer move.
+Both workers rebuild the same `Tag` graph from flat arrays through one
+`buildMirrorGraph()` ([`src/MirrorGraph.ts`](src/MirrorGraph.ts)), so the physics
+and render mirrors cannot drift and node insertion order is the index space both
+directions agree on.
+
 Positions cross the physics boundary as a transferable `Float64Array` too, and
 the runner posts at most one step at a time. If `Worker` is missing, construction
 throws, or a worker script fails to load, the physics falls back to the
@@ -414,9 +443,8 @@ path:
 
 Below every threshold the frame is unchanged, and the whole draw path runs over
 reusable frame scratch, so it allocates nothing in steady state. The coarse
-preset's degree filter for thinning edges was specified with the plan but is not
-implemented: its benefit is real-canvas-only, so it waits for a real-browser
-measurement rather than the fake-context `ops` count.
+preset has no edge-thinning degree filter: its benefit is real-canvas-only, so it
+waits for a real-browser measurement rather than the fake-context `ops` count.
 
 ### Constants
 
@@ -581,7 +609,10 @@ draw calls for the same graph, camera and selection.
   [`src/Quality.ts`](src/Quality.ts): accurate below `barnesHutFastMinNodes`
   (2048), fast at or above, which is where the step stops fitting a tick at the
   accurate angle; `"accurate"` and `"fast"` force one angle regardless of size.
-  A cut-off radius is deliberately *not* used: the law is long range, so
+  The setting is a compile-time default read identically in both realms, so it
+  must not be mutated at runtime; a user-facing control would have to cross the
+  worker boundary. A cut-off radius is deliberately *not* used: the law is long
+  range, so
   truncating it changes the physics rather than approximating it.
 - **The radius helper** in [`src/Kernel.ts`](src/Kernel.ts) uses
   `Math.sqrt(dx*dx + dy*dy + dz*dz)` rather than `Math.hypot`, which is variadic
@@ -610,6 +641,7 @@ each with its own design, and should be separate PRs.
 | 1 | Make the octree incrementally cheaper, not asymptotically better | The remaining cost is the per-body traversal and the per-step tree rebuild. Candidate work, each measurable by itself: reuse the traversal stack explicitly instead of recursion, tune leaf capacity and `barnesHutMaxDepth` for the measured graph sizes (a shallower tree with a larger bucket is often faster than a deep one), inline the theta test and the distance computation into the traversal, and keep the body-to-cell mapping so an incremental rebuild can skip unchanged cells. `src/Octree.ts`. |
 | 2 | Remove the remaining main-thread `O(N)` work | After the render worker, exactly two per-frame `O(N)` tasks are left on the main thread: the position copy and forward to the render worker (~98 KB `set()` at 4096) and the depth write-back loop the drag needs. A `MessageChannel` from the physics worker straight to the render worker removes the first (the render worker must exist before the physics worker, and both generations must agree). One simulation worker that owns physics, projection, drawing and hit-testing — so the main thread sends canvas coordinates and reads back a selection index — removes both, at the cost of serialising physics and drawing. Which one is settled when the embedding API is designed. `src/PhysicsRunner.ts`, `src/RenderRunner.ts`, `src/PhysicsProtocol.ts`, `src/RenderProtocol.ts`. |
 | 3 | Physics or rendering beyond canvas 2D | The OffscreenCanvas half of this row landed as the render worker (see [Cadence](#cadence)); what remains for rendering is WebGL (instanced points and lines) rather than further batch tuning. If force computation becomes the wall, the options are a tuned native/WASM kernel, a pool of workers splitting the octree, or GPU forces. Both are separate designs with different failure modes (context loss, shader precision, determinism across devices) and neither is committed. |
+| 4 | Package cuniform as an embeddable component | The worker boundary is still demo-shaped: the default worker URLs are hard-coded relative paths ([`src/PhysicsRunner.ts`](src/PhysicsRunner.ts), [`src/RenderRunner.ts`](src/RenderRunner.ts)), so a host's bundler cannot resolve its own asset graph. The component must accept an injected worker factory or URL (the `WorkerFactory` seam already exists for tests) and must import without a `document`, degrading to the in-process path when `Worker`/`OffscreenCanvas` are absent. The published main-thread budget above is part of the component's contract, not an internal number. |
 
 ### Invariants any change must keep
 
