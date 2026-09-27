@@ -343,7 +343,9 @@ call-count instrumentation test in `test/forces.test.ts` keeps its meaning.
 
 There is no spatial subdivision and no cut-off radius, so repulsion still
 dominates at scale; this is fine at demo scale (`initialConditions.order` is 11)
-and is the first thing to change for a large graph.
+and is the first thing to change for a large graph. The measured baseline and
+the six work plans for supporting larger graphs are in
+[`docs/performance/`](docs/performance/README.md).
 
 ## Known limitations
 
