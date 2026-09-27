@@ -6,7 +6,7 @@ import { Graph } from "../src/Graph";
 import { K } from "../src/K";
 import { identity, Mat3, rotX, rotY, rotZ } from "../src/Mat3";
 import { point3 } from "../src/Point3D";
-import { assertMatClose } from "./support/assert";
+import { assertClose, assertMatClose } from "./support/assert";
 import {
     CAMERA_CONSOLE_EVENTS,
     CAMERA_HOLD_RELEASE_EVENTS,
@@ -54,6 +54,12 @@ function button(axis: string, direction: string): FakeElement {
     return element;
 }
 
+function zoomButton(direction: string): FakeElement {
+    const element = new FakeElement('BUTTON');
+    element.setAttribute('data-zoom', direction);
+    return element;
+}
+
 function pressDown(consoleElement: FakeElement, target: FakeElement): void {
     consoleElement.dispatch('pointerdown', pointerEvent({ target }));
 }
@@ -81,6 +87,91 @@ test("each console button rotates about its own axis from the first press", () =
                 controller.stopCameraHold();
             }
         }
+    });
+});
+
+test("each zoom button dollies one notch from the first press", () => {
+    withFixture(({ controller, consoleElement }) => {
+        const start = controller.state.camera.distance;
+
+        pressDown(consoleElement, zoomButton('out'));
+        assertClose(
+            controller.state.camera.distance,
+            start * K.camera.dollyPerWheelNotch,
+            1e-9,
+            "zoom out"
+        );
+
+        controller.stopCameraHold();
+
+        pressDown(consoleElement, zoomButton('in'));
+        assertClose(controller.state.camera.distance, start, 1e-9, "zoom in must reverse zoom out");
+    });
+});
+
+test("a held zoom button zooms one notch per simulation tick", () => {
+    withFixture(({ controller, consoleElement }) => {
+        const start = controller.state.camera.distance;
+
+        pressDown(consoleElement, zoomButton('out'));
+        controller.onTimerTick();
+        controller.onTimerTick();
+
+        assertClose(
+            controller.state.camera.distance,
+            start * Math.pow(K.camera.dollyPerWheelNotch, 3),
+            1e-9,
+            "one notch on press plus one per tick"
+        );
+    });
+});
+
+test("keyboard: Enter starts a held zoom, keyup ends it", () => {
+    withFixture(({ controller, consoleElement }) => {
+        const start = controller.state.camera.distance;
+        const target = zoomButton('in');
+
+        consoleElement.dispatch('keydown', keyEvent({ key: 'Enter', target }));
+        assertClose(
+            controller.state.camera.distance,
+            start / K.camera.dollyPerWheelNotch,
+            1e-9,
+            "keydown notch"
+        );
+
+        consoleElement.dispatch('keyup', keyEvent({ key: 'Enter', target }));
+        controller.onTimerTick();
+
+        assertClose(
+            controller.state.camera.distance,
+            start / K.camera.dollyPerWheelNotch,
+            1e-9,
+            "keyup ends the hold"
+        );
+    });
+});
+
+test("an assistive-technology click zooms once; a pointer click is already handled", () => {
+    withFixture(({ controller, consoleElement }) => {
+        const start = controller.state.camera.distance;
+        const target = zoomButton('in');
+
+        consoleElement.dispatch('click', mouseEvent({ detail: 0, target }));
+        assertClose(controller.state.camera.distance, start / K.camera.dollyPerWheelNotch, 1e-9, "AT zoom");
+
+        consoleElement.dispatch('click', mouseEvent({ detail: 1, target }));
+        assertClose(controller.state.camera.distance, start / K.camera.dollyPerWheelNotch, 1e-9, "pointer click");
+    });
+});
+
+test("a zoom value that names no direction does nothing", () => {
+    withFixture(({ controller, consoleElement }) => {
+        const start = controller.state.camera.distance;
+
+        pressDown(consoleElement, zoomButton('sideways'));
+        controller.onTimerTick();
+
+        assert.equal(controller.state.camera.distance, start, "an unknown zoom must not move the camera");
     });
 });
 
@@ -225,14 +316,17 @@ test("an assistive-technology click rotates once; a pointer click is already han
     });
 });
 
-test("a press that is not on a rotate button does nothing", () => {
+test("a press that is not on a console button does nothing", () => {
     withFixture(({ controller, consoleElement }) => {
+        const start = controller.state.camera.distance;
+
         pressDown(consoleElement, consoleElement);
         pressDown(consoleElement, button('w', 'acw'));
 
         controller.onTimerTick();
 
         assert.deepEqual(controller.state.camera.orientation, identity());
+        assert.equal(controller.state.camera.distance, start);
     });
 });
 

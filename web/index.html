@@ -71,9 +71,10 @@
 
 				<!--
 					The camera console: one row per camera axis, each with a
-					clockwise and an anticlockwise button. They are real buttons,
-					so Enter and Space activate them, and each carries the axis
-					and direction as data attributes for the delegated handler.
+					clockwise and an anticlockwise button, then a zoom row that
+					dollies in and out. They are real buttons, so Enter and Space
+					activate them, and each carries its axis, direction or zoom
+					as a data attribute for the delegated handler.
 				-->
 				<div id="cameraConsole" class="cameraSection">
 					<div class="sectionHeading">
@@ -114,6 +115,24 @@
 							data-axis="z" data-direction="acw"
 							aria-label="rotate anticlockwise about the z axis"
 							title="rotate anticlockwise about the z axis">&#8634;</button>
+					</div>
+
+					<!--
+						The zoom row: the same two-ends shape as a rotate row,
+						but it dollies instead of turning. The minus is on the
+						left so the pair reads like a number line; `data-zoom`
+						names the direction.
+					-->
+					<div class="cameraRow">
+						<span class="cameraAxisLabel">zoom</span>
+						<button type="button" class="cameraButton"
+							data-zoom="out"
+							aria-label="zoom out"
+							title="zoom out">&#8722;</button>
+						<button type="button" class="cameraButton"
+							data-zoom="in"
+							aria-label="zoom in"
+							title="zoom in">+</button>
 					</div>
 				</div>
 			</div>

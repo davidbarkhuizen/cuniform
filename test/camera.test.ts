@@ -102,6 +102,18 @@ test("dolly clamps below a maximum distance", () => {
     assert.ok(K.camera.maxDistance > K.camera.minDistance, "the clamps must not cross");
 });
 
+test("zoom maps in toward the target and out away from it", () => {
+    // The console names a direction, so the sign convention is the camera's.
+    const camera = new Camera();
+    const start = camera.distance;
+
+    camera.zoom('out');
+    assertClose(camera.distance, start * K.camera.dollyPerWheelNotch, 1e-9, "zoom out");
+
+    camera.zoom('in');
+    assertClose(camera.distance, start, 1e-9, "zoom in must reverse zoom out");
+});
+
 test("panBy moves only the target", () => {
     const camera = new Camera();
 

@@ -223,7 +223,7 @@ body
 	color			: var(--success);
 }
 
-/* the camera console: three rows of axis rotate buttons */
+/* the camera console: three axis rotate rows and a zoom row */
 .cameraSection
 {
 	padding-top		: 12px;
@@ -242,9 +242,13 @@ body
 	margin-top		: 8px;
 }
 
+/*
+ * The shared row-label column, wide enough for the longest label ("zoom"), so
+ * every row's buttons line up. It is monospace, so `ch` is one character.
+ */
 .cameraAxisLabel
 {
-	width			: 1.2em;
+	width			: 5.5ch;
 
 	font-weight		: bold;
 	text-transform		: uppercase;
