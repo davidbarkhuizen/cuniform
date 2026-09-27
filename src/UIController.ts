@@ -13,6 +13,7 @@ import { CameraView, Projector } from "./Projector";
 import { render } from "./Renderer";
 import { handleNodeSelectionAttempt } from "./Selection";
 import { State } from "./State";
+import { Tag } from "./Tag";
 
 /**
  * Builds the graph a `GraphSpec` describes. Supplied by the caller rather than
@@ -114,6 +115,11 @@ export class UIController {
     // The last chosen graph description, or null before the first choice; the
     // graph itself lives in the solver.
     spec: GraphSpec | null = null;
+
+    // The cached selection: the renderer takes it as an argument instead of
+    // rescanning the graph every frame. Refreshed by updateSelectionInfo(),
+    // which every selection-changing path already calls.
+    private selected: Tag | null = null;
 
     // The panel's current-graph line; it names the technical spec so the word
     // cloud's short chips never lose the identity of the loaded graph.
@@ -629,8 +635,9 @@ export class UIController {
 		const graph = this.solver.graph;
 
 		// The pin is expressed as an index and a position, so it crosses to a
-		// worker as data and the solver never reads browser state itself.
-		const selected = this.state.b0Down ? graph.selectedVertex() : null;
+		// worker as data and the solver never reads browser state itself. The
+		// cached selection is used here, so no O(N) scan runs per tick.
+		const selected = this.state.b0Down ? this.selected : null;
 		const pinnedIndex = selected === null ? -1 : graph.vertices.indexOf(selected);
 		const pinnedPosition = pinnedIndex >= 0 ? graph.vertices[pinnedIndex].position : null;
 
@@ -654,7 +661,7 @@ export class UIController {
 	}
 
 	private renderFrame(camera: CameraView = this.state.camera): void {
-		render(this.context2D, this.solver.graph, camera);
+		render(this.context2D, this.solver.graph, camera, this.selected);
 	}
 
 	// Stop stepping once the layout has been quiet for settleFrames steps. Any
@@ -738,9 +745,16 @@ export class UIController {
 		this.contextMenu = menu;
 	};
 
+	/** Re-read the graph's selection into the cache. One home for "selection changed". */
+	private refreshSelection = () => {
+		this.selected = this.solver.graph.selectedVertex();
+	};
+
 	updateSelectionInfo = () => {
 	
-		const selectedNode = this.solver.graph.selectedVertex();
+		this.refreshSelection();
+
+		const selectedNode = this.selected;
 		
 		const selectedNodeInfoLabel = this.selectionInfoLabel;
 		const list = this.selectionInfoList;

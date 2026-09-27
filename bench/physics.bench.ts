@@ -241,6 +241,10 @@ function measureRender(graph: Graph, camera: CameraView, reps: number): RenderMe
     let ops = 0;
     let texts = 0;
 
+    // The frame takes the selection as an argument now; resolve it once, as the
+    // controller does, rather than letting the renderer scan per frame.
+    const selected = graph.selectedVertex();
+
     // Best of three batches: the fake context's recording makes single batches
     // noisy enough to swamp the difference between the two paths.
     for (let batch = 0; batch < 3; batch++) {
@@ -253,7 +257,7 @@ function measureRender(graph: Graph, camera: CameraView, reps: number): RenderMe
             contexts.push(context);
         }
 
-        render(contexts[0] as unknown as CanvasRenderingContext2D, graph, camera);
+        render(contexts[0] as unknown as CanvasRenderingContext2D, graph, camera, selected);
 
         if (batch === 0) {
             ops = contexts[0].ops.length;
@@ -263,7 +267,7 @@ function measureRender(graph: Graph, camera: CameraView, reps: number): RenderMe
         const start = process.hrtime.bigint();
 
         for (let i = 1; i <= reps; i++)
-            render(contexts[i] as unknown as CanvasRenderingContext2D, graph, camera);
+            render(contexts[i] as unknown as CanvasRenderingContext2D, graph, camera, selected);
 
         bestMs = Math.min(bestMs, Number(process.hrtime.bigint() - start) / 1e6 / reps);
     }

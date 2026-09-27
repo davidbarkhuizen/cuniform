@@ -101,10 +101,17 @@ function ensureGroupCapacity(n: number): void {
  * Above the `K.renderer` thresholds the frame switches to a cheaper, size-gated
  * path: labels are culled to the selection and its neighbours, and edges are
  * batched into one stroke per (style x alpha bucket).
+ *
+ * `selected` is the caller's cached selection, not a scan: the controller knows
+ * when the selection changes, so the renderer never walks O(N) per frame. The
+ * graph is still needed for `hasEdge`/`vertices`/`edges`.
  */
-export function render(context: CanvasRenderingContext2D, graph: Graph, camera: CameraView): void {
-
-	const selected = graph.selectedVertex();
+export function render(
+	context: CanvasRenderingContext2D,
+	graph: Graph,
+	camera: CameraView,
+	selected: Tag | null
+): void {
 
 	// Cleared in device space, independent of any devicePixelRatio transform the
 	// caller applied for HiDPI.
