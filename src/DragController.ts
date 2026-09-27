@@ -109,23 +109,37 @@ export class DragController {
 
 	// Walks the ancestor chain rather than closest(), so the check works on the
 	// dependency-free test DOM as well as the browser.
-	private ownsInteractivePress(target: EventTarget | null): boolean {
-
-		const panel = this.element as unknown as PressTarget | null;
+	//
+	// `stopBefore` is exclusive: a press that starts on the panel body must not
+	// reach the handle's own listeners. `isWithin` needs the terminal element
+	// included, which is the only difference between the two callers.
+	private firstAncestor(
+		target: EventTarget | null,
+		accept: (element: PressTarget) => boolean,
+		stopBefore: PressTarget | null = null
+	): PressTarget | null {
 
 		let element = target as unknown as PressTarget | null;
 
-		while (element && element !== panel) {
+		while (element && element !== stopBefore) {
 
-			const tagName = element.tagName;
-
-			if (typeof tagName === 'string' && INTERACTIVE_TAGS.has(tagName.toUpperCase()))
-				return true;
+			if (accept(element))
+				return element;
 
 			element = element.parentElement ?? null;
 		}
 
-		return false;
+		return null;
+	}
+
+	private ownsInteractivePress(target: EventTarget | null): boolean {
+
+		const panel = this.element as unknown as PressTarget | null;
+
+		return this.firstAncestor(target, element => {
+			const tagName = element.tagName;
+			return typeof tagName === 'string' && INTERACTIVE_TAGS.has(tagName.toUpperCase());
+		}, panel) !== null;
 	}
 
 	/** True when `target` is `ancestor` itself or one of its descendants. */
@@ -133,16 +147,7 @@ export class DragController {
 
 		const wanted = ancestor as unknown as PressTarget;
 
-		let element = target as unknown as PressTarget | null;
-
-		while (element) {
-			if (element === wanted)
-				return true;
-
-			element = element.parentElement ?? null;
-		}
-
-		return false;
+		return this.firstAncestor(target, element => element === wanted) !== null;
 	}
 
 	private applyPosition() {

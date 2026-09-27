@@ -1,4 +1,5 @@
 import { advanceIndex } from "./FocusRing";
+import { clamp } from "./Numeric";
 
 export interface ContextMenuItem {
     label: string;
@@ -98,8 +99,8 @@ export class ContextMenu {
 
         // Clamped to the viewport so a right- or bottom-edge click still shows
         // the whole menu rather than half of it off-screen.
-        this.element.style.left = `${Math.min(Math.max(x, 0), maxLeft)}px`;
-        this.element.style.top = `${Math.min(Math.max(y, 0), maxTop)}px`;
+        this.element.style.left = `${clamp(x, 0, maxLeft)}px`;
+        this.element.style.top = `${clamp(y, 0, maxTop)}px`;
 
         // Land focus in the menu so the keyboard works without a pointer event.
         this.focusedIndex = 0;

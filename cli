@@ -57,9 +57,8 @@ bench () {
 
 build () {
 
-    echo "building js from typescript ..."
-    npm run start
-    echo "... built"
+    # One build sequence, in build-and-run.sh; this only asks for the build half.
+    bash build-and-run.sh --build-only
 }
 
 run () {

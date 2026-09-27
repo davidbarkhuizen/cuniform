@@ -11,6 +11,10 @@ import {
 
 export type WizardStep = "choose" | "random" | "molecules";
 
+/** The dialog's accessible name: the title element carries this id and the
+ * dialog points at it, so the two references cannot disagree. */
+const WIZARD_TITLE_ID = "wizardTitle";
+
 // Unique per number field, so a caption can name its input even across rebuilds.
 let nextFieldId = 0;
 
@@ -72,7 +76,7 @@ export class GraphWizard {
         this.element.className = "graphWizard";
         this.element.setAttribute("role", "dialog");
         this.element.setAttribute("aria-modal", "true");
-        this.element.setAttribute("aria-labelledby", "wizardTitle");
+        this.element.setAttribute("aria-labelledby", WIZARD_TITLE_ID);
 
         this.panel = document.createElement("div");
         this.panel.className = "wizardPanel";
@@ -80,7 +84,7 @@ export class GraphWizard {
 
         this.titleLabel = document.createElement("div");
         this.titleLabel.className = "wizardTitle";
-        this.titleLabel.setAttribute("id", "wizardTitle");
+        this.titleLabel.setAttribute("id", WIZARD_TITLE_ID);
         this.panel.appendChild(this.titleLabel);
 
         const choose = this.buildStep("choose");

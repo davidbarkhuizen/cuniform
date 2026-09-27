@@ -20,6 +20,12 @@ test("the model space is the reference 600 cube", () => {
     assert.equal(K.ui.minimumNodeSelectionRadiusPx, 15.0);
 });
 
+test("a molecule seed starts at the springs' rest length", () => {
+    // Not a tautology to guard: the two fields are separate knobs, and the
+    // repulsion guard's behaviour depends on their staying equal.
+    assert.equal(K.molecule.seedSpacing, K.physics.equilibriumDisplacement);
+});
+
 test("toCanvas maps the model origin to the canvas centre", () => {
     assert.deepEqual(Viewport.forCanvas(800, 600).toCanvas({ x: 0, y: 0 }), { x: 400, y: 300 });
 });

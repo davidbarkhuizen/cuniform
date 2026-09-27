@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { entrypoint } from "../src/entrypoint";
+import { entrypoint, SELECTION_INFO_PANEL_ID, CANVAS_ID, EXPORT_ELEMENT_ID, RESET_ELEMENT_ID } from "../src/entrypoint";
 import { FakeCanvas, demoElements, newUIController, withFakeDom } from "./support/dom";
 
 const IDS: [string, string, string, string] = [
-    'selectionInfoPanel',
-    'canvas',
-    'export_canvas_link',
-    'reset_link',
+    SELECTION_INFO_PANEL_ID,
+    CANVAS_ID,
+    EXPORT_ELEMENT_ID,
+    RESET_ELEMENT_ID,
 ];
 
 /** Run `fn` with console.error muted, restoring it afterwards. */

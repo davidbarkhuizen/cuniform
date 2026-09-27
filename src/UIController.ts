@@ -32,6 +32,12 @@ export type GraphSource = (spec: GraphSpec) => Graph;
 
 const defaultGraphSource: GraphSource = spec => new GraphFactory().build(spec);
 
+/** The two keys a focused button activates on. Browsers synthesise a click for
+ * both, which is why the hold paths must cancel the default.
+ */
+const isButtonActivationKey = (event: KeyboardEvent): boolean =>
+	event.key === 'Enter' || event.key === ' ';
+
 // A parsed console button: which camera axis and which way.
 interface CameraButton {
     axis: CameraAxis;
@@ -421,7 +427,7 @@ export class UIController {
 	 */
 	onCameraKeyDown = (event: KeyboardEvent) => {
 
-		if (event.key !== 'Enter' && event.key !== ' ')
+		if (!isButtonActivationKey(event))
 			return;
 
 		// Auto-repeat would restart the step; the tick handler advances a hold.
@@ -439,7 +445,7 @@ export class UIController {
 
 	onCameraKeyUp = (event: KeyboardEvent) => {
 
-		if (event.key !== 'Enter' && event.key !== ' ')
+		if (!isButtonActivationKey(event))
 			return;
 
 		event.preventDefault();

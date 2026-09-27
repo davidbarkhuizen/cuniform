@@ -1,5 +1,6 @@
 import { K } from "./K";
 import { axisAngle, Mat3, multiply, rotX, rotY, rotZ } from "./Mat3";
+import { clamp } from "./Numeric";
 import { point3, Point3D } from "./Point3D";
 import { CameraView, defaultCameraView } from "./Projector";
 
@@ -113,7 +114,7 @@ export function sameCameraView(a: CameraViewState, b: CameraViewState): boolean 
  * [-pi/2, pi/2] - the quantity the turntable guard bounds.
  */
 export function elevationOf(orientation: Mat3): number {
-    return Math.asin(Math.min(Math.max(orientation[7], -1), 1));
+    return Math.asin(clamp(orientation[7], -1, 1));
 }
 
 // A horizontal world axis perpendicular to the view direction - the axis a
@@ -181,7 +182,7 @@ export class Camera implements CameraView {
 
         const elevation = this.elevation;
         const requested = elevation + dyPixels * K.camera.orbitRadiansPerPixel;
-        const delta = Math.min(Math.max(requested, -K.camera.maxPitch), K.camera.maxPitch) - elevation;
+        const delta = clamp(requested, -K.camera.maxPitch, K.camera.maxPitch) - elevation;
 
         if (delta === 0)
             return;
@@ -214,11 +215,9 @@ export class Camera implements CameraView {
      * and `maxDistance` (so a far zoom cannot shrink every node to the floor).
      */
     dolly(notches: number): void {
-        this.distance = Math.min(
-            Math.max(
-                this.distance * Math.pow(K.camera.dollyPerWheelNotch, notches),
-                K.camera.minDistance
-            ),
+        this.distance = clamp(
+            this.distance * Math.pow(K.camera.dollyPerWheelNotch, notches),
+            K.camera.minDistance,
             K.camera.maxDistance
         );
     }

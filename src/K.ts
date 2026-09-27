@@ -6,11 +6,16 @@ export type QualitySetting = "auto" | "accurate" | "fast";
 // layout test pins that cross-language pair.
 const SELECTION_COLOUR = '#ffd400';
 
+// The spring rest length, one literal. `molecule.seedSpacing` must equal it so a
+// seeded molecule's neighbours start at the springs' rest length, outside the
+// repulsion guard; deriving both from here is what keeps that equality true.
+const EQUILIBRIUM_DISPLACEMENT = 30;
+
 export const K = {
 
     physics: {
         springConstant : 0.1,
-        equilibriumDisplacement : 30,
+        equilibriumDisplacement : EQUILIBRIUM_DISPLACEMENT,
         nodeCharge: 10.0,
         scalarForceConstant: 100.0,
         // Deliberately softer than the physical r^2 (reference doc 4.1).
@@ -200,9 +205,10 @@ export const K = {
     },
 
     molecule: {
-        // Equal to equilibriumDisplacement so seed neighbours start at the springs'
-        // rest length, outside the repulsion guard. The equality is the point.
-        seedSpacing : 30,
+        // Derived, not restated: equal to equilibriumDisplacement so seed
+        // neighbours start at the springs' rest length, outside the repulsion
+        // guard. The equality is the point.
+        seedSpacing : EQUILIBRIUM_DISPLACEMENT,
         // Depth offset amplitude for the seed: enough that the spiral is not planar,
         // small enough not to control the layout.
         seedDepthJitter : 4.5,
