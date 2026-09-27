@@ -3,13 +3,19 @@ import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
 import { K } from "../src/K";
+import { defaultCameraView } from "../src/Projector";
+import { FrameRequest } from "../src/RenderProtocol";
+import { RenderRunner, RenderRunnerOptions } from "../src/RenderRunner";
 import { Tag } from "../src/Tag";
 import {
+    FakeCanvas,
     FakeRenderBackend,
+    FakeRenderWorker,
     UIControllerFixture,
     withUIController,
     withUIControllerAsync,
 } from "./support/dom";
+import { sparseGraph } from "./support/physics";
 
 /**
  * The controller draws through one render backend. These drive the seam with a
@@ -197,4 +203,278 @@ test("the in-process backend exports the canvas as a PNG blob", async () => {
         assert.ok(blob instanceof Blob, "export must resolve a Blob");
         assert.equal(blob.type, 'image/png');
     }, { graph: settledGraph() });
+});
+
+// ------------------------------------------------------- the render worker path
+
+/** A runner over a FakeCanvas, wired to a fake worker, with its ready calls recorded. */
+function workerFixture(
+    graph: Graph | null,
+    options: Partial<RenderRunnerOptions> = {}
+): { canvas: FakeCanvas; fake: FakeRenderWorker; runner: RenderRunner; ready: number[] } {
+
+    const canvas = new FakeCanvas();
+    const fake = new FakeRenderWorker();
+    const ready: number[] = [];
+
+    const runner = RenderRunner.create(
+        canvas as unknown as HTMLCanvasElement,
+        () => ready.push(ready.length + 1),
+        {
+            graph: graph ?? undefined,
+            workerFactory: () => fake,
+            readyTimeoutMS: 20,
+            ...options,
+        }
+    );
+
+    assert.ok(runner, "the injected worker must produce a runner");
+
+    return { canvas, fake, runner, ready };
+}
+
+/** Every frame message the worker has received, in order. */
+function frames(fake: FakeRenderWorker): FrameRequest[] {
+    return fake.posts
+        .filter(post => post.message.type === "frame")
+        .map(post => post.message as FrameRequest);
+}
+
+/** Deliver the ack `frame` earns, as the real engine would. */
+function ack(fake: FakeRenderWorker, frame: FrameRequest, nodes: number): void {
+    fake.deliver({
+        type: "drawn",
+        generation: frame.generation,
+        frameId: frame.frameId,
+        positions: frame.positions,
+        depths: new Float64Array(nodes),
+    });
+}
+
+test("the probe transfers nothing until the worker answers ready", () => {
+    const graph = sparseGraph(8, 1);
+    const { canvas, fake, runner } = workerFixture(graph);
+
+    assert.equal(runner.usesWorker, true, "the runner is a worker backend from the start");
+    assert.equal(runner.ready, false, "but it is not ready until the probe answers");
+    assert.equal(canvas.transferred, false, "nothing may be transferred before ready");
+    assert.equal(fake.posts.length, 0, "and nothing may be posted");
+
+    fake.becomeReady();
+
+    assert.equal(canvas.transferred, true, "ready is what transfers control");
+    assert.equal(canvas.transferCount, 1, "control is transferred exactly once");
+    assert.equal(runner.ready, true);
+    assert.equal(fake.posts[0].message.type, "init", "the mirror crosses first");
+    assert.equal(
+        fake.posts[0].transfer.length,
+        2,
+        "the init carries the transferred canvas and its position buffer"
+    );
+
+    runner.terminate();
+});
+
+test("the worker's onReady asks the caller for a redraw", () => {
+    const { fake, runner, ready } = workerFixture(sparseGraph(4, 1));
+
+    assert.equal(ready.length, 0);
+
+    fake.becomeReady();
+
+    assert.equal(ready.length, 1, "a backend that becomes ready must request a frame");
+
+    runner.terminate();
+});
+
+test("a worker that fails to load leaves the canvas untransferred and falls back in process", () => {
+    const graph = sparseGraph(8, 1);
+    const { canvas, fake, runner } = workerFixture(graph);
+
+    fake.fail();
+
+    assert.equal(canvas.transferred, false, "a failed probe must never have transferred");
+    assert.equal(fake.terminated, true, "the failed worker must be terminated");
+    assert.equal(runner.usesWorker, false, "the runner must fall back to the canvas context");
+    assert.equal(runner.ready, true, "the in-process backend is ready at once");
+
+    runner.draw(graph, defaultCameraView(), null, 800, 600);
+
+    assert.ok(canvas.context.clears.length > 0, "the fallback must draw on the canvas context");
+});
+
+test("a ready that never arrives times out to the in-process backend", async () => {
+    const graph = sparseGraph(8, 1);
+    const { canvas, fake, runner } = workerFixture(graph, { readyTimeoutMS: 5 });
+
+    await new Promise(resolve => setTimeout(resolve, 25));
+
+    assert.equal(canvas.transferred, false, "a timed-out probe must never have transferred");
+    assert.equal(fake.terminated, true);
+    assert.equal(runner.usesWorker, false, "the timeout falls back in process");
+});
+
+test("without a Worker global the default factory chooses the in-process backend", () => {
+    const canvas = new FakeCanvas();
+
+    const runner = RenderRunner.create(canvas as unknown as HTMLCanvasElement, () => {});
+
+    assert.ok(runner);
+    assert.equal(runner.usesWorker, false, "a file:// style host has no Worker");
+    assert.equal(runner.ready, true);
+    assert.equal(canvas.transferred, false);
+});
+
+test("supported() is false when there is no worker and no 2d context", () => {
+    const canvas = new FakeCanvas();
+
+    assert.equal(RenderRunner.supported(canvas as unknown as HTMLCanvasElement), true);
+
+    canvas.getContext = () => null;
+
+    assert.equal(
+        RenderRunner.supported(canvas as unknown as HTMLCanvasElement),
+        false,
+        "neither path can draw"
+    );
+});
+
+test("draw coalesces to one frame in flight and carries the newest state", () => {
+    const graph = sparseGraph(12, 7);
+    const { fake, runner } = workerFixture(graph);
+
+    fake.becomeReady();
+    fake.hold();
+
+    const cameraA = { ...defaultCameraView(), distance: 500 };
+    const cameraB = { ...defaultCameraView(), distance: 600 };
+    const cameraC = { ...defaultCameraView(), distance: 700 };
+
+    runner.draw(graph, cameraA, null, 800, 600);
+    assert.equal(frames(fake).length, 1);
+
+    // Two more draws while one frame is in flight: neither may post.
+    runner.draw(graph, cameraB, null, 800, 600);
+    runner.draw(graph, cameraC, graph.vertices[3], 800, 600);
+    assert.equal(frames(fake).length, 1, "one frame in flight");
+
+    // The ack posts the coalesced frame, carrying the newest camera and selection.
+    ack(fake, frames(fake)[0], graph.vertices.length);
+
+    assert.equal(frames(fake).length, 2, "exactly one more frame");
+    assert.equal(frames(fake)[1].camera[12], 700, "the newest camera");
+    assert.equal(frames(fake)[1].selected, 3, "the newest selection");
+
+    runner.terminate();
+});
+
+test("a steady-state frame reuses the pooled position buffers", () => {
+    const graph = sparseGraph(12, 7);
+    const { fake, runner } = workerFixture(graph);
+
+    fake.becomeReady();
+
+    const seen = new Set<Float64Array>();
+
+    for (let frame = 0; frame < 12; frame++) {
+        runner.draw(graph, defaultCameraView(), null, 800, 600);
+
+        const posts = frames(fake);
+        seen.add(posts[posts.length - 1].positions);
+    }
+
+    assert.ok(seen.size <= 3, `expected at most three pooled buffers, saw ${seen.size}`);
+
+    runner.terminate();
+});
+
+test("an ack from a replaced generation is ignored", () => {
+    const first = sparseGraph(12, 7);
+    const second = sparseGraph(12, 99);
+    const { fake, runner } = workerFixture(first);
+
+    fake.becomeReady();
+    fake.hold();
+
+    runner.draw(first, defaultCameraView(), null, 800, 600);
+    const stale = frames(fake)[0];
+
+    runner.setGraph(second);
+
+    fake.deliver({
+        type: "drawn",
+        generation: stale.generation,
+        frameId: stale.frameId,
+        positions: stale.positions,
+        depths: new Float64Array(first.vertices.length).fill(123),
+    });
+
+    assert.ok(
+        first.vertices.every(tag => tag.depth !== 123),
+        "a stale ack must not write depths onto the replaced graph"
+    );
+
+    runner.terminate();
+});
+
+test("the drawn ack writes this frame's depths back onto the tags", () => {
+    const graph = sparseGraph(16, 21);
+    const { fake, runner } = workerFixture(graph);
+
+    fake.becomeReady();
+    runner.draw(graph, defaultCameraView(), null, 800, 600);
+
+    const mirror = fake.engine.graph;
+
+    assert.ok(mirror, "the worker must have built its mirror");
+
+    for (let i = 0; i < graph.vertices.length; i++)
+        assert.equal(graph.vertices[i].depth, mirror.vertices[i].depth, `node ${i} depth`);
+
+    runner.terminate();
+});
+
+test("the worker backend resolves export through the png response", async () => {
+    const { fake, runner } = workerFixture(sparseGraph(4, 1));
+
+    fake.becomeReady();
+
+    const blob = await runner.exportPng();
+
+    assert.ok(blob instanceof Blob, "export must resolve a Blob");
+    assert.equal(fake.posts.some(post => post.message.type === "export"), true);
+
+    runner.terminate();
+});
+
+test("terminate disposes the worker", () => {
+    const { fake, runner } = workerFixture(sparseGraph(4, 1));
+
+    fake.becomeReady();
+    runner.terminate();
+
+    assert.equal(fake.terminated, true, "a render worker must not outlive the runner");
+});
+
+test("a second initialize disposes the previous worker rather than leaking it", () => {
+    const workers: FakeRenderWorker[] = [];
+
+    const factory = () => {
+        const worker = new FakeRenderWorker();
+        workers.push(worker);
+        return worker;
+    };
+
+    withUIController(ui => {
+        workers[0].becomeReady();
+
+        assert.equal(workers.length, 1);
+
+        ui.controller.initialize();
+
+        assert.equal(workers.length, 2, "a fresh run asks for a fresh worker");
+        assert.equal(workers[0].terminated, true, "the previous worker must not leak");
+
+        ui.controller.terminate();
+    }, { graph: settledGraph(), workerFactory: factory });
 });

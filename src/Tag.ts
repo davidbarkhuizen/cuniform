@@ -5,10 +5,19 @@ export class Tag {
 
     label: string;
     position : Point3D;
+    /**
+     * Canvas position from the last full projection. Written by whichever realm
+     * draws, so on the worker path it is stale on the main thread: the drawer is
+     * its only reader (the bench projects its own fixtures). Depth, not this, is
+     * what the main thread reads.
+     */
     translatedPosition : Point2D;
     /**
      * View depth from the last projection, for painter ordering and hit-test tie-breaks:
      * smaller is nearer. Defaults to 0, which is culled until the first step().
+     * The frame's drawer writes it back every frame — directly in process, from
+     * the worker's `drawn` ack on the worker path — so the drag's unprojection
+     * and the cull tie-break read the frame that was actually drawn.
      */
     depth: number = 0;
     /**

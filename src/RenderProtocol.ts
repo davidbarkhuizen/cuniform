@@ -124,8 +124,15 @@ export function initRequest(graph: Graph, generation: number): InitRequest {
 
 /** Pack a camera's 13 mutable numbers, so a frame message is a typed array. */
 export function encodeCamera(view: CameraView): Float64Array {
+    return encodeCameraInto(view, new Float64Array(CAMERA_VALUES));
+}
 
-    const out = new Float64Array(CAMERA_VALUES);
+/**
+ * `encodeCamera` written into caller-owned scratch, so a steady-state frame
+ * allocates nothing. The scratch is posted by structured clone, not transfer,
+ * because the sender reuses it.
+ */
+export function encodeCameraInto(view: CameraView, out: Float64Array): Float64Array {
 
     for (let i = 0; i < 9; i++)
         out[i] = view.orientation[i];

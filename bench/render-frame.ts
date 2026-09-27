@@ -109,6 +109,9 @@ async function measureCase(
     const graph: Graph = sparseGraph(nodes, 4321 + nodes);
     const camera = new Camera();
 
+    // Each case is a different graph, so a worker mirror is re-initialised here.
+    runner.setGraph(graph);
+
     const drawTimes: number[] = [];
 
     let longTasks = 0;
@@ -233,14 +236,15 @@ async function main(): Promise<void> {
 
     // One runner per page load: transferring canvas control to an OffscreenCanvas
     // is one-way, so the mode is fixed before the first case runs.
-    const runner = RenderRunner.create(canvas, () => {});
+    const runner = RenderRunner.create(canvas, () => {}, { mode: params.mode });
 
-    if (params.mode === "worker" && !runner.usesWorker)
-        console.warn("render-frame: the render worker is not wired yet, so both modes draw in-process");
+    if (runner === null)
+        throw new Error("render-frame: the canvas can neither transfer to an OffscreenCanvas nor give a 2d context");
 
     console.log(
         `cuniform real-canvas frame harness: ${params.sizes.join(", ")} nodes, ` +
-        `dpr ${params.dprs.join(", ")}, ${params.frames} frames, render=${params.mode}`
+        `dpr ${params.dprs.join(", ")}, ${params.frames} frames, render=${params.mode}, ` +
+        `backend=${runner.usesWorker ? "worker" : "main"}`
     );
 
     const rows: Measurement[] = [];

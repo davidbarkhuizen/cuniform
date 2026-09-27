@@ -10,7 +10,7 @@ import { point, Point2D } from "./Point2D";
 import { point3 } from "./Point3D";
 import { PhysicsRunner } from "./PhysicsRunner";
 import { CameraView, Projector } from "./Projector";
-import { RenderBackend, RenderRunner } from "./RenderRunner";
+import { RenderBackend, RenderRunner, RenderWorkerFactory } from "./RenderRunner";
 import { handleNodeSelectionAttempt } from "./Selection";
 import { State } from "./State";
 import { Tag } from "./Tag";
@@ -151,7 +151,9 @@ export class UIController {
         private readonly makeGraph: GraphSource = defaultGraphSource,
         // A test seam: the backend the runner wraps instead of the canvas's own
         // 2D context. Production always draws through the real one.
-        private readonly renderBackend: RenderBackend | null = null
+        private readonly renderBackend: RenderBackend | null = null,
+        // A test seam: the worker the runner probes instead of the bundled one.
+        private readonly renderWorkerFactory: RenderWorkerFactory | undefined = undefined
 	) {
         this.body = body;
         this.canvas = canvas;
@@ -188,21 +190,32 @@ export class UIController {
     /** The drawing owner, built lazily alongside the solver. */
     get renderRunner(): RenderRunner {
         if (this.renderRunnerRef === null)
-            this.renderRunnerRef = this.createRenderRunner();
+            this.renderRunnerRef = this.createRenderRunner(this.solver.graph);
 
         return this.renderRunnerRef;
     }
 
-    // The injected backend in tests, else the canvas's own context. A backend
-    // that becomes ready later asks for the redraw through onReady, so the
-    // controller's private needsRedraw stays private.
-    private createRenderRunner(): RenderRunner {
+    // The injected backend in tests, else a probed render worker, else the
+    // canvas's own context. A backend that becomes ready later asks for the
+    // redraw through onReady, so the controller's private needsRedraw stays
+    // private.
+    private createRenderRunner(graph: Graph): RenderRunner {
         const onReady = () => this.requestRedraw();
 
         if (this.renderBackend !== null)
             return RenderRunner.over(this.renderBackend, onReady);
 
-        return RenderRunner.create(this.canvas, onReady);
+        const runner = RenderRunner.create(this.canvas, onReady, {
+            graph,
+            workerFactory: this.renderWorkerFactory,
+        });
+
+        // entrypoint() refuses to start when the canvas can neither transfer nor
+        // give a context, so this is the impossible path.
+        if (runner === null)
+            throw new Error("UIController: the canvas can neither transfer to an OffscreenCanvas nor give a 2d context");
+
+        return runner;
     }
 
 	onMouseOut = () => {
@@ -577,6 +590,10 @@ export class UIController {
 
 			// Revoking synchronously can cancel the download in some browsers.
 			setTimeout(() => URL.revokeObjectURL(url), 0);
+		}).catch(error => {
+			// A worker that is still probing cannot export; a click that early
+			// must not surface an unhandled rejection.
+			console.error("export failed", error);
 		});
 	};
 
@@ -601,6 +618,11 @@ export class UIController {
 		// from the graph that was just replaced.
 		if (this.runnerRef !== null)
 			this.runnerRef.setGraph(this.solverRef);
+
+		// The drawing owner's worker mirror is keyed to a graph too: a swap
+		// re-initialises it and bumps its generation.
+		if (this.renderRunnerRef !== null)
+			this.renderRunnerRef.setGraph(this.solverRef.graph);
 
 		// A swap happens between gestures, so no button may still be held.
 		this.state.reset();
@@ -966,15 +988,6 @@ export class UIController {
 		// cannot double the timer, the listeners or the context menu.
 		this.terminate();
 
-		// One drawing owner for this run, built before resizeCanvas() draws
-		// through it: the canvas's own context, or the injected test backend.
-		this.renderRunnerRef = this.createRenderRunner();
-
-		this.resizeCanvas();
-
-		// The first drawn frame is not optional, whatever the camera scratch says.
-		this.needsRedraw = true;
-
 		// Reset the existing state object rather than allocating a new one, so
 		// handlers holding a reference see the cleared flags.
 		this.state.reset();
@@ -982,6 +995,17 @@ export class UIController {
 		// The default placeholder guarantees a valid graph, so no render path
 		// needs a "no graph" special case; the first-run chooser replaces it.
 		this.solverRef = new ForceDirectedGraph(this.initialGraph());
+
+		// One drawing owner for this run, built before resizeCanvas() draws
+		// through it: a probed render worker, the canvas's own context, or the
+		// injected test backend. It is handed the graph so a worker mirror is
+		// initialised before the first frame.
+		this.renderRunnerRef = this.createRenderRunner(this.solverRef.graph);
+
+		this.resizeCanvas();
+
+		// The first drawn frame is not optional, whatever the camera scratch says.
+		this.needsRedraw = true;
 
 		// One physics owner for this run: a worker when the browser has one, else
 		// the in-process solver.
