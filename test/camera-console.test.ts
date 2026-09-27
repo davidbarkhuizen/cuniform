@@ -90,6 +90,25 @@ test("each console button rotates about its own axis from the first press", () =
     });
 });
 
+test("a press on a rotate button's SVG icon still reaches its button", () => {
+    // The icon is a child element, so a real pointer press can report it as the
+    // target; the handler must walk up to the button that carries the data.
+    withFixture(({ controller, consoleElement }) => {
+        const target = button('x', 'acw');
+        const icon = new FakeElement('path');
+        target.appendChild(icon);
+
+        pressDown(consoleElement, icon);
+
+        assertMatClose(
+            controller.state.camera.orientation,
+            stepFor('x', 'acw', 1),
+            1e-12,
+            "a press on the icon must reach its button"
+        );
+    });
+});
+
 test("each zoom button dollies one notch from the first press", () => {
     withFixture(({ controller, consoleElement }) => {
         const start = controller.state.camera.distance;

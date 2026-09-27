@@ -259,6 +259,14 @@ body
 .cameraButton
 {
 	flex			: 1;
+	box-sizing		: border-box;
+	min-height		: 32px;
+
+	/* The rotate icons are SVG; centring keeps them and the zoom signs aligned. */
+	display			: flex;
+	align-items		: center;
+	justify-content		: center;
+
 	padding			: 6px 10px;
 
 	font			: inherit;
@@ -271,6 +279,29 @@ body
 	border-radius		: 6px;
 
 	cursor			: pointer;
+}
+
+/*
+ * A rotate icon: the ring is stroked in the button's own ink, and the
+ * arrowhead is solid. The ring's shape names the plane the axis turns in and
+ * the arrowhead points the way the view turns.
+ */
+.cameraIcon
+{
+	width			: 20px;
+	height			: 20px;
+
+	fill			: none;
+	stroke			: currentColor;
+	stroke-width		: 2.2;
+	stroke-linecap		: round;
+	stroke-linejoin		: round;
+}
+
+.cameraIconHead
+{
+	fill			: currentColor;
+	stroke			: none;
 }
 
 .cameraButton:hover

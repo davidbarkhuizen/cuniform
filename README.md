@@ -99,9 +99,12 @@ panel's drag surface.
   Anticlockwise is the right-hand positive sense about that axis: on screen, x
   tilts the view about the horizontal, y turns it about the vertical, and z rolls
   it about the view axis. Unlike the middle-drag guard, an explicit axis rotation
-  is free to carry the view through a pole. The zoom buttons share the wheel's
-  dolly: the same clamp between `camera.minDistance` and `camera.maxDistance`,
-  and the same constant focal length.
+  is free to carry the view through a pole. Each button draws its own icon rather
+  than sharing one glyph: the ring is shown in the plane that axis turns in (tall
+  for x, wide for y, round for z) and the arrowhead points the way the view
+  turns. The zoom buttons share the wheel's dolly: the same clamp between
+  `camera.minDistance` and `camera.maxDistance`, and the same constant focal
+  length.
 - **Right-click** — opens a context menu with `export`, `reset` and
   `clear selection`. The native browser menu is suppressed. On macOS
   `Ctrl+click` is the same gesture.
