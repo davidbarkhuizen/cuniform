@@ -960,8 +960,10 @@ export class UIController {
 
 		while (this.accumulator >= period && steps < K.physics.maxStepsPerFrame) {
 
-			// Nothing to advance, so drop the backlog rather than run it.
-			if (this.settled) {
+			// A settled layout has nothing left to step, so drop the backlog
+			// rather than run it - unless a console button is held, whose
+			// rotation rides this fixed clock and must keep turning.
+			if (this.settled && this.heldRotation === null) {
 				this.accumulator = 0;
 				break;
 			}
@@ -969,7 +971,13 @@ export class UIController {
 			this.accumulator -= period;
 			steps++;
 
-			this.advanceOneTick();
+			// Once settled, only the camera is still moving. Turning it without
+			// re-stepping the solved layout is what lets a hold outlive the settle
+			// without paying for the physics again.
+			if (this.settled)
+				this.onCameraRotateTick();
+			else
+				this.advanceOneTick();
 		}
 
 		// A slow frame must not leave a backlog that turns into a death spiral.
