@@ -134,6 +134,39 @@ test("the camera console has six labelled axis/direction rotate buttons", () => 
     assert.ok(!/data-axis="[^xyz]/.test(markup), "an axis attribute must name one of x, y or z");
 });
 
+test("each rotate button draws its own axis and direction icon", () => {
+    const panel = panelMarkup(readWeb("index.html"));
+
+    // Attributes may span several lines, so compare against whitespace-normalised markup.
+    const markup = panel.replace(/\s+/g, " ");
+
+    // The one shared glyph per direction is gone: a rotate button now carries
+    // an inline SVG, so the icon can name the axis and the way it turns.
+    assert.ok(!markup.includes("&#8635;") && !markup.includes("&#8634;"),
+        "the shared rotate glyphs should be replaced by per-axis icons");
+
+    const rings = new Set<string>();
+
+    for (const axis of ["x", "y", "z"]) {
+        for (const direction of ["cw", "acw"]) {
+            const at = markup.indexOf(`data-axis="${axis}" data-direction="${direction}"`);
+            assert.notEqual(at, -1, `no ${direction} button for the ${axis} axis`);
+
+            const svg = markup.slice(at, markup.indexOf("</svg>", at));
+            const ring = /<path d="([^"]+)"/.exec(svg);
+
+            assert.ok(ring, `the ${axis} ${direction} button needs an SVG ring`);
+            rings.add(ring[1]);
+        }
+    }
+
+    assert.equal(rings.size, 6, "each axis and direction must draw a distinct ring");
+
+    const icon = cssRule(readWeb("stylez.css"), ".cameraIcon");
+    assert.match(icon, /stroke\s*:\s*currentColor/, "the ring should stroke in the button's ink");
+    assert.match(icon, /width\s*:/, "the icon needs a size");
+});
+
 test("the camera console has a labelled zoom row with in and out buttons", () => {
     const panel = panelMarkup(readWeb("index.html"));
 

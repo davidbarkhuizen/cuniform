@@ -75,6 +75,13 @@
 					dollies in and out. They are real buttons, so Enter and Space
 					activate them, and each carries its axis, direction or zoom
 					as a data attribute for the delegated handler.
+
+					The rotate icons are inline SVG rather than one shared glyph.
+					Each ring lies in the plane its axis turns in - tall for x,
+					wide for y, round for z - and the arrowhead points the way
+					the view turns, so the icons differ by axis and direction.
+					The accessible name stays on the button, so the icon is
+					decorative.
 				-->
 				<div id="cameraConsole" class="cameraSection">
 					<div class="sectionHeading">
@@ -86,11 +93,21 @@
 						<button type="button" class="cameraButton"
 							data-axis="x" data-direction="cw"
 							aria-label="rotate clockwise about the x axis"
-							title="rotate clockwise about the x axis">&#8635;</button>
+							title="rotate clockwise about the x axis">
+							<svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+								<path d="M16.44 9.83A4.6 8.4 0 1 1 12 3.6"/>
+								<path class="cameraIconHead" d="M12 3.6L7.6 6.2L7.6 1Z"/>
+							</svg>
+						</button>
 						<button type="button" class="cameraButton"
 							data-axis="x" data-direction="acw"
 							aria-label="rotate anticlockwise about the x axis"
-							title="rotate anticlockwise about the x axis">&#8634;</button>
+							title="rotate anticlockwise about the x axis">
+							<svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+								<path d="M7.56 9.83A4.6 8.4 0 1 0 12 3.6"/>
+								<path class="cameraIconHead" d="M12 3.6L16.4 1L16.4 6.2Z"/>
+							</svg>
+						</button>
 					</div>
 
 					<div class="cameraRow">
@@ -98,11 +115,21 @@
 						<button type="button" class="cameraButton"
 							data-axis="y" data-direction="cw"
 							aria-label="rotate clockwise about the y axis"
-							title="rotate clockwise about the y axis">&#8635;</button>
+							title="rotate clockwise about the y axis">
+							<svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+								<path d="M20.11 10.81A8.4 4.6 0 1 1 12 7.4"/>
+								<path class="cameraIconHead" d="M12 7.4L7.6 10L7.6 4.8Z"/>
+							</svg>
+						</button>
 						<button type="button" class="cameraButton"
 							data-axis="y" data-direction="acw"
 							aria-label="rotate anticlockwise about the y axis"
-							title="rotate anticlockwise about the y axis">&#8634;</button>
+							title="rotate anticlockwise about the y axis">
+							<svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+								<path d="M3.89 10.81A8.4 4.6 0 1 0 12 7.4"/>
+								<path class="cameraIconHead" d="M12 7.4L16.4 4.8L16.4 10Z"/>
+							</svg>
+						</button>
 					</div>
 
 					<div class="cameraRow">
@@ -110,11 +137,21 @@
 						<button type="button" class="cameraButton"
 							data-axis="z" data-direction="cw"
 							aria-label="rotate clockwise about the z axis"
-							title="rotate clockwise about the z axis">&#8635;</button>
+							title="rotate clockwise about the z axis">
+							<svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+								<path d="M19.73 9.93A8 8 0 1 1 12 4"/>
+								<path class="cameraIconHead" d="M12 4L7.6 6.6L7.6 1.4Z"/>
+							</svg>
+						</button>
 						<button type="button" class="cameraButton"
 							data-axis="z" data-direction="acw"
 							aria-label="rotate anticlockwise about the z axis"
-							title="rotate anticlockwise about the z axis">&#8634;</button>
+							title="rotate anticlockwise about the z axis">
+							<svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+								<path d="M4.27 9.93A8 8 0 1 0 12 4"/>
+								<path class="cameraIconHead" d="M12 4L16.4 1.4L16.4 6.6Z"/>
+							</svg>
+						</button>
 					</div>
 
 					<!--

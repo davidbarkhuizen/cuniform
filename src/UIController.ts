@@ -352,9 +352,9 @@ export class UIController {
 	// attributes name the direction (and, for a rotation, the axis).
 	private cameraButton(target: EventTarget | null): CameraButton | null {
 
-		const element = target as HTMLElement | null;
+		const element = this.consoleButton(target);
 
-		if (!element || typeof element.getAttribute !== 'function')
+		if (!element)
 			return null;
 
 		// The guards are the runtime half of the CameraAxis/CameraDirection/
@@ -375,6 +375,27 @@ export class UIController {
 			return null;
 
 		return { kind: 'rotate', axis, direction };
+	}
+
+	// The button carrying the console data attributes, from `target` upwards: a
+	// rotate button holds an SVG icon, so a press can land on the icon rather
+	// than the button itself. The walk stops at the console, so a press on the
+	// panel around it finds nothing.
+	private consoleButton(target: EventTarget | null): HTMLElement | null {
+
+		let element = target as HTMLElement | null;
+
+		while (element && element !== this.cameraConsole) {
+
+			if (typeof element.getAttribute === 'function' &&
+				(element.getAttribute('data-axis') !== null ||
+					element.getAttribute('data-zoom') !== null))
+				return element;
+
+			element = element.parentElement;
+		}
+
+		return null;
 	}
 
 	// One step of a console button: a small rotation, or one dolly notch.
