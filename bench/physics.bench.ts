@@ -291,7 +291,7 @@ function measureRender(graph: Graph, camera: CameraView, reps: number): RenderMe
             contexts.push(context);
         }
 
-        render(contexts[0] as unknown as CanvasRenderingContext2D, graph, camera, selected);
+        render(contexts[0], graph, camera, selected);
 
         if (batch === 0) {
             ops = contexts[0].ops.length;
@@ -301,7 +301,7 @@ function measureRender(graph: Graph, camera: CameraView, reps: number): RenderMe
         const start = process.hrtime.bigint();
 
         for (let i = 1; i <= reps; i++)
-            render(contexts[i] as unknown as CanvasRenderingContext2D, graph, camera, selected);
+            render(contexts[i], graph, camera, selected);
 
         bestMs = Math.min(bestMs, Number(process.hrtime.bigint() - start) / 1e6 / reps);
     }

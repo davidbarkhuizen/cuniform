@@ -5,14 +5,27 @@ import { readAllSources } from "./support/files";
 
 /**
  * The layering the rest of the suite depends on, asserted once over the real
- * sources: the simulation, the geometry and the static data run headless, and
- * every canvas call sits behind the one module that owns a canvas type.
+ * sources: the simulation, the geometry, the static data and the drawing code
+ * run headless, and every browser global sits behind an explicitly listed
+ * module.
  *
  * These are the only checks that read source text, so a module-boundary
  * regression has one home rather than a token check beside each module.
  */
 
 const sources = readAllSources();
+
+/**
+ * Source with comments removed, so the purity rules below are about code rather
+ * than prose. `RenderSurface.ts` legitimately names both real context types in
+ * its documentation; the boundary the test enforces is that a pure module never
+ * *uses* one.
+ */
+function code(source: string): string {
+    return source
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/\/\/[^\n]*/g, "");
+}
 
 /** The DOM-free half: the solver, the projection and the catalog data. */
 const PURE_MODULES = [
@@ -26,6 +39,8 @@ const PURE_MODULES = [
     "PhysicsProtocol.ts",
     "Camera.ts",
     "Projector.ts",
+    "Renderer.ts",
+    "RenderSurface.ts",
     "Mat3.ts",
     "Viewport.ts",
     "Point2D.ts",
@@ -48,7 +63,6 @@ const DOM_MODULES: Array<[string, RegExp]> = [
     ["simulation.worker.ts", /\bself\b/],
     ["PhysicsRunner.ts", /new Worker\b/],
     ["UIController.ts", /\bwindow\b/],
-    ["Renderer.ts", /CanvasRenderingContext2D/],
 ];
 
 test("the solver, projection and data stay free of browser globals", () => {
@@ -56,9 +70,12 @@ test("the solver, projection and data stay free of browser globals", () => {
         const source = sources[name];
 
         assert.ok(source, `${name} is missing from src/`);
-        assert.ok(!/\bwindow\b/.test(source), `${name} must not reference window`);
-        assert.ok(!/\bdocument\b/.test(source), `${name} must not reference document`);
-        assert.ok(!/CanvasRenderingContext2D/.test(source), `${name} must not name a canvas type`);
+
+        const body = code(source);
+
+        assert.ok(!/\bwindow\b/.test(body), `${name} must not reference window`);
+        assert.ok(!/\bdocument\b/.test(body), `${name} must not reference document`);
+        assert.ok(!/CanvasRenderingContext2D/.test(body), `${name} must not name a canvas type`);
     }
 });
 

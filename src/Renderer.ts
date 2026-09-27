@@ -2,6 +2,7 @@ import { otherEndpoint } from "./Edge";
 import { Graph } from "./Graph";
 import { K } from "./K";
 import { CameraView, isDepthCulled } from "./Projector";
+import { RenderSurface } from "./RenderSurface";
 import { Tag } from "./Tag";
 
 // Node dot and selection-ring radii, in CSS pixels.
@@ -21,7 +22,7 @@ function colourFor(active: boolean, highlight: string, base: string): string {
 	return active ? highlight : base;
 }
 
-function circlePath(context: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
+function circlePath(context: RenderSurface, x: number, y: number, radius: number): void {
 	context.beginPath();
 	context.arc(x, y, radius, CIRCLE_START_ANGLE, CIRCLE_END_ANGLE, CIRCLE_CLOCKWISE);
 }
@@ -111,7 +112,7 @@ function ensureGroupCapacity(n: number): void {
  * graph is still needed for `hasEdge`/`vertices`/`edges`.
  */
 export function render(
-	context: CanvasRenderingContext2D,
+	context: RenderSurface,
 	graph: Graph,
 	camera: CameraView,
 	selected: Tag | null
@@ -270,7 +271,7 @@ export function render(
 }
 
 function drawEdge(
-	context: CanvasRenderingContext2D,
+	context: RenderSurface,
 	edge: { v1: Tag; v2: Tag },
 	depth: number,
 	minDepth: number,
@@ -293,7 +294,7 @@ function drawEdge(
 }
 
 function drawNode(
-	context: CanvasRenderingContext2D,
+	context: RenderSurface,
 	node: Tag,
 	depth: number,
 	focalLength: number,
@@ -344,7 +345,7 @@ function drawNode(
  * divergence.
  */
 function drawBatchedEdges(
-	context: CanvasRenderingContext2D,
+	context: RenderSurface,
 	edges: Array<{ v1: Tag; v2: Tag }>,
 	itemIndex: Int32Array,
 	itemDepth: Float64Array,
@@ -434,7 +435,7 @@ function drawBatchedEdges(
  * `performance.minNodes`, and only within one colour.
  */
 function drawBatchedNodeFills(
-	context: CanvasRenderingContext2D,
+	context: RenderSurface,
 	vertices: Array<Tag>,
 	itemKind: Uint8Array,
 	itemIndex: Int32Array,
@@ -502,7 +503,7 @@ function drawBatchedNodeFills(
  * over itself) and still bounded by the degree.
  */
 function drawCoarseNodeWork(
-	context: CanvasRenderingContext2D,
+	context: RenderSurface,
 	graph: Graph,
 	focalLength: number,
 	nearPlane: number,
@@ -527,7 +528,7 @@ function drawCoarseNodeWork(
 }
 
 function drawCoarseNode(
-	context: CanvasRenderingContext2D,
+	context: RenderSurface,
 	node: Tag,
 	ring: boolean,
 	focalLength: number,

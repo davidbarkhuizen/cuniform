@@ -56,7 +56,7 @@ function drawWith(graph: Graph, camera: CameraView): FakeContext2D {
     context.canvas = { width: 800, height: 600 };
     // Tests resolve the selection once per fixture draw, as the controller does;
     // production passes its cache and the renderer never scans.
-    render(context as unknown as CanvasRenderingContext2D, graph, camera, graph.selectedVertex());
+    render(context, graph, camera, graph.selectedVertex());
     return context;
 }
 
@@ -187,7 +187,7 @@ test("render never scans the graph for the selection", () => {
     context.canvas = { width: 800, height: 600 };
 
     assert.doesNotThrow(() =>
-        render(context as unknown as CanvasRenderingContext2D, graph, defaultCameraView(), b)
+        render(context, graph, defaultCameraView(), b)
     );
 
     assert.deepEqual(context.fills, [NODE_DEFAULT, NODE_SELECTED, NODE_DEFAULT, NODE_DEFAULT]);

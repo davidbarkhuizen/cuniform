@@ -192,35 +192,37 @@ export class FakeContext2D {
     /** The most recent arc() radius, so the next fill() can be annotated. */
     private lastArcRadius = 0;
 
-    clearRect(...args: number[]) {
-        this.clears.push(args);
+    // The signatures mirror `RenderSurface` (`src/RenderSurface.ts`) exactly, so
+    // the fake is a structural stand-in for a real 2D context with no cast.
+    clearRect(x: number, y: number, w: number, h: number) {
+        this.clears.push([x, y, w, h]);
     }
 
     beginPath() {}
 
-    moveTo(...args: number[]) {
-        this.moveTos.push(args);
+    moveTo(x: number, y: number) {
+        this.moveTos.push([x, y]);
     }
 
-    lineTo(...args: number[]) {
-        this.lineTos.push(args);
+    lineTo(x: number, y: number) {
+        this.lineTos.push([x, y]);
     }
 
-    arc(...args: number[]) {
-        this.arcs.push(args);
-        this.lastArcRadius = args[2];
+    arc(x: number, y: number, radius: number, start: number, end: number, ccw: boolean) {
+        this.arcs.push([x, y, radius, start, end, ccw ? 1 : 0]);
+        this.lastArcRadius = radius;
     }
 
     save() {}
     restore() {}
 
-    fillText(...args: any[]) {
-        const text = String(args[0]);
+    fillText(text: string, _x: number, _y: number) {
+        const drawn = String(text);
 
         this.texts.push(String(this.fillStyle));
         this.textAlphas.push(this.globalAlpha);
-        this.textLabels.push(text);
-        this.ops.push({ kind: 'text', style: String(this.fillStyle), alpha: this.globalAlpha, text });
+        this.textLabels.push(drawn);
+        this.ops.push({ kind: 'text', style: String(this.fillStyle), alpha: this.globalAlpha, text: drawn });
     }
 
     stroke() {
@@ -241,8 +243,8 @@ export class FakeContext2D {
         });
     }
 
-    setTransform(...args: number[]) {
-        this.transforms.push(args);
+    setTransform(a: number, b: number, c: number, d: number, e: number, f: number) {
+        this.transforms.push([a, b, c, d, e, f]);
     }
 }
 
