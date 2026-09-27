@@ -10,7 +10,7 @@ import {
 	sameCameraView,
 } from "../view/Camera";
 import { ContextMenu } from "../ui/ContextMenu";
-import { Emphasis } from "../core/Emphasis";
+import { Emphasis, emphasisValue, isEmphasisName } from "../core/Emphasis";
 import { ForceDirectedGraph } from "../physics/ForceDirectedGraph";
 import { Graph } from "../graph/Graph";
 import { GraphFactory } from "../graph/GraphFactory";
@@ -118,6 +118,10 @@ export class UIController {
     // controller without the console.
     cameraConsole: HTMLElement | null;
 
+    // The display emphasis control's container; null in a fixture that builds a
+    // controller without it.
+    emphasisConsole: HTMLElement | null;
+
     // The console button currently held, or null. While set, each simulation
     // tick applies one small step, so holding turns or zooms smoothly.
     private heldButton: CameraButton | null = null;
@@ -165,7 +169,9 @@ export class UIController {
         // 2D context. Production always draws through the real one.
         private readonly renderBackend: RenderBackend | null = null,
         // A test seam: the worker the runner probes instead of the bundled one.
-        private readonly renderWorkerFactory: RenderWorkerFactory | undefined = undefined
+        private readonly renderWorkerFactory: RenderWorkerFactory | undefined = undefined,
+        // The display emphasis control's container; null when the panel has none.
+        emphasisConsole: HTMLElement | null = null
 	) {
         this.body = body;
         this.canvas = canvas;
@@ -175,6 +181,7 @@ export class UIController {
 		this.selectionInfoList = selectionInfoList;
         this.currentGraphLabel = currentGraphLabel;
         this.cameraConsole = cameraConsole;
+        this.emphasisConsole = emphasisConsole;
 	}
 
     /** The graph a fresh initialize() shows: the last choice, else the default. */
@@ -503,6 +510,83 @@ export class UIController {
 			this.applyCameraButton(button);
 	};
 
+	// The pressed button's data-emphasis value, from `target` upwards. The walk
+	// stops at the container, so a press on the section around the buttons finds
+	// nothing. `isEmphasisName` is the runtime half of the vocabulary, so an
+	// attribute can only ever name a configuration that exists.
+	private emphasisButton(target: EventTarget | null): Emphasis | null {
+
+		let element = target as HTMLElement | null;
+
+		while (element && element !== this.emphasisConsole) {
+
+			if (typeof element.getAttribute === 'function') {
+
+				const name = element.getAttribute('data-emphasis');
+
+				if (isEmphasisName(name))
+					return emphasisValue(name);
+			}
+
+			element = element.parentElement;
+		}
+
+		return null;
+	}
+
+	/**
+	 * The panel's display emphasis. A `click` is enough: Enter and Space on a real
+	 * button produce one, and `DragController.ownsInteractivePress()` already
+	 * excludes a press inside a BUTTON, so no pointerdown guard is needed here the
+	 * way the camera console's hold needs one.
+	 *
+	 * This is a display change, so it calls requestRedraw() and never wake(): it is
+	 * neither a step nor a camera move, and a settled layout must stay settled.
+	 */
+	onEmphasisClick = (event: MouseEvent) => {
+
+		const emphasis = this.emphasisButton(event.target);
+
+		if (emphasis !== null)
+			this.setEmphasis(emphasis);
+	};
+
+	/** Switch the frame's display emphasis and redraw. The one writer. */
+	setEmphasis = (emphasis: Emphasis) => {
+
+		if (this.state.emphasis === emphasis)
+			return;
+
+		this.state.emphasis = emphasis;
+		this.updateEmphasisButtons();
+		this.requestRedraw();
+	};
+
+	/**
+	 * Mirror the live emphasis onto the buttons' `aria-pressed`. The markup ships
+	 * with `nodes` pressed, so a controller that never toggles is still correct;
+	 * this is what keeps the pair honest after one.
+	 */
+	private updateEmphasisButtons = () => {
+
+		if (this.emphasisConsole === null)
+			return;
+
+		for (const button of Array.from(
+			this.emphasisConsole.querySelectorAll('[data-emphasis]')
+		)) {
+			const name = button.getAttribute('data-emphasis');
+
+			if (!isEmphasisName(name))
+				continue;
+
+			button.setAttribute(
+				'aria-pressed',
+				emphasisValue(name) === this.state.emphasis ? 'true' : 'false'
+			);
+		}
+	};
+
 	/** The projection for the current canvas size and live camera. */
 	projector(): Projector {
 		return Projector.forCanvas(this.width, this.height, this.state.camera);
@@ -789,7 +873,7 @@ export class UIController {
 			this.selected,
 			this.width,
 			this.height,
-			Emphasis.nodes
+			this.state.emphasis
 		);
 
 		// A backend that is not ready yet keeps the frame pending: consuming the
@@ -880,6 +964,12 @@ export class UIController {
 			bind(window, "pointercancel", this.onCameraPointerUp);
 			bind(window, "blur", this.onCameraPointerUp);
 		}
+
+		// The emphasis control is click-only: a real button turns Enter and Space
+		// into a click, and a press inside one never reaches the panel's drag
+		// surface, so it needs no press guard.
+		if (this.emphasisConsole)
+			bind(this.emphasisConsole, "click", this.onEmphasisClick);
 
 		bind(window, "resize", this.onResize);
 	}
@@ -1046,8 +1136,16 @@ export class UIController {
 		this.terminate();
 
 		// Reset the existing state object rather than allocating a new one, so
-		// handlers holding a reference see the cleared flags.
+		// handlers holding a reference see the cleared flags. The camera and the
+		// display emphasis deliberately survive reset(), so a run starts where the
+		// last one left them.
 		this.state.reset();
+
+		// The resting emphasis is the shipped default, and the buttons are told so
+		// once per run: the markup ships with `nodes` pressed, but a controller
+		// reused after a toggle must not keep a stale button.
+		this.state.emphasis = Emphasis.nodes;
+		this.updateEmphasisButtons();
 
 		// The startup graph is the shipped random default. The chooser is not
 		// opened automatically, so this spec is what the panel names and what a

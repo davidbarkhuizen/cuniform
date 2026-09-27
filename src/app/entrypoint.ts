@@ -17,6 +17,8 @@ const SELECTED_NODE_LIST_ID = 'selectedNodeInfoList';
 
 const CAMERA_CONSOLE_ID = 'cameraConsole';
 
+const EMPHASIS_CONSOLE_ID = 'emphasisConsole';
+
 const CURRENT_GRAPH_LABEL_ID = 'currentGraphLabel';
 
 /** The panel's touch grip; without it the whole panel is the touch drag surface. */
@@ -73,12 +75,22 @@ export const entrypoint = (
         SELECTED_NODE_LIST_ID,
         CURRENT_GRAPH_LABEL_ID,
         CAMERA_CONSOLE_ID,
+        EMPHASIS_CONSOLE_ID,
     ]);
 
     if (!elements)
         return null;
 
-    const [body, exportElement, resetElement, selectionInfoLabel, selectionInfoList, currentGraphLabel, cameraConsole] = elements;
+    const [
+        body,
+        exportElement,
+        resetElement,
+        selectionInfoLabel,
+        selectionInfoList,
+        currentGraphLabel,
+        cameraConsole,
+        emphasisConsole,
+    ] = elements;
 
     const selectionInfoPanel = e(selectionInfoPanelID);
 
@@ -95,7 +107,13 @@ export const entrypoint = (
         selectionInfoLabel,
         selectionInfoList,
         currentGraphLabel,
-        cameraConsole
+        cameraConsole,
+        // The two production defaults: the shipped graph source, no injected
+        // backend and no injected worker.
+        undefined,
+        null,
+        undefined,
+        emphasisConsole
     );
 
     uiController.initialize();
