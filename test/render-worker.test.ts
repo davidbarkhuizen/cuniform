@@ -16,8 +16,9 @@ import {
     RenderWorkerEngine,
 } from "../src/render/RenderProtocol";
 import { Tag } from "../src/graph/Tag";
-import { DrawOp, FakeContext2D, RendererSettings, withRendererSettings } from "./support/dom";
+import { DrawOp, FakeContext2D } from "./support/dom";
 import { sparseGraph } from "./support/physics";
+import { RendererSettings, withRendererSettings } from "./support/settings";
 
 /**
  * The render worker's engine, driven headlessly. The correctness contract of

@@ -1,8 +1,4 @@
-/** Structural element shape, so the ancestor walk needs no DOM dependency. */
-interface PressTarget {
-    tagName?: string;
-    parentElement?: PressTarget | null;
-}
+import { AncestorNode, firstAncestor } from "./Dom";
 
 // Elements that own their own press. Pointer capture retargets the compatibility
 // `click` to the panel, so without this guard a control's click would be swallowed.
@@ -108,35 +104,13 @@ export class DragController {
 	}
 
 	// Walks the ancestor chain rather than closest(), so the check works on the
-	// dependency-free test DOM as well as the browser.
-	//
-	// `stopBefore` is exclusive: a press that starts on the panel body must not
-	// reach the handle's own listeners. `isWithin` needs the terminal element
-	// included, which is the only difference between the two callers.
-	private firstAncestor(
-		target: EventTarget | null,
-		accept: (element: PressTarget) => boolean,
-		stopBefore: PressTarget | null = null
-	): PressTarget | null {
-
-		let element = target as unknown as PressTarget | null;
-
-		while (element && element !== stopBefore) {
-
-			if (accept(element))
-				return element;
-
-			element = element.parentElement ?? null;
-		}
-
-		return null;
-	}
-
+	// dependency-free test DOM as well as the browser. The walk itself lives in
+	// `Dom.firstAncestor()`, shared with the console's delegated handlers.
 	private ownsInteractivePress(target: EventTarget | null): boolean {
 
-		const panel = this.element as unknown as PressTarget | null;
+		const panel = this.element as unknown as AncestorNode;
 
-		return this.firstAncestor(target, element => {
+		return firstAncestor<AncestorNode>(target, element => {
 			const tagName = element.tagName;
 			return typeof tagName === 'string' && INTERACTIVE_TAGS.has(tagName.toUpperCase());
 		}, panel) !== null;
@@ -145,9 +119,9 @@ export class DragController {
 	/** True when `target` is `ancestor` itself or one of its descendants. */
 	private isWithin(ancestor: HTMLElement, target: EventTarget | null): boolean {
 
-		const wanted = ancestor as unknown as PressTarget;
+		const wanted = ancestor as unknown as AncestorNode;
 
-		return this.firstAncestor(target, element => element === wanted) !== null;
+		return firstAncestor<AncestorNode>(target, element => element === wanted) !== null;
 	}
 
 	private applyPosition() {

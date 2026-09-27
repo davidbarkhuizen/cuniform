@@ -1,3 +1,4 @@
+import { otherEndpoint } from "./Edge";
 import { Graph } from "./Graph";
 
 /**
@@ -57,9 +58,7 @@ export function labelComponents(graph: Graph): Int32Array<ArrayBuffer> {
             for (const edge of graph.incidentEdges(current)) {
 
                 // Self-loops have no far endpoint and so add no neighbour.
-                const other = edge.v1 === edge.v2
-                    ? null
-                    : (edge.v1 === current ? edge.v2 : edge.v1);
+                const other = otherEndpoint(edge, current);
 
                 if (other === null)
                     continue;
