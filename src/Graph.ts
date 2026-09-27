@@ -12,6 +12,13 @@ export class Graph {
 	 */
 	adjacency: Map<Tag, Array<Edge>> = new Map();
 
+	/**
+	 * Undirected membership index, kept in sync with `edges`; `hasEdge` reads it in
+	 * O(1) instead of rescanning every edge. A self-loop indexes its vertex here,
+	 * but `hasEdge(v, v)` is still false.
+	 */
+	private readonly neighbourSets: Map<Tag, Set<Tag>> = new Map();
+
 	addNode(tag: Tag) {
 		// A repeated vertex would double-count in the O(N^2) pass and make every
 		// index-based tie-break ambiguous, so it is rejected like a foreign edge.
@@ -20,6 +27,7 @@ export class Graph {
 
 		this.vertices.push(tag);
 		this.adjacency.set(tag, []);
+		this.neighbourSets.set(tag, new Set());
 	};
 
 	addEdge(v1: Tag, v2: Tag) {
@@ -27,8 +35,10 @@ export class Graph {
 		// so a tag it holds is in `vertices`. An O(1) lookup, not an indexOf scan.
 		const incidentToV1 = this.adjacency.get(v1);
 		const incidentToV2 = this.adjacency.get(v2);
+		const neighboursOfV1 = this.neighbourSets.get(v1);
+		const neighboursOfV2 = this.neighbourSets.get(v2);
 
-		if (!incidentToV1 || !incidentToV2)
+		if (!incidentToV1 || !incidentToV2 || !neighboursOfV1 || !neighboursOfV2)
 			throw new Error("Graph.addEdge: both vertices must already be in the graph");
 
 		var edge = { v1, v2 };
@@ -39,6 +49,12 @@ export class Graph {
 		// A self-loop is incident to its vertex once, not twice.
 		if (v2 !== v1)
 			incidentToV2.push(edge);
+
+		// Membership is undirected and idempotent under the duplicate edges addEdge
+		// permits. A self-loop still records the pair; hasEdge applies the
+		// "a vertex is not its own neighbour" rule on read.
+		neighboursOfV1.add(v2);
+		neighboursOfV2.add(v1);
 	};
 
 	/** The edges incident to `v`, in insertion order. Empty for an unknown tag. */
@@ -46,14 +62,13 @@ export class Graph {
 		return this.adjacency.get(v) ?? [];
 	};
 
-	/** True when an undirected edge already joins v1 and v2. */
+	/** True when an undirected edge already joins v1 and v2. O(1). */
 	hasEdge(v1: Tag, v2: Tag) {
-		for (let i = 0; i < this.edges.length; i++) {
-			var e = this.edges[i];
-			if ((e.v1 === v1 && e.v2 === v2) || (e.v1 === v2 && e.v2 === v1))
-				return true;
-		}
-		return false;
+		// A vertex is not its own neighbour, even though a self-loop is indexed.
+		if (v1 === v2)
+			return false;
+
+		return this.neighbourSets.get(v1)?.has(v2) ?? false;
 	};
 
 	/**

@@ -15,14 +15,16 @@ subcommand. With no recognised option it prints usage.
     ./cli typecheck      # tsc --noEmit over src/ and test/
     ./cli test           # compile test/ and run it under node:test
     ./cli ci             # typecheck + test
+    ./cli bench          # compile and run the performance benchmark
     ./cli build          # webpack bundle only
     ./cli clean          # remove build artefacts
 
 Except for `clean` (which removes the build directories directly) and `run`
 (which goes through `build-and-run.sh`), each delegates to the matching npm
-script (`npm run typecheck`, `npm test`, `npm run ci`, `npm run start`, `npm
-install`). `npm run dev` rebuilds while you edit, and `BROWSER=... ./cli run`
-(or `bash build-and-run.sh --build-only`) controls how the demo is launched.
+script (`npm run typecheck`, `npm test`, `npm run ci`, `npm run bench`, `npm run
+start`, `npm install`). `npm run dev` rebuilds while you edit, and `BROWSER=...
+./cli run` (or `bash build-and-run.sh --build-only`) controls how the demo is
+launched.
 
 `web/` holds the hand-maintained shell (`index.html`, `stylez.css`); it loads
 the generated `dist/main.js`. `dist/` is build output only and is ignored by
