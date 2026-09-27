@@ -63,6 +63,7 @@ const PURE_MODULES = [
 const DOM_MODULES: Array<[string, RegExp]> = [
     ["simulation.worker.ts", /\bself\b/],
     ["PhysicsRunner.ts", /new Worker\b/],
+    ["RenderRunner.ts", /getContext\b/],
     ["UIController.ts", /\bwindow\b/],
 ];
 

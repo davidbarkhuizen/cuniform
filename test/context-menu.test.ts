@@ -320,6 +320,10 @@ test("export navigates to a blob: URL, not a data: URL", async () => {
     await withUIControllerAsync(async ({ dom, controller }) => {
         entry(controller, 'export').dispatch('click');
 
+        // The PNG comes from the backend's promise, so the download is one
+        // microtask behind the click.
+        await flushDeferred();
+
         assert.equal(dom.objectUrls.created.length, 1, "export should mint exactly one object URL");
         assert.ok(
             dom.objectUrls.created[0].startsWith('blob:'),
@@ -338,6 +342,8 @@ test("export triggers a download named cuniform.png", async () => {
     await withUIControllerAsync(async ({ dom, controller }) => {
         entry(controller, 'export').dispatch('click');
 
+        await flushDeferred();
+
         const anchor = dom.createdElements.filter(e => e.tagName === 'A').pop();
 
         assert.ok(anchor, "export should create an anchor to carry the download");
@@ -352,6 +358,10 @@ test("export triggers a download named cuniform.png", async () => {
 test("export revokes the object URL it created", async () => {
     await withUIControllerAsync(async ({ dom, controller }) => {
         entry(controller, 'export').dispatch('click');
+
+        // Let the backend's promise settle and the download run; the revoke it
+        // schedules is one timer behind, so it must not have fired yet.
+        await flushDeferred();
 
         assert.deepEqual(dom.objectUrls.revoked, [], "revocation must be deferred, not synchronous");
 

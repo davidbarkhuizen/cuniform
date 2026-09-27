@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { Graph } from "../src/Graph";
 import { K } from "../src/K";
-import { defaultCameraView } from "../src/Projector";
+import { defaultCameraView, Projector } from "../src/Projector";
 import { render } from "../src/Renderer";
 import { Tag } from "../src/Tag";
 import {
@@ -92,22 +92,20 @@ test("terminate removes the resize listener", () => {
     });
 });
 
-test("physics is stepped with the logical size, not the scaled backing store", () => {
+test("projection uses the logical size, not the scaled backing store", () => {
     withController(2, ({ controller }) => {
-        const viewports: number[][] = [];
-        const fdg = controller.solver;
-
-        // Physics no longer takes a canvas size; the logical size reaches the
-        // frame through the projector, which is what caches the view.
-        const realProject = fdg.project.bind(fdg);
-        fdg.project = (projector: any) => {
-            viewports.push([projector.viewport.w1, projector.viewport.h1]);
-            return realProject(projector);
-        };
-
         controller.onTimerTick();
 
-        assert.deepEqual(viewports, [[750, 750]]);
+        // The backend projects with the logical 750x750 viewport; a device-pixel
+        // 1500x1500 one would map the same model point somewhere else.
+        const node = controller.solver.graph.vertices[0];
+        const logical = Projector.forCanvas(750, 750).toCanvas(node.position);
+
+        assert.deepEqual({ ...node.translatedPosition }, { ...logical });
+
+        const device = Projector.forCanvas(1500, 1500).toCanvas(node.position);
+
+        assert.notDeepEqual({ ...node.translatedPosition }, { ...device });
     });
 });
 

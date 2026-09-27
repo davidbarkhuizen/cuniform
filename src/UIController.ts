@@ -10,7 +10,7 @@ import { point, Point2D } from "./Point2D";
 import { point3 } from "./Point3D";
 import { PhysicsRunner } from "./PhysicsRunner";
 import { CameraView, Projector } from "./Projector";
-import { render } from "./Renderer";
+import { RenderBackend, RenderRunner } from "./RenderRunner";
 import { handleNodeSelectionAttempt } from "./Selection";
 import { State } from "./State";
 import { Tag } from "./Tag";
@@ -30,21 +30,6 @@ type CameraDirection = 'cw' | 'acw';
 interface CameraButton {
     axis: CameraAxis;
     direction: CameraDirection;
-}
-
-// The canvas as a PNG Blob. Browsers refuse top-frame navigation to a `data:`
-// URL, so the download must carry the image on a `blob:` object URL instead.
-function pngBlob(canvas: HTMLCanvasElement): Blob {
-	const [header, base64] = canvas.toDataURL('image/png').split(',');
-	const mime = /:(.*?);/.exec(header)?.[1] ?? 'image/png';
-
-	const binary = atob(base64);
-	const bytes = new Uint8Array(binary.length);
-
-	for (let i = 0; i < binary.length; i++)
-		bytes[i] = binary.charCodeAt(i);
-
-	return new Blob([bytes], { type: mime });
 }
 
 export class UIController {
@@ -103,9 +88,13 @@ export class UIController {
     // interface. Null until the solver exists.
     private runnerRef: PhysicsRunner | null = null;
 
+    // The drawing owner: the canvas's own context today, and a worker once Item 5
+    // of the render-worker workplan lands. Null until initialize() (or the lazy
+    // getter a handler can reach before it) builds one.
+    private renderRunnerRef: RenderRunner | null = null;
+
     body: HTMLElement;
     canvas: HTMLCanvasElement;
-    context2D: CanvasRenderingContext2D;
     exportElement: HTMLElement;
     resetElement: HTMLElement;
 
@@ -153,18 +142,19 @@ export class UIController {
 	constructor(
         body: HTMLElement,
         canvas: HTMLCanvasElement, 
-        context2D: CanvasRenderingContext2D,
 		exportElement: HTMLElement, 
 		resetElement: HTMLElement,
 		selectionInfoLabel: HTMLElement,
 		selectionInfoList: HTMLElement,
         currentGraphLabel: HTMLElement,
         cameraConsole: HTMLElement | null,
-        private readonly makeGraph: GraphSource = defaultGraphSource
+        private readonly makeGraph: GraphSource = defaultGraphSource,
+        // A test seam: the backend the runner wraps instead of the canvas's own
+        // 2D context. Production always draws through the real one.
+        private readonly renderBackend: RenderBackend | null = null
 	) {
         this.body = body;
         this.canvas = canvas;
-        this.context2D = context2D;
 		this.exportElement = exportElement;
 		this.resetElement = resetElement;
 		this.selectionInfoLabel = selectionInfoLabel;
@@ -193,6 +183,26 @@ export class UIController {
             this.runnerRef = new PhysicsRunner(this.solver);
 
         return this.runnerRef;
+    }
+
+    /** The drawing owner, built lazily alongside the solver. */
+    get renderRunner(): RenderRunner {
+        if (this.renderRunnerRef === null)
+            this.renderRunnerRef = this.createRenderRunner();
+
+        return this.renderRunnerRef;
+    }
+
+    // The injected backend in tests, else the canvas's own context. A backend
+    // that becomes ready later asks for the redraw through onReady, so the
+    // controller's private needsRedraw stays private.
+    private createRenderRunner(): RenderRunner {
+        const onReady = () => this.requestRedraw();
+
+        if (this.renderBackend !== null)
+            return RenderRunner.over(this.renderBackend, onReady);
+
+        return RenderRunner.create(this.canvas, onReady);
     }
 
 	onMouseOut = () => {
@@ -552,17 +562,22 @@ export class UIController {
 		// default navigation must be suppressed or the page reloads.
 		event?.preventDefault();
 
-		// A `data:` URL cannot be opened by top-frame navigation, so the PNG is
-		// downloaded from an object URL instead: no popup and no blocked nav.
-		const url = URL.createObjectURL(pngBlob(this.canvas));
+		// The backend produces the PNG (a worker's convertToBlob, or the
+		// element's own toDataURL). A `data:` URL cannot be opened by top-frame
+		// navigation, so the download rides an object URL instead: no popup and
+		// no blocked navigation.
+		void this.renderRunner.exportPng().then(blob => {
 
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = 'cuniform.png';
-		link.click();
+			const url = URL.createObjectURL(blob);
 
-		// Revoking synchronously can cancel the download in some browsers.
-		setTimeout(() => URL.revokeObjectURL(url), 0);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = 'cuniform.png';
+			link.click();
+
+			// Revoking synchronously can cancel the download in some browsers.
+			setTimeout(() => URL.revokeObjectURL(url), 0);
+		});
 	};
 
 	// Opens the chooser and leaves the running graph, timer, listeners, context
@@ -652,14 +667,13 @@ export class UIController {
 		this.renderFrame(this.advanceOneTick());
 	};
 
-	// Physics for one fixed tick, without drawing. Returns the camera the step
-	// projected with, so the draw can use the depths that were cached with it
+	// Physics for one fixed tick, without drawing. Returns the live camera, so
+	// the draw resolves its projector from the same camera this step ran under
 	// (invariant 2). A held console button turns the camera first.
 	private advanceOneTick(): CameraView {
 
 		this.onCameraRotateTick();
 
-		const projector = this.projector();
 		const graph = this.solver.graph;
 
 		// The pin is expressed as an index and a position, so it crosses to a
@@ -677,19 +691,30 @@ export class UIController {
 		);
 
 		// A worker answers asynchronously; this copies whatever it last reported
-		// onto the tags before projecting. In-process it is already current.
+		// onto the tags before the backend projects. In-process it is current.
 		this.runner.sync(graph);
-
-		// Projection stays on the main thread: it is cheap and needs this camera.
-		this.solver.project(projector);
 
 		this.trackSettle();
 
-		return projector.camera;
+		return this.state.camera;
 	}
 
 	private renderFrame(camera: CameraView = this.state.camera): void {
-		render(this.context2D, this.solver.graph, camera, this.selected);
+
+		// The backend projects and draws, so the main thread no longer has an
+		// O(N) projection pass of its own; a worker does both in its own realm.
+		const drawn = this.renderRunner.draw(
+			this.solver.graph,
+			camera,
+			this.selected,
+			this.width,
+			this.height
+		);
+
+		// A backend that is not ready yet keeps the frame pending: consuming the
+		// request here would leave the canvas blank until the next interaction.
+		if (!drawn)
+			return;
 
 		// Record the view this frame drew with and consume any pending request, so
 		// the next idle frame can be skipped. The record is scratch, not a copy.
@@ -845,8 +870,9 @@ export class UIController {
 		}
 	};
 
-	// Fill the viewport. The backing store is sized in device pixels so lines
-	// stay sharp on HiDPI, while drawing stays in CSS pixels via the transform.
+	// Fill the viewport. The backend sizes the backing store in device pixels so
+	// lines stay sharp on HiDPI, and applies the transform that keeps drawing in
+	// CSS pixels; the element always carries the logical CSS size.
 	resizeCanvas = () => {
 
 		const width = this.body.clientWidth;
@@ -857,12 +883,12 @@ export class UIController {
 		this.width = width;
 		this.height = height;
 
-		this.canvas.width = width * dpr;
-		this.canvas.height = height * dpr;
 		this.canvas.style.width = `${width}px`;
 		this.canvas.style.height = `${height}px`;
 
-		this.context2D.setTransform(dpr, 0, 0, dpr, 0, 0);
+		// The backend owns the backing store: with a worker the element is a
+		// placeholder whose width/height no longer govern anything.
+		this.renderRunner.resize(width, height, dpr);
 	};
 
 	onResize = () => {
@@ -940,6 +966,10 @@ export class UIController {
 		// cannot double the timer, the listeners or the context menu.
 		this.terminate();
 
+		// One drawing owner for this run, built before resizeCanvas() draws
+		// through it: the canvas's own context, or the injected test backend.
+		this.renderRunnerRef = this.createRenderRunner();
+
 		this.resizeCanvas();
 
 		// The first drawn frame is not optional, whatever the camera scratch says.
@@ -985,6 +1015,13 @@ export class UIController {
 		if (this.runnerRef !== null) {
 			this.runnerRef.terminate();
 			this.runnerRef = null;
+		}
+
+		// The drawing owner holds the canvas: a render worker must not outlive the
+		// controller either.
+		if (this.renderRunnerRef !== null) {
+			this.renderRunnerRef.terminate();
+			this.renderRunnerRef = null;
 		}
 
 		// A button held across a reset must not keep turning the new graph.
