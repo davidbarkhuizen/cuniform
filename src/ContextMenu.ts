@@ -35,7 +35,8 @@ export class ContextMenu {
             backgroundColor: 'black',
             border: '1px solid lightgray',
             borderRadius: '5px',
-            fontFamily: 'Courier',
+            // The font is inherited from the document body rather than named
+            // again here, so the stylesheet stays its one source.
             fontSize: 'large',
         });
 

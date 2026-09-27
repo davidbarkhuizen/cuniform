@@ -1,5 +1,11 @@
 export type QualitySetting = "auto" | "accurate" | "fast";
 
+// The selection highlight, one literal: the selected node's fill and the edges
+// incident to it are the same colour by design, so both fields below read it.
+// `web/stylez.css` mirrors it as --highlight (and --fg mirrors `label`); the
+// layout test pins that cross-language pair.
+const SELECTION_COLOUR = '#ffd400';
+
 export const K = {
 
     physics: {
@@ -161,10 +167,10 @@ export const K = {
         // Palette for the near-black canvas: nodes bright, edges deliberately dimmer so a
         // dense graph does not read as a solid mesh.
         nodeDefault : '#39d98a',
-        nodeSelected : '#ffd400',
+        nodeSelected : SELECTION_COLOUR,
         label : '#e8f4ff',
         edgeDefault : '#4b5b70',
-        edgeIncident : '#ffd400',
+        edgeIncident : SELECTION_COLOUR,
     },
 
     initialConditions: {

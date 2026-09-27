@@ -251,6 +251,24 @@ test("nodes and the selection highlight contrast strongly with the edges", () =>
     );
 });
 
+test("the stylesheet palette mirrors the canvas palette", () => {
+    // The panel's selected-node text and the selected node itself are meant to
+    // read as one highlight, so --fg is K.colours.label and --highlight is
+    // K.colours.nodeSelected. Nothing but this assertion keeps the two
+    // languages' copies in step.
+    const root = cssRule(readWeb("stylez.css"), ":root");
+
+    const token = (name: string): string | undefined =>
+        new RegExp(`${name}\\s*:\\s*([^;]+);`).exec(root)?.[1].trim();
+
+    assert.equal(token("--fg"), K.colours.label, "--fg must be K.colours.label");
+    assert.equal(
+        token("--highlight"),
+        K.colours.nodeSelected,
+        "--highlight must be K.colours.nodeSelected"
+    );
+});
+
 // ------------------------------------------------------------------ wizard
 
 test("the graph wizard layers above the floating panel", () => {
