@@ -4,11 +4,7 @@ import { Point2D } from "../core/Point2D";
 import { Projector } from "../view/Projector";
 import { Tag } from "../graph/Tag";
 
-/**
- * Nearest node within the screen-space hit radius, or a clear on a miss; a
- * selected node is toggled off. Culled nodes are skipped and an exact tie goes
- * to the nearer one. Returns whether the selection changed.
- */
+/** Nearest node within the hit radius, toggled; a miss clears. Returns whether the selection changed. */
 export function handleNodeSelectionAttempt(
 	graph: Graph,
 	canvasPos: Point2D,
@@ -17,13 +13,11 @@ export function handleNodeSelectionAttempt(
 
 	const viewport = projector.viewport;
 
-	// A collapsed viewport (a hidden canvas) maps every node onto the centre,
-	// which would make the "nearest" pick arbitrary; select nothing instead.
+	// A collapsed viewport maps every node to the centre; select nothing.
 	if (viewport.w1 <= 0 || viewport.h1 <= 0)
 		return false;
 
-	// Seeded with the squared hit radius, so only a node inside it can win.
-	// Measured from the live model position, which cannot lag a drag by a tick.
+	// Seeded with the squared hit radius; read from the live model position, which cannot lag a drag.
 	let best = K.ui.minimumNodeSelectionRadiusPx * K.ui.minimumNodeSelectionRadiusPx;
 	let bestDepth = Infinity;
 	let closest: Tag | null = null;
@@ -40,8 +34,8 @@ export function handleNodeSelectionAttempt(
 		const deltaY = at.y - canvasPos.y;
 		const r2 = deltaX * deltaX + deltaY * deltaY;
 
-		// Strictly closer wins; an exact tie goes to the node nearer the camera.
-		// The tie-break needs a candidate, so a node exactly at the radius is out.
+		// Strictly closer wins; an exact tie goes to the nearer camera depth. Needs a
+		// candidate, so a node exactly at the radius is out.
 		if (r2 < best || (closest !== null && r2 === best && projected.depth < bestDepth)) {
 			best = r2;
 			bestDepth = projected.depth;
@@ -49,7 +43,7 @@ export function handleNodeSelectionAttempt(
 		}
 	}
 
-	// Captured before the clear, so the toggle still flips the hit node.
+	// Before the clear, so the toggle still flips the hit node.
 	const hitWasSelected = closest !== null && closest.isSelected;
 	const hadSelection = graph.selectedVertex() !== null;
 	graph.clearSelection();

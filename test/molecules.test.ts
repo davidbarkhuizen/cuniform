@@ -14,7 +14,6 @@ import {
 import { parseSmiles } from "../src/graph/Smiles";
 import { catalogEntry } from "./support/catalog";
 
-/** Non-hydrogen atom count of a formula: an element symbol plus an optional count. */
 function heavyAtomCount(formula: string): number {
 
     let total = 0;
@@ -31,7 +30,6 @@ function heavyAtomCount(formula: string): number {
     return total;
 }
 
-/** A throwaway catalog entry, for the ordering tests that need a tie. */
 function stub(id: string, commonName: string): CatalogEntry {
     return { id, commonName } as unknown as CatalogEntry;
 }
@@ -47,8 +45,7 @@ test("the catalog holds at least twenty entries with unique keys and names", () 
 });
 
 test("every structural family has one flagship, except the two chlorophylls", () => {
-    // One flagship per family is the catalog's rule; chlorophylls a and b are the
-    // two compounds of a single family, so theirs is the only name that may repeat.
+    // Chlorophylls a and b share one family; theirs is the only name allowed to repeat.
     const byFamily = new Map<string, string[]>();
 
     for (const molecule of MOLECULES)

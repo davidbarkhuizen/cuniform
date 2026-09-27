@@ -28,8 +28,7 @@ test("at equilibrium the spring and repulsion forces balance", () => {
     const spring = fdg.netSpringForceAtNode(a);
     const net = fdg.netForceAtNode(a);
 
-    // Guards against this assertion going vacuous again: netForceAtNode used to
-    // read zeroed Tag caches here, so the balance passed against 0.
+    // Guards against a vacuous pass if netForceAtNode reads zeroed Tag caches.
     assert.ok(Math.abs(repel.x) > 1, "the individual forces must be non-trivial");
     assert.ok(Math.abs(spring.x) > 1, "the individual forces must be non-trivial");
 
@@ -40,7 +39,6 @@ test("at equilibrium the spring and repulsion forces balance", () => {
 test("a 10-node graph converges instead of oscillating", () => {
     const graph = newGraph(10, 2);
 
-    // Without this the fixture would silently retest the 2D case.
     assert.ok(
         graph.vertices.some(v => v.position.z !== 0),
         "the generated graph must have depth"

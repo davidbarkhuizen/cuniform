@@ -7,10 +7,8 @@ import { projectGraph } from "../src/view/Projection";
 import { sparseGraph } from "./support/physics";
 
 /**
- * The projection pass moved out of the solver, so these pin the two things the
- * move must not change: the cached values are bit-identical to the independent
- * per-node projector path, and the solver's delegate agrees with the free
- * function.
+ * projectGraph() must stay bit-identical to the per-node projector path, and ForceDirectedGraph.project()
+ * must match it.
  */
 
 test("projectGraph reproduces the per-node projector path bit-for-bit", () => {
@@ -30,7 +28,7 @@ test("projectGraph reproduces the per-node projector path bit-for-bit", () => {
 });
 
 test("a culled node still caches its true, unclamped depth", () => {
-    // Culling is a drawing/hit-testing decision; projection reports the raw depth
+    // Culling is a drawing/hit-testing decision; projection caches the raw depth
     // so the cull boundary and the painter sort see the true value.
     const graph = sparseGraph(16, 7);
     const raised = { ...defaultCameraView(), nearPlane: 1e9 };
@@ -59,7 +57,6 @@ test("ForceDirectedGraph.project() is exactly projectGraph()", () => {
         assert.equal(node.depth, projector.project(node.position).depth);
     }
 
-    // Identical to running the free function over the same graph and projector.
     const replayed = sparseGraph(32, 99);
     projectGraph(replayed, projector);
 

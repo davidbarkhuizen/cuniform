@@ -11,11 +11,10 @@ import {
 
 export type WizardStep = "choose" | "random" | "molecules";
 
-/** The dialog's accessible name: the title element carries this id and the
- * dialog points at it, so the two references cannot disagree. */
+/** The dialog's `aria-labelledby` target; the title element carries this id. */
 const WIZARD_TITLE_ID = "wizardTitle";
 
-// Unique per number field, so a caption can name its input even across rebuilds.
+// Unique per field, so a caption can name its input across rebuilds.
 let nextFieldId = 0;
 
 export interface GraphWizardOptions {
@@ -24,17 +23,12 @@ export interface GraphWizardOptions {
     onCancel?: () => void;
     /** False when there is no previous graph to keep, so the dialog cannot be dismissed. */
     dismissible: boolean;
-    /** Returns focus to the canvas. */
     onDismiss?: () => void;
     catalog?: CatalogEntry[];
-    /** Pre-fills the random step with the last random choice. */
     initialSpec?: GraphSpec | null;
 }
 
-/**
- * The graph chooser: one modal dialog with a chooser step and one step per branch. Tag buttons are
- * built once and filtering only toggles `style.display`, so listeners stay stable and cannot leak.
- */
+/** Modal graph chooser; tag buttons are built once, and filtering only toggles `style.display`. */
 export class GraphWizard {
 
     readonly element: HTMLElement;
@@ -50,7 +44,7 @@ export class GraphWizard {
     readonly countLabel: HTMLElement;
     readonly emptyLabel: HTMLElement;
     readonly validationLabel: HTMLElement;
-    /** A non-blocking large-graph hint, separate from validation semantics. */
+    /** Non-blocking hint, separate from validation. */
     readonly hintLabel: HTMLElement;
 
     private readonly body: HTMLElement;
@@ -62,8 +56,7 @@ export class GraphWizard {
     private currentStep: WizardStep = "choose";
     private openFlag = false;
 
-    // The roving index of the last focused control, so the Tab trap never has to
-    // read the live activeElement.
+    // Roving index of the last focused control, so the Tab trap need not read activeElement.
     private focusIndex = 0;
 
     constructor(body: HTMLElement, options: GraphWizardOptions) {
@@ -116,8 +109,6 @@ export class GraphWizard {
             K.chooser.maxBranching
         );
 
-        // A hint, not a validation message: it never disables generate, so it is
-        // a separate element from validationLabel.
         this.hintLabel = document.createElement("p");
         this.hintLabel.className = "wizardHint";
         random.appendChild(this.hintLabel);
@@ -177,7 +168,6 @@ export class GraphWizard {
         this.cancelButton.innerHTML = "cancel";
         this.cancelButton.addEventListener("click", this.onCancelClick);
 
-        // Nothing to cancel back to when there is no previous graph.
         if (!options.dismissible)
             this.cancelButton.style.display = "none";
 
@@ -188,7 +178,6 @@ export class GraphWizard {
         footer.appendChild(this.cancelButton);
         this.panel.appendChild(footer);
 
-        // One listener on the dialog catches bubbled keydowns from every control.
         this.element.addEventListener("keydown", this.onKeyDown);
     }
 
@@ -210,7 +199,7 @@ export class GraphWizard {
         this.showStep(step);
     }
 
-    /** Removes the dialog. Idempotent. */
+    /** Removes the dialog; idempotent. */
     close(): void {
 
         if (!this.openFlag)
@@ -232,8 +221,7 @@ export class GraphWizard {
         return element;
     }
 
-    // The input's native min/max/step mirror parseRandomSpec()'s bounds, from the
-    // same K constants, so the spinner and the validation can never drift.
+    // min/max mirror parseRandomSpec()'s bounds from the same K constants, so they cannot drift.
     private numberField(parent: HTMLElement, label: string, min: number, max: number): HTMLInputElement {
 
         const field = document.createElement("div");
@@ -248,8 +236,7 @@ export class GraphWizard {
         input.setAttribute("max", String(max));
         input.setAttribute("step", "1");
 
-        // A bare sibling <label> is neither click-through nor announced; naming
-        // the input ties the caption to the field it labels.
+        // Naming the input ties the caption to the field; a bare sibling <label> is not announced.
         const id = `wizardField${++nextFieldId}`;
         caption.setAttribute("for", id);
         input.id = id;
@@ -278,7 +265,6 @@ export class GraphWizard {
         caption.innerHTML = entry.family;
         button.appendChild(caption);
 
-        // The tooltip and aria-label carry the full systematic name behind the short chip.
         const tooltip = moleculeTooltip(entry);
         button.setAttribute("title", tooltip);
         button.setAttribute("aria-label", tooltip);
@@ -293,7 +279,6 @@ export class GraphWizard {
         return button;
     }
 
-    // Keep the roving index in step when focus moves outside the Tab handler.
     private registerFocus(element: HTMLElement): void {
 
         element.addEventListener("focus", () => {
@@ -327,7 +312,6 @@ export class GraphWizard {
         if (this.options.dismissible)
             controls.push(this.cancelButton);
 
-        // Hidden and disabled controls are not reachable by Tab.
         return controls.filter(control => this.isFocusable(control));
     }
 
@@ -386,8 +370,7 @@ export class GraphWizard {
             this.generateButton.disabled = false;
             this.validationLabel.innerHTML = "";
 
-            // Above the interactive size the layout still runs, just below 20 Hz;
-            // the hint says so without disabling generate.
+            // Above the interactive size the layout still runs, just below 20 Hz; a hint, not a disable.
             this.hintLabel.innerHTML = result.spec.order > K.chooser.interactiveOrder
                 ? `${result.spec.order} nodes: layout advances below 20 Hz`
                 : "";
@@ -397,7 +380,6 @@ export class GraphWizard {
         this.generateButton.disabled = true;
         this.validationLabel.innerHTML = result.message;
 
-        // A parse error is not a size warning; the hint stays empty.
         this.hintLabel.innerHTML = "";
     }
 
@@ -419,7 +401,7 @@ export class GraphWizard {
         this.countLabel.innerHTML = `${visible} of ${this.tags.length}`;
 
         if (visible === 0) {
-            // Deliberately static: the search text is never echoed into markup.
+            // Static on purpose: the search text is never echoed into markup.
             this.emptyLabel.innerHTML = "no molecule matches that search";
             this.emptyLabel.style.display = "block";
         }
@@ -427,7 +409,6 @@ export class GraphWizard {
             this.emptyLabel.style.display = "none";
         }
 
-        // A hidden tag must not leave the roving index past the end.
         if (this.focusIndex >= this.focusableControls().length)
             this.focusIndex = 0;
     }
@@ -485,8 +466,7 @@ export class GraphWizard {
 
     onKeyDown = (event: KeyboardEvent) => {
 
-        // Escape only cancels a dismissible wizard; it never steps back, so a
-        // chooser with no graph to return to cannot be dismissed by reflex.
+        // Escape cancels only a dismissible wizard; it never steps back.
         if (event.key === "Escape") {
             this.cancel();
             return;

@@ -1,25 +1,15 @@
 import { K } from "../core/K";
 import { MoleculeTopology, parseSmiles } from "./Smiles";
 
-// The molecule catalog: one flagship example per indole-alkaloid family, each
-// row PubChem-verified; the SMILES and formula must agree on heavy-atom count (a test asserts it).
-// Chlorophylls a and b and heme b are the deliberate exceptions: the chlorophylls are
-// chlorins and heme b a porphyrin, so none of the three is an indole alkaloid.
-
 export interface Molecule {
-    /** Kebab-case key used by a GraphSpec. */
     id: string;
     commonName: string;
     systematicName: string;
     parentSystem: string;
     family: string;
     formula: string;
-    /** Isomeric SMILES, verified against `pubchemCid`; the metal-bearing entries (the
-     * chlorophylls and heme b) use the PDB CCD's chelated forms, since PubChem writes
-     * those metals as separate components. */
     smiles: string;
     pubchemCid: number;
-    /** Also matched by search. */
     synonyms?: string[];
     note?: string;
 }
@@ -297,8 +287,6 @@ export const MOLECULES: Molecule[] = [
     },
 ];
 
-// Every entry parsed and measured once at module load; a parse failure fails
-// loudly at startup, which is the point for PubChem-verified data.
 const PARSED = MOLECULES.map(molecule => {
 
     const topology = parseSmiles(molecule.smiles);
@@ -310,13 +298,10 @@ const PARSED = MOLECULES.map(molecule => {
     };
 });
 
-// The heavy-atom span the cloud normalises over.
 const HEAVY_ATOM_COUNTS = PARSED.map(entry => entry.heavyAtoms);
 const MIN_HEAVY_ATOMS = Math.min(...HEAVY_ATOM_COUNTS);
 const MAX_HEAVY_ATOMS = Math.max(...HEAVY_ATOM_COUNTS);
 
-// `heavyAtoms` mapped linearly onto `[minTagScale, maxTagScale]`; pure, so the
-// cloud looks the same every time.
 function tagScaleFor(heavyAtoms: number): number {
 
     if (MAX_HEAVY_ATOMS === MIN_HEAVY_ATOMS)
@@ -332,8 +317,7 @@ export const CATALOG: CatalogEntry[] = PARSED.map(entry => ({
     tagScale: tagScaleFor(entry.heavyAtoms),
 }));
 
-/** The parsed catalog record for `id`; throws for an unknown id, so a spec can only
- * come from the catalog. Returned parsed so callers reuse the topology built at load. */
+/** The parsed catalog record for `id`; throws for an unknown id. */
 export function moleculeById(id: string): CatalogEntry {
 
     const found = CATALOG.find(entry => entry.id === id);
@@ -344,8 +328,6 @@ export function moleculeById(id: string): CatalogEntry {
     return found;
 }
 
-// Everything a query matches against, lowercased: names, family and formula, so
-// a common-name chip still finds a molecule by its technical name.
 function searchText(entry: CatalogEntry): string {
     return [
         entry.commonName,
@@ -357,8 +339,7 @@ function searchText(entry: CatalogEntry): string {
     ].join(" ").toLowerCase();
 }
 
-/** Case-insensitive substring match, all terms, across every name and the formula.
- * An empty query matches everything, so an empty search box shows the whole cloud. */
+/** Case-insensitive, all terms; an empty query matches everything. */
 export function filterCatalog(query: string, entries: CatalogEntry[] = CATALOG): CatalogEntry[] {
 
     const terms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
@@ -372,7 +353,6 @@ export function filterCatalog(query: string, entries: CatalogEntry[] = CATALOG):
     });
 }
 
-/** Alphabetical by common name, ties broken by id, so the order is deterministic. */
 export function sortCatalog(entries: CatalogEntry[]): CatalogEntry[] {
     return [...entries].sort(
         (a, b) => a.commonName.localeCompare(b.commonName) || a.id.localeCompare(b.id)
@@ -383,7 +363,5 @@ export function moleculeTooltip(entry: CatalogEntry): string {
 
     const summary = `${entry.systematicName} — ${entry.family} (${entry.formula})`;
 
-    // The note is the catalog's one-line "why this is the family's flagship";
-    // the tooltip is its reader, so it travels with the technical summary.
     return entry.note ? `${summary}\n${entry.note}` : summary;
 }

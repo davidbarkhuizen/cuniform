@@ -1,19 +1,11 @@
-// The render worker entry (docs/model-camera-and-rendering.md).
-//
-// Deliberately not in PURE_MODULES: this is the one module that touches the
-// worker globals, the `OffscreenCanvas` and `convertToBlob`. The engine and the
-// message protocol live in RenderProtocol.ts, which stays pure and is driven
-// here.
+// The render worker entry; deliberately not in PURE_MODULES because it touches
+// the worker globals. See docs/model-camera-and-rendering.md.
 
 import { ExportRequest, FrameRequest, InitRequest, RenderWorkerEngine } from "./RenderProtocol";
 import { RenderSurface } from "./RenderSurface";
 import { WorkerScope } from "../core/WorkerChannel";
 
-/**
- * The `OffscreenCanvas` subset this entry uses. Typed locally because the
- * project's TypeScript lib declares neither the `"2d"` overload of
- * `getContext()` nor `convertToBlob()` on `OffscreenCanvas`.
- */
+/** Locally typed: the TS lib lacks the `"2d"` overload and `convertToBlob` here. */
 interface RenderCanvas {
     width: number;
     height: number;
@@ -27,8 +19,7 @@ type WorkerRequest = (InitRequest & { canvas?: RenderCanvas }) | FrameRequest | 
 const scope = self as unknown as WorkerScope<WorkerRequest>;
 const engine = new RenderWorkerEngine();
 
-// The canvas arrives by transfer on the init message, so the element on the main
-// thread is already a placeholder by the time the first frame comes.
+// The canvas arrives by transfer, so the main thread's element is a placeholder.
 let canvas: RenderCanvas | null = null;
 
 scope.onmessage = event => {
@@ -58,8 +49,6 @@ scope.onmessage = event => {
     const response = engine.handle(request);
 
     if (response !== null) {
-        // Both typed arrays cross by pointer move: the frame's positions return
-        // to the main thread and the frame's depths travel with them.
         scope.postMessage(response, [response.positions.buffer, response.depths.buffer]);
     }
 };
@@ -75,6 +64,5 @@ async function exportPng(requestId: number): Promise<void> {
     scope.postMessage({ type: "png", requestId, blob }, []);
 }
 
-// The main thread probes this before transferring control of the canvas: a
-// worker that cannot answer must be found out while the canvas is still usable.
+// The main thread probes this before transferring control of the canvas.
 scope.postMessage({ type: "ready" }, []);

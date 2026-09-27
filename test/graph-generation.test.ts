@@ -10,10 +10,6 @@ import { Tag } from "../src/graph/Tag";
 import { catalogEntry } from "./support/catalog";
 import { newGraph } from "./support/physics";
 
-/**
- * Asserts `graph` keeps the two invariants every generated graph must: no
- * self-loop, and no edge pair repeated. `context` prefixes each failure.
- */
 function assertNoSelfLoopsOrDuplicates(graph: Graph, context: string): void {
     const pairs = new Set<string>();
 
@@ -55,8 +51,6 @@ test("generated graphs are sparse, not complete", () => {
 });
 
 test("each node starts at most `branching` new edges, whatever the order", () => {
-    // The count is bounded at the small end too, where the graph can still be
-    // complete: order 3 with branching 1 is often a triangle.
     for (const [order, branching] of [[3, 1], [5, 2], [11, 2], [20, 4]]) {
         for (let trial = 0; trial < 25; trial++) {
             const graph = newGraph(order, branching);
@@ -70,9 +64,8 @@ test("each node starts at most `branching` new edges, whatever the order", () =>
 });
 
 test("branching bounds a node's new edges, not its final degree", () => {
-    // Each node starts 1..branching edges, but the graph is undirected, so a node
-    // also collects the edges its neighbours start. At branching = 1 the 3-node
-    // graph is a triangle for most seeds, giving every node a degree of 2.
+    // The graph is undirected, so a node also collects the edges its neighbours start: branching bounds new
+    // edges, not degree.
     let sawDegreeAboveBranching = false;
 
     for (let seed = 1; seed <= 20 && !sawDegreeAboveBranching; seed++) {
@@ -90,7 +83,7 @@ test("branching bounds a node's new edges, not its final degree", () => {
 
     assert.ok(sawDegreeAboveBranching, "a node's degree can exceed `branching`");
 
-    // The user-facing wording says "new edges" for exactly this reason.
+    // The user-facing spec wording says "new edges" for exactly this reason.
     assert.match(
         specLabel({ kind: "random", order: 3, branching: 1 }),
         /up to 1 new edges per node/
@@ -105,8 +98,7 @@ test("generated graphs have no self-loops and no duplicate edges", () => {
             assert.notEqual(e.v1, e.v2, `trial ${trial}: self-loop`);
         }
 
-        // A second, independent check by tag identity rather than the helper's
-        // index-key scan: a duplicate the index space misses still fails here.
+        // An independent check by tag identity: a duplicate the index-key scan misses still fails here.
         for (let i = 0; i < graph.edges.length; i++) {
             for (let j = i + 1; j < graph.edges.length; j++) {
                 const a = graph.edges[i];
@@ -196,7 +188,6 @@ test("hasEdge is an O(1) membership test with the same rules", () => {
     graph.addNode(a);
     graph.addNode(b);
 
-    // A vertex with no edges yet, and one that was never added.
     assert.ok(!graph.hasEdge(a, b), "no edge yet");
     assert.ok(!graph.hasEdge(a, foreign), "an unknown tag is never a neighbour");
     assert.ok(!graph.hasEdge(foreign, a), "an unknown tag is never a neighbour");
@@ -211,8 +202,7 @@ test("hasEdge is an O(1) membership test with the same rules", () => {
 });
 
 test("a nearly complete graph terminates and keeps every invariant", () => {
-    // branching = order - 1 lets every vertex try to connect to all the others,
-    // which drives the rejection sampler into its linear fallback.
+    // branching = order - 1 drives the rejection sampler into its linear fallback.
     for (const order of [2, 3, 4, 5]) {
         for (let trial = 0; trial < 20; trial++) {
             const graph = newGraph(order, order - 1);
@@ -248,8 +238,6 @@ test("a larger graph still respects the edge bound and has no duplicates", () =>
     assertNoSelfLoopsOrDuplicates(graph, "");
 });
 
-// -------------------------------------------------------------- build(spec)
-
 /** Run `fn` with a deterministic Math.random, restoring the real one after. */
 function withSeededRandom<T>(fn: () => T, seed: number = 42): T {
     const original = Math.random;
@@ -267,7 +255,6 @@ function withSeededRandom<T>(fn: () => T, seed: number = 42): T {
     }
 }
 
-/** The structure of a graph, independent of the (random) coordinates. */
 function shape(graph: Graph) {
     return {
         labels: graph.vertices.map(vertex => vertex.label),

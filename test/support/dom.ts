@@ -1,5 +1,4 @@
-// Minimal DOM stand-ins for the UI-facing modules under `node --test`; the
-// physics solver is DOM-free and needs none of this.
+// Minimal DOM stand-ins for the UI-facing modules under `node --test`.
 
 import { Emphasis } from "../../src/core/Emphasis";
 import { Graph } from "../../src/graph/Graph";
@@ -34,11 +33,7 @@ function rect(top = 0, left = 0, width = 0, height = 0): FakeRect {
     };
 }
 
-/**
- * The one focused element, modelling the browser's exclusive focus. Focusing an
- * element blurs the previously focused one, so "which focus() came last" is
- * observable and an overlay that steals focus from another cannot hide.
- */
+// Models the browser's exclusive focus, so "which focus() came last" is observable.
 let activeElement: FakeElement | null = null;
 
 export class FakeElement {
@@ -72,7 +67,6 @@ export class FakeElement {
         this.tagName = tagName;
     }
 
-    /** Number of times click() has been called directly. */
     clickCount = 0;
 
     click() {
@@ -86,9 +80,7 @@ export class FakeElement {
         activeElement = this;
         this.focused = true;
 
-        // The browser dispatches `focus` after the previous element blurs. Local
-        // listeners depend on it — the roving index of both overlays is synced
-        // from this event, not only from their own Tab handlers.
+        // The browser dispatches `focus` after blur; the overlays sync their roving index from it.
         this.dispatch('focus');
     }
 
@@ -115,7 +107,6 @@ export class FakeElement {
         return (this.listeners.get(type) ?? []).length;
     }
 
-    /** Synchronously invoke every listener registered for `type`. */
     dispatch(type: string, event: any = {}) {
         for (const fn of [...(this.listeners.get(type) ?? [])]) {
             fn(event);
@@ -144,11 +135,6 @@ export class FakeElement {
         return this.children.length > 0 ? this.children[0] : null;
     }
 
-    /**
-     * The one selector the controller needs from a real element: the emphasis
-     * buttons the console owns. It matches an attribute presence or an exact
-     * `[name="value"]`, which covers `[data-emphasis]`.
-     */
     querySelectorAll(selector: string): FakeElement[] {
 
         const match = /^\[([\w-]+)(?:="([^"]*)")?\]$/.exec(selector.trim());
@@ -176,20 +162,15 @@ export class FakeElement {
     }
 }
 
-/** One draw call in the order it was issued, for painter-order assertions. */
 export interface DrawOp {
     kind: 'stroke' | 'fill' | 'text';
     style: string;
     alpha: number;
-    /** The stroke width the context carried when the op was issued. */
     lineWidth: number;
-    /** The radius of the arc a `fill` acted on, else undefined. */
     radius?: number;
-    /** The string a `text` op drew, else undefined. */
     text?: string;
 }
 
-/** Records every 2d drawing call, so render() can be asserted on. */
 export class FakeContext2D {
 
     canvas: { width: number; height: number } = { width: 0, height: 0 };
@@ -199,33 +180,28 @@ export class FakeContext2D {
     font = '';
     lineWidth = 1;
 
-    /** The current alpha, set by the renderer for the depth fade. */
     globalAlpha = 1;
 
     strokes: string[] = [];
     fills: string[] = [];
     texts: string[] = [];
     strokeAlphas: number[] = [];
-    /** The `lineWidth` in force at each stroke(), so the ring width is visible. */
+    /** The `lineWidth` at each stroke(), for ring-width assertions. */
     strokeWidths: number[] = [];
     fillAlphas: number[] = [];
     textAlphas: number[] = [];
     textLabels: string[] = [];
     arcs: number[][] = [];
-    /** Segment endpoints, so a batched frame can be checked edge by edge. */
     moveTos: number[][] = [];
     lineTos: number[][] = [];
-    /** The radius of the arc the nth fill() acted on, in order. */
     fillRadii: number[] = [];
     ops: DrawOp[] = [];
     transforms: number[][] = [];
     clears: number[][] = [];
 
-    /** The most recent arc() radius, so the next fill() can be annotated. */
     private lastArcRadius = 0;
 
-    // The signatures mirror `RenderSurface` (`src/RenderSurface.ts`) exactly, so
-    // the fake is a structural stand-in for a real 2D context with no cast.
+    // Signatures mirror `RenderSurface` (`src/RenderSurface.ts`) so no cast is needed.
     clearRect(x: number, y: number, w: number, h: number) {
         this.clears.push([x, y, w, h]);
     }
@@ -303,10 +279,8 @@ export class FakeCanvas extends FakeElement {
 
     context: FakeContext2D;
 
-    /** True once control has been transferred to an OffscreenCanvas. */
     transferred = false;
 
-    /** How many times transferControlToOffscreen() was called. */
     transferCount = 0;
 
     constructor() {
@@ -333,7 +307,6 @@ export class FakeCanvas extends FakeElement {
     }
 }
 
-/** One recorded frame, so the controller's draw path can be asserted on. */
 export interface RecordedDraw {
     graph: Graph;
     camera: CameraView;
@@ -343,11 +316,6 @@ export interface RecordedDraw {
     emphasis: Emphasis;
 }
 
-/**
- * A recording stand-in for a render backend: the seam `newUIController` injects
- * so the draw path can be observed without a real context, and so the
- * "not ready yet" and "became ready later" branches can be driven by hand.
- */
 export class FakeRenderBackend implements RenderBackend {
 
     usesWorker = false;
@@ -385,19 +353,13 @@ export class FakeRenderBackend implements RenderBackend {
         this.terminated = true;
     }
 
-    /** Simulate a backend that becomes usable after a handshake. */
     becomeReady(): void {
         this.ready = true;
         this.onReady?.();
     }
 }
 
-/**
- * An in-memory stand-in for the render worker: it runs the real worker engine
- * synchronously, so the runner and the engine can be compared without a worker
- * host. It can be told to hold responses or to fail, which is how the
- * backpressure, stale-generation and fallback paths are exercised.
- */
+/** Runs the real worker engine synchronously, with hold/fail controls. */
 export class FakeRenderWorker implements RenderWorkerPort {
 
     onmessage: ((event: { data: RenderResponse }) => void) | null = null;
@@ -406,7 +368,6 @@ export class FakeRenderWorker implements RenderWorkerPort {
     readonly engine = new RenderWorkerEngine();
     readonly context = new FakeContext2D();
 
-    /** Every message posted to the worker, in order, with its transfer list. */
     readonly posts: Array<{ message: RenderRequest; transfer: Transferable[] }> = [];
     terminated = false;
 
@@ -438,7 +399,6 @@ export class FakeRenderWorker implements RenderWorkerPort {
         this.terminated = true;
     }
 
-    /** Announce readiness, as the real worker does at script load. */
     becomeReady(): void {
         this.onmessage?.({ data: { type: "ready" } });
     }
@@ -462,26 +422,21 @@ export interface FakeDom {
     window: any;
     elements: Record<string, FakeElement>;
     intervals: Array<{ id: number; fn: (...args: any[]) => void }>;
-    /** Animation frames scheduled with requestAnimationFrame and not yet run. */
     animationFrames: Array<{ id: number; callback: (timestamp: number) => void }>;
-    /** Run every pending frame once at `timestamp`; callbacks may reschedule. */
     runAnimationFrames: (timestamp: number) => void;
     windowListeners: Map<string, Listener[]>;
     createdElements: FakeElement[];
-    /** Object-URL traffic, so a blob: export can be observed. */
     objectUrls: { created: string[]; revoked: string[] };
     restore: () => void;
 }
 
-/** FakeDom options; `animationFrame: false` exercises the setInterval fallback. */
+/** `animationFrame: false` exercises the setInterval fallback. */
 export interface FakeDomOptions {
     animationFrame?: boolean;
 }
 
-// Install DOM/timer stubs on globalThis, returning a restore handle.
-// setInterval is stubbed so an initialized UIController cannot keep node alive,
-// and requestAnimationFrame is stubbed so the cadence scheduler can be driven by
-// hand instead of by the host's frame clock.
+// setInterval is stubbed so an initialized UIController cannot keep node alive; rAF so the cadence scheduler
+// is driven by hand.
 export function installFakeDom(
     elements: Record<string, FakeElement> = {},
     options: FakeDomOptions = {}
@@ -489,7 +444,7 @@ export function installFakeDom(
 
     const global = globalThis as any;
 
-    // Each installed DOM starts with nothing focused, whatever the last test left.
+    // Nothing focused, whatever the last test left.
     activeElement = null;
 
     const previous = {
@@ -519,7 +474,6 @@ export function installFakeDom(
         },
     };
 
-    // Object URLs are recorded, not created: tests only assert the traffic.
     const objectUrls: { created: string[]; revoked: string[] } = { created: [], revoked: [] };
 
     const urlStub = {
@@ -621,9 +575,7 @@ export function installFakeDom(
     };
 }
 
-// The element map the demo entrypoint expects; IDs in `omit` are left out
-// (`delete` on the index signature is rejected by strict TS).
-/** The emphasis console the panel ships: two real buttons, `nodes` pressed. */
+// The element map the demo entrypoint expects; `delete` on the index signature is rejected by strict TS.
 export function emphasisConsoleElement(): FakeElement {
     const console = new FakeElement('DIV');
     console.id = 'emphasisConsole';
@@ -662,7 +614,6 @@ export function demoElements(omit: string[] = []): Record<string, FakeElement> {
     return out;
 }
 
-/** Install the fake DOM, run `fn` against it, always restore afterwards. */
 export function withFakeDom<T>(
     elements: Record<string, FakeElement>,
     fn: (dom: FakeDom) => T,
@@ -677,10 +628,7 @@ export function withFakeDom<T>(
     }
 }
 
-// Build a UIController over the `demoElements()` map. `width`/`height` pin the
-// logical size for fixtures that bypass resizeCanvas(); `graph` is wrapped by
-// the controller's solver, as initialize() would have done. `backend` replaces
-// the runner's in-process backend with a recording fake.
+// `graph` is wrapped by the controller's solver, as initialize() would have done.
 export function newUIController(
     elements: Record<string, FakeElement>,
     opts: {
@@ -718,22 +666,17 @@ export function newUIController(
     return controller;
 }
 
-/** The fake element behind an HTMLElement a component hands back. */
 export function el(element: HTMLElement): FakeElement {
     return element as unknown as FakeElement;
 }
 
-/** Fill the random form and press generate, as a user choosing that spec would. */
 export function generateRandom(wizard: GraphWizard, order: number, branching: number): void {
     wizard.orderInput.value = String(order);
     wizard.branchingInput.value = String(branching);
     el(wizard.generateButton).dispatch("click");
 }
 
-/**
- * Replace `graph.selectedVertex` with a thrower, so a regression that scans the
- * graph for the selection fails loudly. `message` names the offending caller.
- */
+/** Replace `graph.selectedVertex` with a thrower, so a scan for the selection fails loudly. */
 export function poisonSelection(graph: Graph, message: string): void {
     graph.selectedVertex = () => {
         throw new Error(message);
@@ -745,14 +688,11 @@ export const CANVAS_EVENTS = [
     'mousemove', 'mousedown', 'mouseup', 'mouseout', 'contextmenu', 'keydown', 'wheel',
 ];
 
-/** The camera console's own delegated listeners, one per event type. */
 export const CAMERA_CONSOLE_EVENTS = ['pointerdown', 'keydown', 'keyup', 'click'];
 
-/** The emphasis console's one delegated listener. */
 export const EMPHASIS_CONSOLE_EVENTS = ['click'];
 
-// Window listeners that end a held console button anywhere; `blur` covers the
-// pointerup the browser never delivers when the window loses focus.
+// `blur` covers the pointerup the browser never delivers when the window loses focus.
 export const CAMERA_HOLD_RELEASE_EVENTS = ['pointerup', 'pointercancel', 'blur'];
 
 export interface UIControllerFixture {
@@ -766,18 +706,15 @@ export interface UIControllerOptions {
     /** Pin the logical size before initialize(), which may recompute it. */
     width?: number;
     height?: number;
-    /** The fake body size resizeCanvas() reads. Defaults to the fake 800x600. */
+    /** Body size resizeCanvas() reads. */
     bodyWidth?: number;
     bodyHeight?: number;
     devicePixelRatio?: number;
     graph?: Graph;
-    /** Run initialize() first. Defaults to true: most fixtures want the listeners. */
     initialize?: boolean;
     /** False exercises the setInterval fallback instead of the rAF scheduler. */
     animationFrame?: boolean;
-    /** The render backend to inject, so the draw path is observable. */
     backend?: RenderBackend;
-    /** The render worker to inject, so the worker path is observable. */
     workerFactory?: RenderWorkerFactory;
 }
 
@@ -816,7 +753,6 @@ function preparedElements(options: UIControllerOptions): Record<string, FakeElem
     return elements;
 }
 
-/** Install, configure, initialize, run `fn`, always restore — even on throw. */
 export function withUIController<T>(
     fn: (ui: UIControllerFixture) => T,
     options: UIControllerOptions = {}
@@ -831,8 +767,8 @@ export function withUIController<T>(
     }
 }
 
-// As withUIController(), but the DOM stays installed until `fn` settles: export
-// defers object-URL revocation to a timer.
+// Like withUIController(), but the DOM stays installed until `fn` settles (export revokes object URLs on a
+// timer).
 export async function withUIControllerAsync<T>(
     fn: (ui: UIControllerFixture) => Promise<T> | T,
     options: UIControllerOptions = {}
@@ -852,14 +788,12 @@ export interface FakeMouseEvent {
     shiftKey: boolean;
     /** True for the macOS context-menu gesture, which is a primary press. */
     ctrlKey: boolean;
-    /** The event target, so a delegated handler can be exercised. */
     target: unknown;
     /** The click count; 0 marks a keyboard or assistive-technology click. */
     detail: number;
     defaultPrevented: boolean; preventDefault: () => void;
 }
 
-// Mouse-event stand-in that records whether `preventDefault()` was called.
 export function mouseEvent(props: Partial<FakeMouseEvent> = {}): MouseEvent {
     const event: FakeMouseEvent = {
         button: 0, clientX: 0, clientY: 0, shiftKey: false, ctrlKey: false,
@@ -877,7 +811,6 @@ export interface FakeWheelEvent {
     defaultPrevented: boolean; preventDefault: () => void;
 }
 
-// Wheel-event stand-in for the dolly; `deltaY` is what the handler reads.
 export function wheelEvent(props: Partial<FakeWheelEvent> = {}): WheelEvent {
     const event: FakeWheelEvent = {
         deltaY: 0, clientX: 0, clientY: 0,
@@ -894,15 +827,12 @@ export interface FakePointerEvent {
     pointerId: number;
     /** 'mouse', 'pen' or 'touch'; only a touch is held to the drag handle. */
     pointerType: string;
-    /** The event target, so a delegated handler can be exercised. */
     target: unknown;
     propagationStopped: boolean;
     defaultPrevented: boolean; preventDefault: () => void;
     stopPropagation: () => void;
 }
 
-// Pointer-event stand-in for the panel drag; `propagationStopped` records
-// whether a handler stopped the event before it reached an ancestor's listener.
 export function pointerEvent(props: Partial<FakePointerEvent> = {}): PointerEvent {
     const event: FakePointerEvent = {
         button: 0, clientX: 0, clientY: 0, pointerId: 1, pointerType: 'mouse',
@@ -922,7 +852,6 @@ export interface FakeKeyboardEvent {
     shiftKey: boolean;
     /** True for an auto-repeat keydown, which a hold must not restart on. */
     repeat: boolean;
-    /** The focused element, so a delegated handler can be exercised. */
     target: unknown;
     defaultPrevented: boolean;
     preventDefault: () => void;
@@ -939,27 +868,14 @@ export function keyEvent(props: Partial<FakeKeyboardEvent> = {}): KeyboardEvent 
     return event as unknown as KeyboardEvent;
 }
 
-// ------------------------------------------------------------- cadence fixtures
-
-/**
- * One node at the origin feels no force, so its travel is exactly zero and the
- * settle detector arms deterministically. The shared arming fixture for any test
- * that needs a settled layout.
- */
+/** One node at the origin feels no force, so the settle detector arms deterministically. */
 export function settledGraph(): Graph {
     const graph = new Graph();
     graph.addNode(new Tag({ x: 0, y: 0, z: 0 }, "solo"));
     return graph;
 }
 
-/**
- * Drive the first frame plus `settleFrames` stepping frames, leaving the layout
- * settled with an empty accumulator. Returns the timestamp of the last frame, so
- * a caller can run another frame at the same instant and be sure no step is due.
- *
- * This encodes the animation-frame cadence protocol (frame 0 establishes the
- * clock, then one step per tick period), so it has one home.
- */
+// Encodes the cadence protocol: frame 0 establishes the clock, then one step per tick period.
 export function settleFrames(ui: UIControllerFixture): number {
 
     const period = K.physics.timerTickPeriodMS;
@@ -976,7 +892,6 @@ export function settleFrames(ui: UIControllerFixture): number {
     return timestamp;
 }
 
-/** Count physics steps by wrapping the controller's solver. */
 export function countSteps(controller: UIController): () => number {
 
     const solver = controller.solver;
@@ -992,6 +907,6 @@ export function countSteps(controller: UIController): () => number {
     return () => steps;
 }
 
-// The `K.renderer` threshold override lives in `support/settings.ts`, so the
-// benchmark can share it without importing these DOM fakes.
+// The `K.renderer` threshold override lives in `support/settings.ts` so the benchmark need not import these
+// fakes.
 

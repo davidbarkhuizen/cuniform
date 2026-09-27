@@ -2,16 +2,7 @@ import { Graph } from "./Graph";
 import { point3 } from "../core/Point3D";
 import { Tag } from "./Tag";
 
-/**
- * Rebuild the `Tag` graph the main thread is simulating from the flat data a
- * worker receives: labels, undirected edge index pairs and `[x, y, z]`
- * positions.
- *
- * One implementation for both workers, so the physics mirror and the render
- * mirror cannot drift. Node insertion order is the index space both directions
- * agree on; a self-loop or a duplicate edge is accepted exactly as `addEdge`
- * accepts it, which is what keeps the mirror's topology identical.
- */
+/** Rebuild the `Tag` graph from a worker's flat data, in `packMirror`'s index space. */
 export function buildMirrorGraph(labels: string[], edges: Int32Array, positions: Float64Array): Graph {
 
     const graph = new Graph();
@@ -63,17 +54,8 @@ export function writePositions(graph: Graph, positions: Float64Array): void {
     }
 }
 
-/**
- * The flat form of a graph as it crosses to a worker: positions as
- * `[x0, y0, z0, x1, ...]`, length 3N, and undirected edge endpoints as
- * node-index pairs, length 2E.
- *
- * The encoder for the index space `buildMirrorGraph` decodes, kept in the same
- * module so the two directions cannot disagree about the `3 * i` position
- * stride, the `2 * e` edge stride, or the `-1` missing-endpoint sentinel. The
- * sentinel is the decoder's contract for a malformed message; `addEdge()`
- * normally stops the encoder from ever emitting one.
- */
+/** Flat graph form on the wire: positions as `[x0, y0, z0, ...]`, then edge index pairs.
+ * A `-1` endpoint is the decoder's signal for a malformed message. */
 export interface MirrorWire {
     positions: Float64Array;
     edges: Int32Array;

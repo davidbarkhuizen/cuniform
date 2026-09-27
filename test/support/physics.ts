@@ -5,17 +5,15 @@ import { K } from "../../src/core/K";
 import { Point3D } from "../../src/core/Point3D";
 import { Tag } from "../../src/graph/Tag";
 
-// Canvas size only affects the model -> canvas translation, never the physics.
+// Canvas size affects only the model-to-canvas translation, never the physics.
 export const CANVAS_W = 800;
 export const CANVAS_H = 600;
 
-// k*q^2, the numerator of the reference repulsion law k*q^2 / r^1.9; derived
-// so a retuned K propagates instead of leaving a stale literal.
+// k*q^2, numerator of the reference repulsion law; derived so a retuned K propagates.
 export const REPULSION_CONSTANT =
     K.physics.scalarForceConstant * K.physics.nodeCharge * K.physics.nodeCharge;
 
-// Single-edge balance of k*q^2 / r^1.9 against the spring: r* ~= 65.46 for the
-// reference constants (reference doc section 9).
+// Single-edge balance of k*q^2 / r^1.9 against the spring (reference doc section 9).
 export const ANALYTIC_EQUILIBRIUM = 65.46;
 
 export function edgeBetween(aPos: Point3D, bPos: Point3D) {
@@ -29,7 +27,6 @@ export function edgeBetween(aPos: Point3D, bPos: Point3D) {
     return { graph, a, b, fdg: new ForceDirectedGraph(graph) };
 }
 
-/** Two nodes one edge apart on the x axis: a at the origin, b at (+r, 0). */
 export function pairAt(r: number) {
     return edgeBetween({ x: 0, y: 0, z: 0 }, { x: r, y: 0, z: 0 });
 }
@@ -42,19 +39,7 @@ export function singleNode(label = "a") {
     return { graph, a, fdg: new ForceDirectedGraph(graph) };
 }
 
-/**
- * `components` disjoint paths of `nodesPerComponent` nodes each, seeded as a
- * symmetric arrangement about each piece's own centroid, with those centroids
- * spread along x at `componentSpacing` intervals. Disconnected by construction,
- * so the component anchor is the only force between the pieces, and both the
- * labelling and the resulting motion are a deterministic function of the
- * arguments.
- *
- * The default - two 6-node components centred at x = -250 and x = +250 - is the
- * workplan's drift fixture: on a graph with no anchor the two pieces separate
- * without bound. `offset` shifts the whole arrangement, which lets a test place
- * a single congruent component at a chosen centroid.
- */
+// Disconnected by construction, so the component anchor is the only force between the pieces.
 export function disconnectedPaths(
     componentSpacing = 500,
     nodesPerComponent = 6,
@@ -70,8 +55,7 @@ export function disconnectedPaths(
         const centre = (c - (components - 1) / 2) * componentSpacing + offset.x;
         const path: Tag[] = [];
 
-        // A path along y, centred on `centre`, so each component's own centroid
-        // is exactly its centre.
+        // A path along y centred on `centre`, so the component's centroid is exactly its centre.
         for (let i = 0; i < nodesPerComponent; i++) {
             const tag = new Tag(
                 {
@@ -99,8 +83,6 @@ export function tag(label: string, x = 0, y = 0): Tag {
     return new Tag({ x, y, z: 0 }, label);
 }
 
-// Per step, the largest distance any node travelled during that step; a
-// relaxing layout settles towards zero, an unstable integrator does not.
 export function maxTravelPerStep(
     fdg: ForceDirectedGraph,
     graph: Graph,
@@ -131,7 +113,6 @@ export function maxTravelPerStep(
     return out;
 }
 
-/** The farthest any vertex strays from the model origin over the run. */
 export function maxAbsPosition(
     fdg: ForceDirectedGraph,
     graph: Graph,
@@ -150,15 +131,8 @@ export function maxAbsPosition(
     return max;
 }
 
-/**
- * Step until the solver reports `settleFrames` consecutive steps quieter than
- * `settleEpsilon`, or until `maxSteps` is reached. Returns the number of steps
- * run and the final per-step travel.
- *
- * The detector can fire a few steps short of the fixed point, so a test that
- * needs genuine rest should re-read the returned count and keep going; this
- * helper's contract is only "as quiet as the detector gets".
- */
+// The detector can fire a few steps short of the fixed point; the contract is only "as quiet as the detector
+// gets".
 export function stepsUntilQuiet(
     fdg: ForceDirectedGraph,
     maxSteps: number = 20000
@@ -190,7 +164,7 @@ export function newGraph(order: number = 10, branching: number = 2): Graph {
     return new GraphFactory().generateGraph(order, branching);
 }
 
-/** Deterministic xorshift32 in [0, 1), so a seeded fixture is reproducible. */
+/** Deterministic xorshift32 in [0, 1). */
 export function seededRandom(seed: number): () => number {
     let state = seed >>> 0 || 1;
 
@@ -204,11 +178,7 @@ export function seededRandom(seed: number): () => number {
     };
 }
 
-/**
- * A sparse graph built directly rather than through generateGraph: its shape is
- * a deterministic function of `seed`, and its cost excludes generation, which
- * matters when the fixture is the input to a timing or error measurement.
- */
+// Built directly rather than via `generateGraph`, so its cost excludes generation for timing/error fixtures.
 export function sparseGraph(order: number, seed: number, averageDegree: number = 3): Graph {
     const random = seededRandom(seed);
     const graph = new Graph();

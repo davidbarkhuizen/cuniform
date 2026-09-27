@@ -9,24 +9,13 @@ export class State {
     public b1Down!: boolean; 
     public b2Down!: boolean;
 
-    /**
-     * Canvas-space pointer position at the previous middle-button move; anchor for the
-     * current orbit or pan drag. Null when no middle drag is in progress.
-     */
+    /** Canvas-space pointer at the previous middle-button move; null when no middle drag is in progress. */
     public lastMiddleDragPos!: Point2D | null;
 
-    /**
-     * The live view camera, owned here so a reset() rebuilds the graph without
-     * losing the viewing angle.
-     */
+    /** Owned here so reset() rebuilds the graph without losing the viewing angle. */
     public readonly camera: Camera = new Camera();
 
-    /**
-     * The frame's display emphasis, owned here for the same reason as the camera:
-     * reset() runs on mouse-out, a graph swap and initialize(), and a display
-     * choice that vanished on a graph swap would be a bug. Not persisted, so a
-     * reload starts at the shipped default.
-     */
+    /** Owned here for the same reason as the camera: reset() runs on mouse-out and graph swaps. */
     public emphasis: Emphasis = Emphasis.nodes;
 
 	constructor(
@@ -34,10 +23,7 @@ export class State {
 		this.reset();
 	}
 
-	/**
-	 * Clear every button flag and the gesture anchor; the one reset home for mouse-out,
-	 * a graph swap and initialize, so a new flag cannot be missed.
-	 */
+	/** The one reset home for mouse-out, a graph swap and initialize. */
 	reset(): void {
 		this.b0Down = false;
 		this.b1Down = false;

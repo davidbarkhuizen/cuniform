@@ -22,8 +22,7 @@ test("the model space is the reference 600 cube", () => {
 });
 
 test("a molecule seed starts at the springs' rest length", () => {
-    // Not a tautology to guard: the two fields are separate knobs, and the
-    // repulsion guard's behaviour depends on their staying equal.
+    // Separate knobs that must stay equal: the repulsion guard depends on it.
     assert.equal(K.molecule.seedSpacing, K.physics.equilibriumDisplacement);
 });
 
@@ -37,7 +36,6 @@ test("increasing model y moves up the canvas", () => {
 });
 
 test("the scale is uniform when the canvas aspect ratio differs from the model square", () => {
-    // Model is square, canvas 1200x600 is not: a 100-unit offset must scale the same on both axes.
     const viewport = Viewport.forCanvas(1200, 600);
     const horizontal = viewport.toCanvas({ x: 100, y: 0 });
     const vertical = viewport.toCanvas({ x: 0, y: 100 });
@@ -87,11 +85,8 @@ test("step() caches translatedPosition and depth through the projector", () => {
 });
 
 test("nothing clamps a node to the model cube", () => {
-    // The model has no boundary, so a node seeded outside the 600 cube is never
-    // snapped back into it. The one radial force on a lone node is the component
-    // anchor: a proportional pull with a dead zone, not a clamp and not a fixed
-    // speed. test/anchor.test.ts covers the force's own behaviour; this fixture
-    // is the clearest case of a node it acts on, so the pull is pinned here too.
+    // No model-cube clamp: the lone radial force is the component anchor's proportional pull with a dead zone
+    // (see test/anchor.test.ts).
     const graph = new Graph();
     const far = new Tag({ x: 5000, y: -5000, z: 5000 }, "far");
     graph.addNode(far);
@@ -112,9 +107,7 @@ test("nothing clamps a node to the model cube", () => {
         `the pull must be toward the origin, distance went ${r} -> ${Math.hypot(far.position.x, far.position.y, far.position.z)}`
     );
 
-    // Run it to rest. No step may teleport it, it must never be flung outward,
-    // and it must settle around the dead zone rather than cross the origin for
-    // ever. A hard clamp or a constant-magnitude pull each fail one of these.
+    // A hard clamp or a constant-magnitude pull would fail one of these traits.
     let previous = { x: far.position.x, y: far.position.y, z: far.position.z };
     let outermost = 0;
     let teleport = 0;
@@ -147,9 +140,7 @@ test("nothing clamps a node to the model cube", () => {
         "a drifting node must stay finite"
     );
 
-    // The anchor has a root at the origin, so the node does stop: given the
-    // quiet threshold, a step is then below the settle epsilon, not a limit
-    // cycle.
+    // The anchor has a root at the origin, so the node stops rather than orbiting in a limit cycle.
     const last = stepsUntilQuiet(solver);
 
     assert.ok(

@@ -10,12 +10,7 @@ import { Tag } from "../src/graph/Tag";
 import { assertClose } from "./support/assert";
 import { sparseGraph } from "./support/physics";
 
-/**
- * Mean and max |F_approx - F_exact| over every body, normalised by the graph's
- * mean exact force magnitude. The mean force is the scale a body actually
- * feels, so a body sitting near a force balance (exact magnitude ~0) cannot blow
- * a per-node ratio up while its absolute error stays tiny.
- */
+/** Mean and max |F_approx - F_exact| per body, normalised by the graph's mean exact force magnitude. */
 function forceErrors(graph: Graph, solver: ForceDirectedGraph): { mean: number; max: number } {
     const out = graph.vertices.map(() => ({ x: 0, y: 0, z: 0 }));
 
@@ -78,8 +73,7 @@ test("below the crossover the repulsion pass is the exact pairwise kernel", () =
 });
 
 test("below the fast threshold auto and accurate step bit-identically", () => {
-    // The size default only changes forces at or above barnesHutFastMinNodes;
-    // below it "auto" must be exactly the old always-theta-0.5 behaviour.
+    // The size default only changes forces at or above barnesHutFastMinNodes.
     const order = K.physics.barnesHutFastMinNodes - 1;
     const autoGraph = sparseGraph(order, 31337);
     const accurateGraph = sparseGraph(order, 31337);
@@ -128,9 +122,8 @@ test("at theta = 0.5 the octree stays within the documented force error", () => 
 });
 
 test("no body repels itself: a coincident cluster matches the exact reference", () => {
-    // Every body sits at one point, so the cell containing a body is the whole
-    // cluster. If traversal ever accepted it as an aggregate, each body would
-    // receive its own charge and the force would shift by a whole pairwise term.
+    // All bodies coincide, so the cell holding one is the whole cluster: taking it as an aggregate would add
+    // the body's own charge.
     const order = 128;
     const graph = new Graph();
 
@@ -145,8 +138,7 @@ test("no body repels itself: a coincident cluster matches the exact reference", 
     graph.vertices.forEach((tag, i) => {
         const exact = solver.netElectrostaticForceAtNode(tag);
 
-        // The same multiset of pairwise terms, so this is a rounding tolerance,
-        // not an approximation budget.
+        // Same multiset of pairwise terms: 1e-12 is a rounding tolerance, not an approximation budget.
         assertClose(out[i].x, exact.x, 1e-12, `${tag.label}: x must match`);
         assertClose(out[i].y, exact.y, 1e-12, `${tag.label}: y must match`);
         assertClose(out[i].z, exact.z, 1e-12, `${tag.label}: z must match`);
@@ -157,9 +149,8 @@ test("a large opening angle still excludes self and stays bounded", () => {
     const order = 512;
     const graph = sparseGraph(order, 6060);
 
-    // 0.9 is the fast opening angle docs/performance.md names.
-    // Above 1/sqrt(3) a theta-only self-exclusion argument would fail, so this
-    // exercises the explicit rule.
+    // 0.9 is the fast opening angle (see docs/performance.md); above 1/sqrt(3)
+    // a theta-only self-exclusion argument fails, so this exercises the explicit rule.
     const tree = new Octree();
     tree.build(graph.vertices, 0.9);
 

@@ -8,7 +8,6 @@ import { Tag } from "../src/graph/Tag";
 import { assertClose } from "./support/assert";
 import { CANVAS_H, CANVAS_W } from "./support/physics";
 
-// Deterministic, well-separated positions inside the 600x600x600 model cube.
 const POSITIONS = [
     { x: -250, y: 120, z: 0 }, { x: 180, y: -200, z: 0 }, { x: 40, y: 260, z: 0 },
     { x: -60, y: -40, z: 0 }, { x: 280, y: 60, z: 0 }, { x: -180, y: -220, z: 0 },
@@ -39,7 +38,6 @@ function build(vertexOrder: number[] = NATURAL, edgeOrder: number[] = NATURAL_ED
     return { graph, tags, fdg: new ForceDirectedGraph(graph) };
 }
 
-/** Positions keyed by label, so results can be compared across orderings. */
 function snapshot(graph: Graph): Record<string, { x: number; y: number; z: number }> {
     const out: Record<string, { x: number; y: number; z: number }> = {};
     for (const v of graph.vertices) {
@@ -89,7 +87,6 @@ test("one step is exactly a synchronous update from the pre-step snapshot", () =
 
     const before = tags.map(t => ({ x: t.position.x, y: t.position.y, z: t.position.z }));
 
-    // Forces computed now are pure functions of the pre-step positions.
     const expected = tags.map((t, i) => {
         const e = fdg.netElectrostaticForceAtNode(t);
         const s = fdg.netSpringForceAtNode(t);

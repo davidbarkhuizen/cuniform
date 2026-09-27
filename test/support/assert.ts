@@ -1,10 +1,5 @@
-// Shared tolerance assertions. Each call site keeps the epsilon its inline
-// check used, so none of them is loosened.
-
 import assert from "node:assert/strict";
 
-// Asserts `actual` is within `eps` of `expected`. The tolerance is
-// `eps * max(1, |expected|)`: tight near zero, scale-tolerant at magnitude.
 export function assertClose(
     actual: number,
     expected: number,
@@ -20,7 +15,6 @@ export function assertClose(
     );
 }
 
-/** Assert two matrices agree element-wise within `eps`. */
 export function assertMatClose(
     actual: readonly number[],
     expected: readonly number[],

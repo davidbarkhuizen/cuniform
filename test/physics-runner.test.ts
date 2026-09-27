@@ -11,12 +11,7 @@ import { openingAngleFor } from "../src/physics/Quality";
 import { CANVAS_H, CANVAS_W, disconnectedPaths, sparseGraph } from "./support/physics";
 import { withUIController } from "./support/dom";
 
-/**
- * An in-memory stand-in for the physics worker: it runs the real worker engine
- * synchronously, so both backends can be compared without a worker host. It can
- * be told to hold responses or to fail, which is how the stale-generation and
- * fallback paths are exercised.
- */
+/** In-memory worker running the real engine synchronously; can hold or fail responses. */
 class FakePhysicsWorker implements PhysicsWorkerPort {
 
     onmessage: ((event: { data: PositionsResponse }) => void) | null = null;
@@ -42,7 +37,6 @@ class FakePhysicsWorker implements PhysicsWorkerPort {
         this.terminated = true;
     }
 
-    /** Stop answering, so a response can be delivered by hand. */
     hold(): void {
         this.answering = false;
     }
@@ -56,7 +50,6 @@ class FakePhysicsWorker implements PhysicsWorkerPort {
     }
 }
 
-/** The two runners under comparison plus the graphs their node state lives on. */
 interface BackendPair {
     inProcess: PhysicsRunner;
     worker: PhysicsRunner;
@@ -65,13 +58,7 @@ interface BackendPair {
     engineGraph: Graph;
 }
 
-/**
- * Build the same seeded fixture on both sides, drive each runner `steps` steps
- * with the same pin, and sync the worker's positions back onto its graph.
- *
- * The two backends share one seed and one step rule, so their state must be
- * bit-identical; this is the shared body of every cross-backend comparison.
- */
+/** Runs both backends on one seeded fixture; shared seed and step rule must keep them bit-identical. */
 function runBackends(
     order: number,
     seed: number,
@@ -104,7 +91,6 @@ function runBackends(
     return { inProcess, worker, inProcessGraph, workerGraph, engineGraph: engineGraph! };
 }
 
-/** Assert both backends report identical positions on every node. */
 function assertSamePositions(order: number, pair: BackendPair): void {
     for (let i = 0; i < order; i++) {
         assert.equal(pair.workerGraph.vertices[i].position.x, pair.inProcessGraph.vertices[i].position.x, `node ${i} x`);
@@ -113,10 +99,7 @@ function assertSamePositions(order: number, pair: BackendPair): void {
     }
 }
 
-/**
- * Assert both backends agree on every node's position and velocity. Velocity
- * only exists inside the worker, so it is compared through the engine's graph.
- */
+/** Velocity exists only inside the worker, so it is compared through the engine's graph. */
 function assertBackendsAgree(
     order: number,
     seed: number,
@@ -144,8 +127,7 @@ test("the worker and in-process backends produce identical physics", () => {
 });
 
 test("the backends stay identical above the fast threshold, where auto picks the fast angle", () => {
-    // Same harness, at the size where the size default moves the forces: both
-    // realms must read the same compile-time K and stay bit-identical.
+    // At this size the fast angle is selected: both realms must read the same compile-time K.
     const order = K.physics.barnesHutFastMinNodes;
 
     assert.equal(
@@ -158,11 +140,8 @@ test("the backends stay identical above the fast threshold, where auto picks the
 });
 
 test("the worker and in-process backends are identical on a disconnected graph", () => {
-    // The sharpest determinism constraint in the workplan: both realms must label
-    // the components, accumulate each centroid in the same `vertices` order, and
-    // apply the same anchor vector. The fixture is deterministically
-    // disconnected, and its centroids are far outside the dead zone, so the
-    // anchor is active on both sides. Exact equality, not a tolerance.
+    // Both realms must label components, accumulate centroids in vertices order and apply the same anchor;
+    // exact equality, no tolerance.
     const build = () => disconnectedPaths(500, 6, 2).graph;
 
     const pair = assertBackendsAgree(12, 0, 40, build);
@@ -170,8 +149,6 @@ test("the worker and in-process backends are identical on a disconnected graph",
     assert.equal(pair.inProcess.usesWorker, false);
     assert.equal(pair.worker.usesWorker, true);
 
-    // And the worker really built a two-component mirror, or this fixture would
-    // not be exercising the anchor at all.
     const engineGraph = pair.engineGraph;
 
     assert.equal(engineGraph.vertices.length, 12);
@@ -209,7 +186,6 @@ test("a pinned node behaves identically through both backends", () => {
 test("a -1 or out-of-range index steps with nothing pinned", () => {
     const order = 12;
 
-    // The reference: one plain step, no pin involved.
     const reference = sparseGraph(order, 5);
     new ForceDirectedGraph(reference).step(CANVAS_W, CANVAS_H);
 
@@ -235,10 +211,8 @@ test("a response from a superseded generation is dropped", () => {
 
     fake.hold();
 
-    // A step whose answer never arrives, so the runner is waiting on it.
     runner.step(-1, 0, 0, 0);
 
-    // Swap the graph: the generation advances and the pending step is abandoned.
     runner.setGraph(new ForceDirectedGraph(sparseGraph(12, 1234)));
 
     const afterSwap = runner.positions().slice();

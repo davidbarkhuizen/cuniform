@@ -4,18 +4,8 @@ import { buildMirrorGraph, packMirror, readPositions } from "../graph/MirrorGrap
 import { Tag } from "../graph/Tag";
 
 /**
- * The message protocol between PhysicsRunner (main thread) and the physics
- * worker, plus the worker-side engine that applies it.
- *
- * This module is pure: it names no browser global, so it can be driven by the
- * worker entry, by the main thread, and by an in-memory fake in tests. The
- * worker entry itself (`simulation.worker.ts`) is the only piece that touches
- * `self`/`postMessage`.
- *
- * Position and edge data cross the boundary as typed arrays, and a positions
- * response is posted with a transfer list, so the cost is a pointer move rather
- * than a copy. Transferables, not SharedArrayBuffer: shared memory needs
- * COOP/COEP headers the static demo does not set.
+ * Protocol between PhysicsRunner and the physics worker, plus the worker-side engine; pure,
+ * so the worker entry, the main thread and tests drive it. Positions transfer, not share.
  */
 
 export interface InitRequest {
@@ -56,8 +46,7 @@ export function initRequest(graph: Graph, generation: number): InitRequest {
     return { type: "init", generation, positions: wire.positions, edges: wire.edges };
 }
 
-/** The tag at `index`, or null when the index pins nothing. `-1` is the wire's
- * "no pin" sentinel, and an out-of-range index is treated the same way. */
+/** Tag at `index`, or null when it pins nothing (`-1` sentinel or out of range). */
 export function pinnedTagOf(graph: Graph, index: number): Tag | null {
     if (index < 0 || index >= graph.vertices.length)
         return null;
@@ -65,14 +54,8 @@ export function pinnedTagOf(graph: Graph, index: number): Tag | null {
     return graph.vertices[index];
 }
 
-/**
- * Write the pin's pointer position onto its tag, then advance the solver one
- * step with that tag pinned. An index that pins nothing steps every node.
- *
- * The single home for the pin rule, so the main thread's in-process backend and
- * the worker engine cannot apply a pin differently; that sameness is what makes
- * the two backends deterministic under one seed.
- */
+/** Writes the pin position onto its tag, then steps with that tag pinned. Single home for
+ * the pin rule, so the main thread and worker engine cannot apply it differently. */
 export function stepWithPin(
     solver: ForceDirectedGraph,
     graph: Graph,
@@ -93,11 +76,7 @@ export function stepWithPin(
     solver.stepPhysics(tag => tag === pinned);
 }
 
-/**
- * The worker-side physics. It rebuilds the same `Tag` graph locally so it runs
- * the exact same `stepPhysics()` the main thread would, which is what makes the
- * two backends deterministic under the same seed.
- */
+/** Worker-side physics; rebuilds the same `Tag` graph so it runs the main thread's `stepPhysics()`. */
 export class PhysicsWorkerEngine {
 
     graph: Graph | null = null;
@@ -114,9 +93,6 @@ export class PhysicsWorkerEngine {
         if (this.graph === null || this.solver === null)
             return null;
 
-        // The main thread writes the pin's pointer position before asking for a
-        // step; here it arrives in the message. Both realms apply it through the
-        // same helper, so the pin rule cannot drift between them.
         stepWithPin(this.solver, this.graph, request.pinned, request.x, request.y, request.z);
 
         return {
@@ -129,16 +105,14 @@ export class PhysicsWorkerEngine {
 
     private build(request: InitRequest): void {
 
-        // The shared mirror builder, so the physics and render mirrors cannot
-        // drift. Physics never reads a label, so the builder's own `n<i>` default
-        // is left to supply them rather than building a list here.
+        // The shared mirror builder, so the physics and render mirrors cannot drift;
+        // its `n<i>` default supplies labels that physics never reads.
         const graph = buildMirrorGraph([], request.edges, request.positions);
 
         this.graph = graph;
         this.solver = new ForceDirectedGraph(graph);
     }
 
-    /** A fresh flat copy of the positions, safe to transfer to the main thread. */
     private positions(): Float64Array {
 
         const graph = this.graph;

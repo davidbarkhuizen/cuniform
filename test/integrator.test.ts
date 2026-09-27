@@ -55,14 +55,12 @@ test("position advances by the velocity on each unpinned step", () => {
     a.velocity = { x: 3, y: -4, z: 0 };
     fdg.step(CANVAS_W, CANVAS_H);
 
-    // Velocity is overwritten first (0.9 * v for a lone node), then position advances by it.
     assertClose(a.position.x, 3 * K.physics.friction, 1e-9);
     assertClose(a.position.y, -4 * K.physics.friction, 1e-9);
 });
 
 test("the step path applies the same integrator as velocityAtTag", () => {
-    // The reference update and the in-place step update share one law, so a
-    // change to either cannot leave the other behind.
+    // The in-place step must stay on the same update law as velocityAtTag.
     const { a, fdg } = pairAt(40);
 
     const expected = fdg.velocityAtTag(a, fdg.netForceAtNode(a));

@@ -16,11 +16,10 @@ const NODE_SELECTED = K.colours.nodeSelected;
 const EDGE_DEFAULT = K.colours.edgeDefault;
 const EDGE_INCIDENT = K.colours.edgeIncident;
 
-/** Renderer's marker radius; not exported, so the flat-scene golden pins the literal. */
+// Renderer's marker radius, not exported; the flat-scene golden pins the literal.
 const NODE_RADIUS = 5;
 
-// A path a - b - c - d: an interior selection gives two incident edges and one
-// unrelated edge. Every node sits at the camera distance (the flat demo scene).
+// A path a - b - c - d, all at the camera distance.
 function build() {
     const graph = new Graph();
     const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
@@ -56,8 +55,7 @@ function withDepths(depths: number[], labels: string[] = []) {
 function drawWith(graph: Graph, camera: CameraView, emphasis: Emphasis = Emphasis.nodes): FakeContext2D {
     const context = new FakeContext2D();
     context.canvas = { width: 800, height: 600 };
-    // Tests resolve the selection once per fixture draw, as the controller does;
-    // production passes its cache and the renderer never scans.
+    // Tests resolve the selection once per draw, as the controller does; the renderer never scans.
     render(context, graph, camera, graph.selectedVertex(), emphasis);
     return context;
 }
@@ -66,10 +64,8 @@ function draw(graph: Graph): FakeContext2D {
     return drawWith(graph, defaultCameraView());
 }
 
-/** The `nodes` preset's edge fade, which every flat-scene golden now carries. */
 const NODES_EDGE_SCALE = K.renderer.emphasis[Emphasis.nodes].edgeAlphaScale;
 
-/** A flat scene draws every edge at the top of the fade scaled by the preset. */
 const EDGE_SCALED_MAX = K.depthCue.maxAlpha * NODES_EDGE_SCALE;
 
 function radiusAt(depth: number): number {
@@ -81,7 +77,7 @@ function radiusAt(depth: number): number {
     return draw(graph).fillRadii[0];
 }
 
-// At equal depth the stable sort keeps the old "all edges, then all nodes" order.
+// At equal depth the stable sort keeps all edges before all nodes.
 function edgeStrokes(context: FakeContext2D, edgeCount: number): string[] {
     return context.strokes.slice(0, edgeCount);
 }
@@ -98,7 +94,6 @@ test("an edge incident to the selected node is highlighted distinctly", () => {
     assert.equal(strokes[1], EDGE_DEFAULT);
     assert.equal(strokes[2], EDGE_DEFAULT);
 
-    // The fourth stroke is the selection ring, not another edge.
     assert.equal(context.strokes.length, 4);
 });
 
@@ -123,12 +118,10 @@ test("the selected node is filled with the selected colour", () => {
 
     const { fills } = draw(graph);
 
-    // Fills are in vertex order a, b, c, d.
     assert.deepEqual(fills, [NODE_DEFAULT, NODE_SELECTED, NODE_DEFAULT, NODE_DEFAULT]);
 });
 
 test("nodes, edges and labels each use a distinct colour", () => {
-    // The node must not disappear into the edges, nor the label into either.
     assert.notEqual(NODE_DEFAULT, EDGE_DEFAULT);
     assert.notEqual(K.colours.label, NODE_DEFAULT);
     assert.notEqual(K.colours.label, EDGE_DEFAULT);
@@ -139,13 +132,10 @@ test("labels are drawn in the label colour, not the node fill", () => {
 
     const context = draw(graph);
 
-    // Labels are in vertex order.
     assert.deepEqual(context.texts, [K.colours.label, K.colours.label, K.colours.label, K.colours.label]);
 });
 
 test("render reproduces the pre-refactor draw sequence exactly", () => {
-    // Golden capture taken before the renderer moved out of ForceDirectedGraph:
-    // a whole-frame equivalence check rather than colour spot-checks.
     const { graph, b } = build();
     b.isSelected = true;
 
@@ -157,9 +147,8 @@ test("render reproduces the pre-refactor draw sequence exactly", () => {
     assert.deepEqual(context.transforms, [[1, 0, 0, 1, 0, 0]]);
     assert.deepEqual(context.clears, [[0, 0, 800, 600]]);
 
-    // At the camera distance the cue is the identity: full opacity, 2D radius.
-    // The nodes preset fades the edges; the selection ring is a node and keeps the
-    // full ramp.
+    // At the camera distance the cue is the identity: full opacity, 2D radius. The
+    // nodes preset fades the edges, but the ring is a node and keeps the full ramp.
     assert.deepEqual(context.fillRadii, [NODE_RADIUS, NODE_RADIUS, NODE_RADIUS, NODE_RADIUS]);
     assert.deepEqual(
         context.strokeAlphas,
@@ -174,11 +163,8 @@ test("render reproduces the pre-refactor draw sequence exactly", () => {
 });
 
 test("render takes the context, the graph, the camera, the selection and the emphasis", () => {
-    // Regression for 5.4: the unused label-spacing parameter was removed;
-    // spacing lives in K.label and the camera keeps cull/focal in step. The
-    // selection is now the caller's argument, so the renderer never scans; the
-    // emphasis is the frame's display configuration and is never defaulted, so a
-    // caller must state which one it drew.
+    // Spacing lives in K.label; the selection is the caller's, so the renderer never
+    // scans; emphasis is never defaulted.
     const { graph } = build();
 
     assert.equal(render.length, 5);
@@ -188,8 +174,7 @@ test("render takes the context, the graph, the camera, the selection and the emp
 });
 
 test("render never scans the graph for the selection", () => {
-    // The frame takes the selection; an O(N) walk per frame is exactly what this
-    // signature removes. A throwing stub fails loudly if it comes back.
+    // An O(N) walk per frame is what this signature removes; a throwing stub fails loudly if it returns.
     const { graph, b } = build();
     b.isSelected = true;
 
@@ -206,17 +191,13 @@ test("render never scans the graph for the selection", () => {
     assert.ok(context.strokes.includes(EDGE_INCIDENT), `strokes were ${context.strokes}`);
 });
 
-// ------------------------------------------------------------- depth ordering
-
 test("the painter's algorithm draws farthest-first across edges and nodes", () => {
     // near = 100, far = 300, so the joining edge sits at depth 200.
     const { graph } = withDepths([100, 300], ["near", "far"]);
 
     const context = draw(graph);
 
-    // The emphasis owns the class order: the mesh first, the nodes over it. Within
-    // a class the painter order is still (depth descending, insertion ascending),
-    // which the labels show.
+    // Emphasis owns class order; within a class painter order is depth descending, insertion ascending.
     assert.deepEqual(
         context.ops.map(op => (op.kind === "text" ? `text:${op.text}` : op.kind)),
         ["stroke", "fill", "text:far", "fill", "text:near"]
@@ -225,7 +206,6 @@ test("the painter's algorithm draws farthest-first across edges and nodes", () =
 });
 
 test("a nearer node overpaints a farther one when they overlap", () => {
-    // Equal x: the circles coincide, so the last drawn is the one seen.
     const graph = new Graph();
     const near = new Tag({ x: 10, y: 0, z: 0 }, "near");
     const far = new Tag({ x: 10, y: 0, z: 0 }, "far");
@@ -239,8 +219,6 @@ test("a nearer node overpaints a farther one when they overlap", () => {
     assert.deepEqual(context.textLabels, ["far", "near"]);
 });
 
-// ------------------------------------------------------------- depth cue
-
 test("node radius scales with 1/depth and is clamped at both ends", () => {
     const near = radiusAt(512);
     const far = radiusAt(2048);
@@ -248,7 +226,6 @@ test("node radius scales with 1/depth and is clamped at both ends", () => {
     // radius = NODE_RADIUS * focalLength / depth: four-fold depth, four-fold smaller.
     assertClose(near / far, 4, 1e-9, `radius ratio was ${near / far}`);
 
-    // At the camera distance the cue is the identity: the 2D marker radius.
     const atDistance = radiusAt(K.camera.distance);
     assertClose(atDistance, NODE_RADIUS, 1e-9, `radius at the camera distance was ${atDistance}`);
     assert.ok(
@@ -281,8 +258,7 @@ test("alpha ramps from maxAlpha at the near end to minAlpha at the far end", () 
     // Painter order is farthest-first, so the far node fills first.
     assert.deepEqual(context.fillAlphas, [K.depthCue.minAlpha, K.depthCue.maxAlpha]);
 
-    // The edge between them sits at the midpoint of the ramp, faded by the nodes
-    // preset's edge scale.
+    // The edge between them sits at the midpoint of the ramp, faded by the nodes preset's edge scale.
     const mid = (K.depthCue.maxAlpha + K.depthCue.minAlpha) / 2;
     assertClose(
         context.strokeAlphas[0],
@@ -301,15 +277,11 @@ test("a flat scene draws at full opacity with no fade", () => {
         context.fillAlphas.every(a => a === K.depthCue.maxAlpha),
         `flat fills were ${context.fillAlphas}`
     );
-    // Three edges at the scaled top of the ramp; there is no selection here, so no
-    // ring stroke is added.
     assert.deepEqual(
         context.strokeAlphas,
         [EDGE_SCALED_MAX, EDGE_SCALED_MAX, EDGE_SCALED_MAX]
     );
 });
-
-// ------------------------------------------------------------- culling
 
 test("a culled node is not drawn and its edges are skipped", () => {
     const graph = new Graph();
@@ -339,11 +311,9 @@ test("a node just inside the near plane is still drawn", () => {
     assert.deepEqual(context.textLabels, ["inside"]);
 });
 
-// ------------------------------------------------- the camera argument
-
 test("render culls against the near plane of the camera it is given", () => {
-    // The renderer must read the cull boundary from the caller's camera, not
-    // the K defaults, or drawing and hit-testing disagree at the boundary.
+    // The renderer must read the cull boundary from the caller's camera, not the K defaults, or drawing and
+    // hit-testing disagree at the boundary.
     const { graph } = withDepths([100], ["solo"]);
 
     assert.deepEqual(draw(graph).textLabels, ["solo"], "the default near plane (50) draws depth 100");
@@ -356,8 +326,8 @@ test("render culls against the near plane of the camera it is given", () => {
 });
 
 test("render sizes nodes with the focal length of the camera it is given", () => {
-    // Same coupling for the cue: the radius must use the camera's focal length,
-    // or a custom-camera frame is sized for a different lens.
+    // Same coupling for the cue: the radius must use the camera's focal length, or a custom-camera frame is
+    // sized for a different lens.
     const { graph } = withDepths([K.camera.distance], ["solo"]);
 
     const base = drawWith(graph, defaultCameraView()).fillRadii[0];
@@ -369,8 +339,6 @@ test("render sizes nodes with the focal length of the camera it is given", () =>
     assertClose(base, NODE_RADIUS, 1e-9, "at the camera distance the cue is the marker radius");
     assertClose(zoomed, NODE_RADIUS * 2, 1e-9, "the doubled focal length must double the radius");
 });
-
-// ---------------------------------------------------------- size-gated scaling
 
 test("above labelMaxNodes only the selection and its neighbours are labelled", () => {
     const { graph, b } = build();
@@ -403,7 +371,6 @@ test("at equal depths the explicit comparator keeps edges before nodes", () => {
 
     const context = draw(graph);
 
-    // Three edges, then four fill+label pairs, in insertion order.
     assert.deepEqual(context.ops.map(op => op.kind), [
         "stroke", "stroke", "stroke",
         "fill", "text", "fill", "text", "fill", "text", "fill", "text",
@@ -438,9 +405,7 @@ test("batch mode draws every edge before any node in the nodes emphasis", () => 
 });
 
 test("batch mode draws every edge after every node in the edges emphasis", () => {
-    // The size-gated batched path is not exempt from the emphasis: a frame that
-    // reversed above batchEdgesMinEdges would be a bug the demo's 11 nodes never
-    // show.
+    // The size-gated batched path is not exempt from the emphasis either.
     const { graph } = build();
 
     const context = withRendererSettings({ batchEdgesMinEdges: 0 }, () =>
@@ -481,8 +446,6 @@ test("batch and per-edge modes agree on which edges and nodes are drawn", () => 
     assert.ok(batched.strokes.length < unbatched.strokes.length, "batch mode must stroke fewer times");
 });
 
-// ---------------------------------------------------- coarse large-graph preset
-
 test("the coarse preset collapses every node fill to one fill per colour", () => {
     const { graph, b } = build();
     b.isSelected = true;
@@ -504,8 +467,7 @@ test("the coarse preset draws every edge and drops the selection-ring stroke", (
     assert.equal(context.moveTos.length, graph.edges.length, "every edge needs a moveTo");
     assert.equal(context.lineTos.length, graph.edges.length, "every edge needs a lineTo");
 
-    // Three edges collapse to the incident and default edge groups; the per-node
-    // ring stroke is gone, so no fourth stroke appears.
+    // Three edges collapse to the incident and default edge groups; the per-node ring stroke is gone.
     assert.equal(context.strokes.length, 2, `strokes were ${context.strokes}`);
 });
 
@@ -515,7 +477,6 @@ test("the coarse preset fills every node's colour and labels the selection's nei
 
     const context = withRendererSettings({ minNodes: 0 }, () => draw(graph));
 
-    // b's neighbours are a and c; d is two hops away and unlabelled.
     assert.deepEqual([...context.textLabels].sort(), ["a", "b", "c"]);
     assert.equal(context.fills.length, 2, "the selected fill must still be drawn");
 });
@@ -531,8 +492,7 @@ test("a coarse frame is deterministic", () => {
 });
 
 test("coarse node arcs keep painter order inside each colour group", () => {
-    // The default-colour group stays (depth descending); the selected group is a
-    // separate fill, so it follows the whole default path.
+    // The default-colour group stays depth descending; the selected group follows the whole default path.
     const { graph, nodes } = withDepths([100, 300, 200], ["near", "far", "mid"]);
     nodes[1].isSelected = true;
 

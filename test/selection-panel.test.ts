@@ -9,8 +9,6 @@ import {
     withUIController,
 } from "./support/dom";
 
-/** updateSelectionInfo() is the only writer of this panel section, so these drive it directly. */
-
 interface Fixture extends UIControllerFixture {
     graph: Graph;
 }
@@ -27,7 +25,6 @@ function withFixture<T>(fn: (ui: Fixture) => T): T {
     graph.addEdge(hub, leaves[1]);
     graph.addEdge(hub, leaves[2]);
 
-    // initialize() is not needed: updateSelectionInfo() is driven directly.
     return withUIController(ui => fn({ ...ui, graph }), { graph, initialize: false });
 }
 

@@ -4,24 +4,12 @@ import { posix } from "node:path";
 
 import { readAllSources } from "./support/files";
 
-/**
- * The layering the rest of the suite depends on, asserted once over the real
- * sources: the simulation, the geometry, the static data and the drawing code
- * run headless, and every browser global sits behind an explicitly listed
- * module.
- *
- * These are the only checks that read source text, so a module-boundary
- * regression has one home rather than a token check beside each module.
- */
-
+// The suite's only source-text checks: the headless half must stay free of browser
+// globals, and every module that touches one must be listed explicitly.
 const sources = readAllSources();
 
-/**
- * Source with comments removed, so the purity rules below are about code rather
- * than prose. `render/RenderSurface.ts` legitimately names both real context
- * types in its documentation; the boundary the test enforces is that a pure
- * module never *uses* one.
- */
+// Comments are stripped so the purity rules are about code, not prose:
+// render/RenderSurface.ts may *name* context types in docs, but a pure module must never *use* one.
 function code(source: string): string {
     return source
         .replace(/\/\*[\s\S]*?\*\//g, "")
@@ -30,7 +18,6 @@ function code(source: string): string {
 
 /** The DOM-free half: the solver, the projection and the catalog data. */
 const PURE_MODULES = [
-    // core
     "core/Emphasis.ts",
     "core/Growth.ts",
     "core/K.ts",
@@ -38,7 +25,6 @@ const PURE_MODULES = [
     "core/Point2D.ts",
     "core/Point3D.ts",
     "core/WorkerChannel.ts",
-    // graph
     "graph/Components.ts",
     "graph/Edge.ts",
     "graph/Graph.ts",
@@ -48,34 +34,25 @@ const PURE_MODULES = [
     "graph/Molecules.ts",
     "graph/Smiles.ts",
     "graph/Tag.ts",
-    // view
     "view/Camera.ts",
     "view/Mat3.ts",
     "view/Projection.ts",
     "view/Projector.ts",
     "view/Viewport.ts",
-    // physics
     "physics/ForceDirectedGraph.ts",
     "physics/Kernel.ts",
     "physics/Octree.ts",
     "physics/PhysicsProtocol.ts",
     "physics/Quality.ts",
-    // render
     "render/RenderProtocol.ts",
     "render/RenderSurface.ts",
     "render/Renderer.ts",
-    // ui
     "ui/FocusRing.ts",
     "ui/Selection.ts",
-    // app
     "app/State.ts",
 ];
 
-/**
- * The DOM-facing modules, with the marker that justifies each exemption. Listing
- * them explicitly is what keeps the worker boundary narrow: a purity regression
- * in the solver cannot hide by being "not in PURE_MODULES".
- */
+// Listing exemptions explicitly keeps a purity regression from hiding by omission.
 const DOM_MODULES: Array<[string, RegExp]> = [
     ["physics/simulation.worker.ts", /\bself\b/],
     ["render/render.worker.ts", /\bself\b/],
@@ -128,16 +105,8 @@ test("no module reaches for shared state through window", () => {
     );
 });
 
-/**
- * The package boundaries, read off the import graph rather than the docs: each
- * package may import only the packages below it.
- *
- * `core` is the vocabulary every other package speaks and has no project
- * imports of its own; `graph` is the data model built on it; `view` turns model
- * space into canvas space. Physics, rendering and the UI are peers above those
- * and none imports another; `app` is the composition root, and the bundle entry
- * (`index.ts`, package `.`) sits on top of it.
- */
+// Each package may import only the packages below it; physics, render and ui are
+// peers, and app is the composition root.
 const PACKAGE_DEPENDENCIES: Record<string, string[]> = {
     ".": ["app"],
     "core": [],
@@ -156,7 +125,6 @@ function packageOf(path: string): string {
     return slash === -1 ? "." : path.slice(0, slash);
 }
 
-/** The `src/`-relative module path an import specifier names. */
 function resolveImport(from: string, specifier: string): string {
     const resolved = posix.normalize(posix.join(posix.dirname(from), specifier));
 
@@ -172,8 +140,7 @@ test("packages depend only on the layers below them", () => {
         assert.ok(from in PACKAGE_DEPENDENCIES, `${path} is not in a known package`);
 
         for (const [, imported] of code(source).matchAll(importStatement)) {
-            // The project uses no path aliases, so only a relative specifier
-            // can reach another source module.
+            // No path aliases: only a relative specifier can reach another source module.
             if (!imported.startsWith("."))
                 continue;
 

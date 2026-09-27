@@ -6,7 +6,6 @@ import { clampOpeningAngle, MAX_OPENING_ANGLE, Octree } from "../src/physics/Oct
 import { assertClose } from "./support/assert";
 import { sparseGraph } from "./support/physics";
 
-/** Every body index under a cell, in bucket/child order. */
 function bodiesIn(tree: Octree, cell: number): number[] {
     const out: number[] = [];
 
@@ -59,7 +58,6 @@ test("the root covers every body and children partition their parent", () => {
         for (let c = 0; c < children; c++) {
             const child = first + c;
 
-            // The child cube must sit inside the parent cube.
             const half = tree.cellHalf[child];
 
             assertClose(
@@ -140,8 +138,8 @@ test("coincident bodies terminate at the depth cap in a single bucket", () => {
         `a coincident chain must stop at the depth cap, got ${tree.cells} cells`
     );
 
-    // The deepest cell is a bucket holding all four, so traversal does exact
-    // pairwise work there rather than subdividing forever.
+    // The deepest cell is a bucket, so traversal does exact pairwise work there instead of subdividing
+    // forever.
     assert.equal(tree.cellFirstChild[tree.cells - 1], -1);
     assert.equal(tree.cellCount[tree.cells - 1], 4);
 });

@@ -75,7 +75,6 @@ test("parseRandomSpec rejects branching above the practical cap", () => {
 });
 
 test("parseRandomSpec rejects branching at or above the order", () => {
-    // A graph on n nodes has at most n - 1 distinct neighbours per node.
     assert.equal(parseRandomSpec("3", "3").ok, false, "branching == order must be rejected");
     assert.equal(parseRandomSpec("3", "2").ok, true, "branching == order - 1 is still valid");
 });
@@ -98,8 +97,7 @@ test("the range message states the effective bounds", () => {
 });
 
 test("specLabel of a random spec names the order and the branching", () => {
-    // The literal wording is the contract this test pins; callers build their
-    // expectations through specLabel() so this is the one place it lives.
+    // The literal wording is the pinned contract; other callers go through specLabel().
     assert.equal(
         specLabel({ kind: "random", order: 11, branching: 2 }),
         "random graph: 11 nodes, up to 2 new edges per node"

@@ -1,8 +1,4 @@
-// The physics worker entry (docs/physics.md, "Cadence").
-//
-// Deliberately not in PURE_MODULES: this is the one module that touches the
-// worker globals. The physics and the message protocol live in
-// PhysicsProtocol.ts, which stays pure and is driven here.
+// Not in PURE_MODULES: the one module that touches the worker globals (docs/invariants.md).
 
 import { PhysicsWorkerEngine, WorkerRequest } from "./PhysicsProtocol";
 import { WorkerScope } from "../core/WorkerChannel";

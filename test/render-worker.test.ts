@@ -25,16 +25,8 @@ import { DrawOp, FakeContext2D } from "./support/dom";
 import { sparseGraph } from "./support/physics";
 import { RendererSettings, withRendererSettings } from "./support/settings";
 
-/**
- * The render worker's engine, driven headlessly. The correctness contract of
- * moving the draw off the main thread is pixel identity: for a given graph,
- * camera and selection the engine must produce exactly the draw calls the
- * in-process `render()` produces. No test here constructs a real `Worker` or
- * `OffscreenCanvas`.
- */
-
-
-/** Attach a fake surface and build the engine's mirror from `graph`. */
+// Pixel identity is the contract: for a given graph, camera and selection the
+// engine must emit exactly the draw calls render() does. No real Worker is constructed.
 function attached(graph: Graph, generation: number = 0): { engine: RenderWorkerEngine; context: FakeContext2D } {
 
     const context = new FakeContext2D();
@@ -46,7 +38,6 @@ function attached(graph: Graph, generation: number = 0): { engine: RenderWorkerE
     return { engine, context };
 }
 
-/** A frame request carrying `graph`'s positions, as the main thread would post it. */
 function frameFor(
     graph: Graph,
     generation: number,
@@ -75,7 +66,6 @@ function frameFor(
     };
 }
 
-/** The same graph the engine builds, drawn directly: the reference output. */
 function directDraw(
     graph: Graph,
     selected: number,
@@ -102,17 +92,11 @@ function directDraw(
     return context;
 }
 
-/**
- * The frame's camera crosses as 13 positional numbers, and the two ends of that
- * layout live in one module but are read by two realms. This is the guard for the
- * split: a codec that dropped, reordered or rescaled a value would make the worker
- * draw a different picture from the camera the main thread thinks it sent.
- */
+// The camera crosses as 13 positional numbers read by two realms; a codec that
+// dropped, reordered or rescaled one would draw a different picture.
 test("the camera codec carries every value a frame compares", () => {
 
-    // A non-default camera: a real rotation, an off-origin target and a dollied
-    // distance. `focalLength`/`nearPlane` are fixed for a camera's life and are
-    // deliberately not on the wire, so the codec reads them from `K`.
+    // focalLength/nearPlane are fixed for a camera's life and deliberately not on the wire.
     const camera: CameraView = {
         orientation: fromYawPitch(0.6, -0.4),
         target: { x: 12, y: -7, z: 3 },
@@ -127,8 +111,7 @@ test("the camera codec carries every value a frame compares", () => {
 
     const decoded = decodeCamera(packed);
 
-    // `sameCameraView` is the renderer's redraw check, so it is exactly the set
-    // the wire must not lose; the rest are fixed for a camera's life.
+    // sameCameraView is the renderer's redraw check, so the wire must carry exactly its fields.
     assert.equal(sameCameraView(decoded, camera), true, "the decoded view must match the live one");
     assert.deepEqual([...decoded.orientation], [...camera.orientation]);
     assert.deepEqual(decoded.target, camera.target);
@@ -137,8 +120,7 @@ test("the camera codec carries every value a frame compares", () => {
     assert.equal(decoded.nearPlane, camera.nearPlane);
 });
 
-// A fixture whose four nodes sit at four different depths, so the depth cue, the
-// painter sort, the selection ring and the incident-edge highlight are all live.
+// Four nodes at four depths, so the depth cue, painter sort, ring and incident-edge highlight are all live.
 function thresholdGraph(): Graph {
     const graph = new Graph();
 
@@ -176,9 +158,7 @@ const IDENTITY_CASES: Case[] = [
 
 test("the engine's draw calls are identical to the direct renderer at every threshold", () => {
 
-    // Both configurations, not just the default: the emphasis rides the frame, so
-    // a divergence between the realms would show up as a different frame for the
-    // same message.
+    // The emphasis rides the frame, so both configurations are compared.
     for (const emphasis of [Emphasis.nodes, Emphasis.edges]) {
 
         for (const testCase of IDENTITY_CASES) {
@@ -251,7 +231,6 @@ test("the ack returns the frame's buffer and this frame's depths", () => {
     assert.equal(response.positions.length, graph.vertices.length * 3);
     assert.equal(response.depths.length, graph.vertices.length);
 
-    // Depths are the same projection the main thread would have cached.
     const mirror = buildMirrorGraph(
         graph.vertices.map(tag => tag.label),
         initRequest(graph, 0).edges,
@@ -282,14 +261,12 @@ test("a swap rebuilds the mirror and drops frames from the superseded generation
 
     const { engine } = attached(first, 0);
 
-    // A frame for a generation the engine has never been initialised with.
     assert.equal(engine.handle(frameFor(second, 1, 1)), null, "an uninitialised generation is dropped");
 
     engine.handle(initRequest(second, 1));
 
     assert.equal(engine.graph?.vertices.length, 6, "the mirror must be the new graph");
 
-    // The frame computed for the replaced graph must not be drawn.
     assert.equal(engine.handle(frameFor(first, 0, 2)), null, "a stale generation is dropped");
     assert.ok(engine.handle(frameFor(second, 1, 3)), "the current generation draws");
 });
@@ -313,8 +290,7 @@ test("init reproduces the physics mirror for self-loops and duplicate edges", ()
     assert.ok(renderEngine.graph);
     assert.ok(physicsEngine.graph);
 
-    // The render mirror needs the real labels; physics never reads one, so its
-    // generated labels only have to be self-consistent. Topology must match both.
+    // The render mirror needs real labels; physics never reads one, so only topology must match both.
     const mirrors: Array<[string, Graph, boolean]> = [
         ["render", renderEngine.graph!, true],
         ["physics", physicsEngine.graph!, false],
@@ -332,8 +308,7 @@ test("init reproduces the physics mirror for self-loops and duplicate edges", ()
             assert.equal(mirror.incidentEdges(mirror.vertices[i]).length, reference.incidentEdges(reference.vertices[i]).length, `${name} degree ${i}`);
         }
 
-        // A self-loop does not make a vertex its own neighbour, and a duplicate
-        // edge does not change membership.
+        // A self-loop does not make a vertex its own neighbour; a duplicate edge does not change membership.
         assert.equal(mirror.hasEdge(mirror.vertices[0], mirror.vertices[0]), false, `${name} self-loop`);
         assert.equal(mirror.hasEdge(mirror.vertices[0], mirror.vertices[1]), true, `${name} duplicate edge`);
     }
@@ -358,8 +333,7 @@ test("an unchanged size does not reassign the backing store", () => {
     const graph = thresholdGraph();
     const { engine, context } = attached(graph);
 
-    // dpr 2 so the device transform is distinguishable from the identity one
-    // render() applies inside its own save/restore.
+    // dpr 2 makes the device transform distinguishable from the identity one render() applies.
     engine.handle(frameFor(graph, 0, 1, -1, defaultCameraView(), 800, 600, 2));
 
     const width = context.canvas.width;

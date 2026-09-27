@@ -12,7 +12,6 @@ const IDS: [string, string, string, string] = [
     RESET_ELEMENT_ID,
 ];
 
-/** Run `fn` with console.error muted, restoring it afterwards. */
 function quietly<T>(fn: () => T): T {
     const realError = console.error;
     console.error = () => {};
@@ -25,7 +24,6 @@ function quietly<T>(fn: () => T): T {
 
 test("entrypoint initializes when window.Worker is undefined", () => {
     withFakeDom(demoElements(), dom => {
-        // No worker is ever constructed, so its absence must not block startup.
         assert.equal(dom.window.Worker, undefined);
 
         const result = quietly(() => entrypoint(...IDS));

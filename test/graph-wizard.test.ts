@@ -35,7 +35,6 @@ interface Fixture {
     counts: { cancels: number; dismisses: number };
 }
 
-/** Build a wizard over the demo element map and run `fn` against it. */
 function withWizard<T>(
     fn: (fixture: Fixture) => T,
     options: Partial<GraphWizardOptions> = {}
@@ -61,8 +60,6 @@ function withWizard<T>(
         return fn({ wizard, body, completed, counts });
     });
 }
-
-// --------------------------------------------------------------- lifecycle
 
 test("open appends the dialog and close removes it", () => {
     withWizard(({ wizard, body, counts }) => {
@@ -105,8 +102,6 @@ test("the tag list is built once and survives a close and reopen", () => {
     });
 });
 
-// ------------------------------------------------------------ choose step
-
 test("the first step offers exactly random and molecules", () => {
     withWizard(({ wizard }) => {
         wizard.open();
@@ -133,8 +128,6 @@ test("a choice button moves to its step", () => {
         assert.equal(wizard.step, "molecules");
     });
 });
-
-// ------------------------------------------------------------ random step
 
 test("the random step is pre-filled from the initial conditions", () => {
     withWizard(({ wizard }) => {
@@ -273,8 +266,6 @@ test("an invalid generate submits nothing", () => {
     });
 });
 
-// --------------------------------------------------------- molecules step
-
 test("the molecules step shows every tag, sorted, with the count", () => {
     withWizard(({ wizard }) => {
         wizard.open("molecules");
@@ -358,7 +349,6 @@ test("the filter hides tags without removing them or their listeners", () => {
         assert.equal(parent.children.length, childrenBefore);
         assert.equal(element.listenerCount("click"), listenersBefore);
 
-        // The hidden chip still carries its own handler.
         element.dispatch("click");
         assert.deepEqual(completed, [{ kind: "molecule", id: "ibogaine" }]);
     });
@@ -449,8 +439,6 @@ test("the wizard accepts a custom catalog", () => {
     }, { catalog: [CATALOG[0]] });
 });
 
-// -------------------------------------------------------------- navigation
-
 test("back returns to the first step and submits nothing", () => {
     withWizard(({ wizard, completed }) => {
         wizard.open("molecules");
@@ -519,8 +507,6 @@ test("onComplete is never called without a choice", () => {
     });
 });
 
-// ------------------------------------------------------------- focus trap
-
 /** Record focus order for [name, element] controls; the array can be cleared between gestures. */
 function trackFocus(controls: Array<[string, HTMLElement]>): string[] {
     const order: string[] = [];
@@ -551,8 +537,7 @@ test("focusing a control directly resyncs the wizard's Tab index", () => {
     withWizard(({ wizard }) => {
         wizard.open("molecules");
 
-        // A pointer click or a native focus move bypasses the Tab handler, so the
-        // focus event has to move the roving index with it.
+        // A native focus move bypasses the Tab handler, so focus must resync the roving index.
         el(wizard.tags[2].element).focus();
 
         el(wizard.element).dispatch("keydown", keyEvent({ key: "Tab" }));
@@ -622,8 +607,7 @@ test("the search text is data, never markup", () => {
         wizard.searchInput.value = payload;
         el(wizard.searchInput).dispatch("input");
 
-        // The filter still runs, and neither the count nor the empty state carries
-        // the user's text; no element in the dialog may render it.
+        // The filter still runs, but the user's text must never reach any element's markup.
         assert.equal(wizard.countLabel.innerHTML, `0 of ${wizard.tags.length}`);
         assert.equal(wizard.emptyLabel.style.display, "block");
         assert.ok(
@@ -646,7 +630,6 @@ test("Tab skips the disabled generate button", () => {
             ["back", wizard.backButton],
         ]);
 
-        // Two tabs from the order field reach back, stepping over the disabled generate.
         el(wizard.element).dispatch("keydown", keyEvent({ key: "Tab" }));
         el(wizard.element).dispatch("keydown", keyEvent({ key: "Tab" }));
 
@@ -665,7 +648,6 @@ test("Tab skips the hidden cancel button on a non-dismissible wizard", () => {
         wizard.open("choose");
         order.length = 0;
 
-        // Three tabs visit both choices and back, wrapping to the first, never the hidden cancel.
         for (let i = 0; i < 3; i++)
             el(wizard.element).dispatch("keydown", keyEvent({ key: "Tab" }));
 

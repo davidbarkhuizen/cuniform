@@ -1,9 +1,6 @@
 import { Point3D } from "../core/Point3D";
 
-/**
- * A 3x3 rotation as a row-major 9-tuple: `m[row * 3 + column]`. A value, not a
- * class, so it compares structurally under `deepEqual`.
- */
+/** A row-major 9-tuple: `m[row * 3 + column]`. */
 export type Mat3 = readonly [
     number, number, number,
     number, number, number,
@@ -30,10 +27,7 @@ export function multiply(a: Mat3, b: Mat3): Mat3 {
     ];
 }
 
-/**
- * Apply `m` to `p`: the rotation of a column vector. Three sums of three
- * products, so the identity reproduces `p` bit-for-bit.
- */
+/** Apply `m` to `p` as a column vector; the identity reproduces `p` bit-for-bit. */
 export function apply(m: Mat3, p: Point3D): Point3D {
     const [m0, m1, m2, m3, m4, m5, m6, m7, m8] = m;
 
@@ -99,7 +93,7 @@ export function axisAngle(x: number, y: number, z: number, angle: number): Mat3 
     ];
 }
 
-/** The `Rx(pitch) . Ry(yaw)` orientation. The projector tests describe cameras in angles. */
+/** The `Rx(pitch) . Ry(yaw)` orientation; the projector tests express cameras as angles. */
 export function fromYawPitch(yaw: number, pitch: number): Mat3 {
     return multiply(rotX(pitch), rotY(yaw));
 }

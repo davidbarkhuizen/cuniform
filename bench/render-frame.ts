@@ -1,29 +1,7 @@
-// cuniform real-canvas frame harness (docs/performance.md).
-//
-// The committed benchmark (bench/physics.bench.ts) draws into FakeContext2D,
-// which charges nothing for real `arc`/`fill`/`fillText` rasterisation, so its
-// render column is a JavaScript-work proxy and must not be read as a frame
-// cost. This page measures the number a host page actually cares about: the
-// main thread's per-frame time on a real canvas, and the long tasks that frame
-// time causes.
-//
-// Serve the repository over HTTP (the page loads ../dist/render-frame.js, the
-// same way web/index.html loads ../dist/main.js) and open the page:
-//
-//     ./cli build
-//     npx http-server .            # or any static server
-//     open http://localhost:8080/bench/render-frame.html
-//
-// Query parameters:
-//   ?n=4096          pin one node count (default: 1024, 2048, 4096, 8192)
-//   ?dpr=2           pin one device pixel ratio (default: 1, then 2)
-//   ?frames=300      frames measured per case
-//   ?render=main     force the in-process backend; the default is `worker`
-//   ?emphasis=edges  measure the edge-priority display configuration (default nodes)
-//
-// Physics is never stepped here, so a long task can only be the draw path; the
-// graph is a seeded sparse graph, so a run is reproducible. This is a manual
-// instrument, not part of `npm test` or `npm run bench`.
+// cuniform real-canvas frame harness (docs/performance.md): a manual instrument, not part of `npm test`.
+// It measures real-canvas per-frame time and long tasks, unlike bench/physics.bench.ts (FakeContext2D).
+// Run `./cli build`, serve the repo over HTTP, then open bench/render-frame.html.
+// Query params: ?n= ?dpr= ?frames= ?render= ?emphasis=.
 
 import { Camera } from "../src/view/Camera";
 import { Emphasis, emphasisFromWire } from "../src/core/Emphasis";
@@ -94,7 +72,6 @@ function toMB(bytes: number | null): number | null {
     return bytes === null ? null : bytes / (1024 * 1024);
 }
 
-/** One animation frame's timestamp; the draw runs once per frame, as the app does. */
 function nextFrame(): Promise<number> {
     return new Promise(resolve => window.requestAnimationFrame(resolve));
 }
@@ -107,8 +84,7 @@ async function measureCase(
     emphasis: Emphasis
 ): Promise<Measurement> {
 
-    // The backend owns the backing store and the device transform; the harness
-    // only ever hands it the logical size.
+    // The backend owns the backing store and device transform; hand it only the logical size.
     runner.resize(CANVAS_W, CANVAS_H, dpr);
 
     const graph: Graph = sparseGraph(nodes, 4321 + nodes);
@@ -122,8 +98,7 @@ async function measureCase(
     let longTasks = 0;
     let worstLongTask = 0;
 
-    // A long task may be the physics bleeding in; physics never runs here, so
-    // anything reported is the draw path.
+    // Physics never runs here, so any long task is the draw path.
     const observer = new PerformanceObserver(list => {
         for (const entry of list.getEntries()) {
             longTasks++;
@@ -134,8 +109,7 @@ async function measureCase(
     try {
         observer.observe({ entryTypes: ["longtask"] });
     } catch {
-        // Not every browser exposes longtask; the p50/p95 and >16.7 columns are
-        // the contract.
+        // Not every browser exposes longtask; the p50/p95 and >16.7 columns are the contract.
     }
 
     // Non-standard and Chrome-only; optional by design.
@@ -151,8 +125,7 @@ async function measureCase(
 
         await nextFrame();
 
-        // A slow orbit, so every frame is a real redraw and no frame reuses the
-        // previous camera.
+        // A slow orbit so every frame is a real redraw.
         camera.orbit(0.35, 0.12);
 
         const start = performance.now();
@@ -206,7 +179,6 @@ function formatRow(row: Measurement): string {
     );
 }
 
-/** The copy-pasteable block for a PR body or the profile in docs/performance.md. */
 function markdown(rows: Measurement[], frames: number): string {
     const lines = [
         `Real canvas ${CANVAS_W}x${CANVAS_H}, ${frames} frames per case, physics stopped (draw path only).`,
@@ -239,8 +211,7 @@ async function main(): Promise<void> {
     canvas.style.width = `${CANVAS_W}px`;
     canvas.style.height = `${CANVAS_H}px`;
 
-    // One runner per page load: transferring canvas control to an OffscreenCanvas
-    // is one-way, so the mode is fixed before the first case runs.
+    // Transferring canvas control is one-way, so one runner per page load fixes the mode.
     const runner = RenderRunner.create(canvas, () => {}, { mode: params.mode });
 
     if (runner === null)

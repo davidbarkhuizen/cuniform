@@ -1,15 +1,6 @@
-// cuniform performance benchmark.
-//
-// Run with `npm run bench` (or `./cli bench`): it compiles this file with the
-// test tsconfig and runs it under `node --expose-gc`. It is deliberately not
-// part of `npm test` — it takes seconds, not milliseconds, and its numbers are
-// machine-dependent. Read the output as a before/after comparison, not a gate.
-//
-// The renderer section uses FakeContext2D, so it measures the renderer's JS
-// work only. A real canvas is slower; check that in a browser.
-//
-// Read docs/performance.md for the current profile this harness produced and
-// the optimizations still open.
+// cuniform performance benchmark: `npm run bench`, deliberately not part of `npm test`.
+// The renderer section uses FakeContext2D, so it measures JS work only, not a real canvas frame.
+// Read docs/performance.md for the current profile.
 
 import { PerformanceObserver } from "perf_hooks";
 
@@ -43,7 +34,6 @@ function row(label: string, value: string): void {
     console.log(label.padEnd(26) + value);
 }
 
-/** Warm once, then average `reps` timed runs. */
 function timePer(fn: () => void, reps: number): number {
     fn();
 
@@ -79,17 +69,7 @@ function benchSolver(): void {
     }
 }
 
-/**
- * Time the component anchor on identical work: one component whose centroid is
- * inside the dead zone, where the `anyActive` gate skips the pass, and the same
- * component shifted so its centroid is outside, where the pass runs. Both have
- * the same node and edge counts and the same internal (relative) geometry, and
- * their rows are timed alternately on identical states, so the delta is the
- * anchor's cost. Read the delta against the run-to-run spread reported for one
- * row, not as an absolute zero: the pass is O(N + C) over pooled buffers, so on
- * this machine its cost sits inside the noise of a few hundredths of a
- * millisecond per step.
- */
+// Same topology with the centroid inside vs outside the dead zone; the delta is the anchor's cost.
 function benchComponentAnchor(): void {
     console.log("\n== per-component anchor (same topology, dead zone vs engaged) ==");
     row("N / E", "skipped ms | engaged ms | delta | run spread");
@@ -97,14 +77,11 @@ function benchComponentAnchor(): void {
     const cases: Array<[number, number]> = [[1024, 12], [4096, 4]];
 
     for (const [order, reps] of cases) {
-        // One path, so internal forces cancel in the centroid exactly and the
-        // component translates as a rigid body. The engaged copy is shifted far
-        // enough that its centroid is well outside the 150-unit dead zone.
+        // One path so internal forces cancel at the centroid; the engaged copy sits outside the dead zone.
         const skipped = disconnectedPaths(0, order, 1);
         const engaged = disconnectedPaths(0, order, 1, { x: 4000, y: 0, z: 0 });
 
-        // Alternate the two so neither pays a first-run warm-up the other does
-        // not, and so both see the same spread of positions.
+        // Alternate so neither pays a warm-up the other does not.
         const step = (fixture: ReturnType<typeof disconnectedPaths>) =>
             fixture.fdg.stepPhysics();
 
@@ -144,7 +121,6 @@ interface RepulsionMeasurement {
     max: number;
 }
 
-/** Time the repulsion pass and measure its error against the exact reference. */
 function measureRepulsion(order: number, seed: number, reps: number): RepulsionMeasurement {
     const graph = sparseGraph(order, seed);
     const solver = new ForceDirectedGraph(graph);
@@ -167,8 +143,7 @@ function measureRepulsion(order: number, seed: number, reps: number): RepulsionM
     }
     solver.accumulateRepulsion(out);
 
-    // Bounded-error check against the exact per-node reference, on a fixed
-    // stride sample so one O(N) reference call per sampled node stays cheap.
+    // Fixed-stride sample keeps the O(N) exact per-node reference call cheap.
     const stride = Math.max(1, Math.floor(order / ERROR_SAMPLE));
     const exact: Array<{ x: number; y: number; z: number }> = [];
 
@@ -181,9 +156,7 @@ function measureRepulsion(order: number, seed: number, reps: number): RepulsionM
         exactTotal += Math.hypot(force.x, force.y, force.z);
     }
 
-    // Normalised by the mean exact force magnitude: a body near a force balance
-    // has an exact magnitude near zero and would otherwise dominate a per-node
-    // ratio while its absolute error stays tiny.
+    // Normalised by mean exact magnitude: a body near balance would otherwise dominate the ratio.
     const scale = exactTotal / exact.length;
 
     let total = 0;
@@ -248,7 +221,6 @@ function benchOpeningAngle(): void {
     }
 }
 
-/** The size/quality trade the "auto" default makes, with its force error. */
 function benchQuality(): void {
     console.log(
         `\n== quality policy (auto = accurate below N=${K.physics.barnesHutFastMinNodes}, ` +
@@ -285,8 +257,7 @@ function benchKernel(): void {
     for (let i = 0; i < deltas.length; i++)
         deltas[i] = random() * 1200 - 600;
 
-    // The sums stop the loop being optimised away and let the two variants be
-    // checked as doing the same work.
+    // Sums stop the loop being optimised away and verify both variants do the same work.
     const sums = new Float64Array(2);
 
     const hypotMs = timePer(() => {
@@ -325,18 +296,15 @@ interface RenderMeasurement {
     texts: number;
 }
 
-/** Render into a fresh context per frame; the fake records every call. */
 function measureRender(graph: Graph, camera: CameraView, reps: number): RenderMeasurement {
     let bestMs = Infinity;
     let ops = 0;
     let texts = 0;
 
-    // The frame takes the selection as an argument now; resolve it once, as the
-    // controller does, rather than letting the renderer scan per frame.
+    // Resolve the selection once, as the controller does, rather than per frame.
     const selected = graph.selectedVertex();
 
-    // Best of three batches: the fake context's recording makes single batches
-    // noisy enough to swamp the difference between the two paths.
+    // Best of three batches: single batches are too noisy to compare paths.
     for (let batch = 0; batch < 3; batch++) {
 
         const contexts: FakeContext2D[] = [];
@@ -383,11 +351,7 @@ function benchRender(): void {
 
         const reps = order <= 1024 ? 10 : 3;
 
-        // Thresholds forced off is the unbatched frame: every label, one path per
-        // edge. The coarse preset is forced off too, or it would still run at
-        // 4096+. "coarse" forces the large-graph preset on the same fixture. The ms
-        // columns are JS-work proxies only: the fake context charges nothing for
-        // real arc/fill rasterisation, so they are not a real frame time.
+        // Thresholds forced off = unbatched frame; ms columns are JS-work proxies, not real frame time.
         const legacy = withRendererSettings(
             { minNodes: Infinity, labelMaxNodes: Infinity, batchEdgesMinEdges: Infinity },
             () => measureRender(graph, projector.camera, reps)
@@ -403,9 +367,8 @@ function benchRender(): void {
     }
 }
 
-/** Run `workload` `reps` times under a GC observer and report wall vs GC time. */
 async function measureGc(label: string, workload: () => void, reps: number): Promise<void> {
-    workload(); // warm
+    workload();
 
     let gcMs = 0;
     let gcCount = 0;

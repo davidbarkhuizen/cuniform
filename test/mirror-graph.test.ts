@@ -5,11 +5,8 @@ import { Graph } from "../src/graph/Graph";
 import { buildMirrorGraph, packMirror } from "../src/graph/MirrorGraph";
 import { Tag } from "../src/graph/Tag";
 
-/**
- * `packMirror` and `buildMirrorGraph` are the two directions of one wire format,
- * so the index space, the strides and the missing-endpoint sentinel are asserted
- * as a round trip rather than as two independent encodings.
- */
+/** `packMirror` and `buildMirrorGraph` are the two directions of one wire format;
+ * the index space, strides and missing-endpoint sentinel are asserted as a round trip. */
 
 function fixture(): Graph {
     const graph = new Graph();
@@ -40,7 +37,6 @@ test("packMirror lays positions out as 3N and edges as 2E", () => {
         graph.vertices.flatMap(tag => [tag.position.x, tag.position.y, tag.position.z])
     );
 
-    // Node insertion order is the index space.
     assert.deepEqual([...wire.edges], [0, 1, 0, 1, 1, 1, 0, 2]);
 });
 
@@ -66,7 +62,6 @@ test("a graph packMirror round-trips through buildMirrorGraph", () => {
         );
     });
 
-    // Topology, not just counts: every original edge resolves to the same pair.
     const pairs = (g: Graph) =>
         g.edges.map(e => [g.vertices.indexOf(e.v1), g.vertices.indexOf(e.v2)] as const);
 
@@ -74,10 +69,8 @@ test("a graph packMirror round-trips through buildMirrorGraph", () => {
 });
 
 test("a -1 endpoint is dropped on decode", () => {
-    // The decoder is total over the wire: a message whose edge names a node that
-    // is not in the index space must be skipped rather than index a missing tag.
-    // Graph.addEdge() prevents the encoder from producing this, so the wire form
-    // is built directly.
+    // The decoder must skip an edge naming a node outside the index space rather
+    // than index a missing tag; Graph.addEdge() prevents the encoder from producing this.
     const positions = new Float64Array([0, 0, 0, 10, 0, 0]);
     const edges = new Int32Array([0, 1, 1, -1, -1, 0]);
 

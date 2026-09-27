@@ -4,32 +4,15 @@ import { radialComponentsInto, radius, repulsionMagnitude } from "./Kernel";
 import { Tag } from "../graph/Tag";
 
 /**
- * Barnes-Hut octree over the model positions (docs/performance.md).
- *
- * The all-pairs repulsion pass is O(N^2) and was 85-98% of a step at N >= 512. The
- * tree replaces the far field with a cell's charge total at its centre of mass,
- * which is the standard approximation for a long-range law; the near field stays
- * exact. It is pure geometry and arithmetic, like Projector.ts.
- *
- * Everything is structure-of-arrays: bodies and cells live in pooled
- * `Float64Array`/`Int32Array` buffers that are reused across builds, so a step
- * allocates nothing steady-state.
+ * Barnes-Hut octree over model positions (docs/performance.md). Structure-of-arrays:
+ * pooled buffers are reused across builds, so a steady-state step allocates nothing.
  */
 
-// Half-extent floor for the root cube, so an all-coincident (or single-point)
-// body set still has an octree to subdivide.
+// Root half-extent floor, so an all-coincident body set still has an octree to subdivide.
 const MIN_HALF_EXTENT = 1e-6;
 
-/**
- * The opening-angle ceiling docs/performance.md documents,
- * 2/sqrt(3) ~= 1.1547.
- *
- * It is a sanity clamp only: the traversal additionally tracks which cell
- * contains the body being evaluated and never accepts that cell as an aggregate,
- * so self-exclusion does not depend on theta. A theta-only guarantee would in
- * fact need theta < 1/sqrt(3) ~= 0.577, because the centre of mass of a cell can
- * sit at the opposite corner from the body, giving s/d as low as 1/sqrt(3).
- */
+/** Opening-angle ceiling, 2/sqrt(3); a sanity clamp only — self-exclusion comes from the
+ * traversal's `contains` flag, not theta (a theta-only bound would need < 1/sqrt(3)). */
 export const MAX_OPENING_ANGLE = 2 / Math.sqrt(3);
 
 export function clampOpeningAngle(theta: number): number {
@@ -39,35 +22,25 @@ export function clampOpeningAngle(theta: number): number {
     return Math.min(theta, MAX_OPENING_ANGLE);
 }
 
-/**
- * Which octant of a cell centred at `(cx, cy, cz)` holds `(x, y, z)`: bit 0 is
- * +x, bit 1 is +y, bit 2 is +z.
- *
- * One home for the predicate, so the partition in `buildCell()` and the
- * `contains` chain in `accumulateForce()` cannot disagree about which child owns
- * a body - the disagreement that would let a body accept its own containing cell
- * as an aggregate.
- */
+/** Octant of a cell holding `(x, y, z)`; one predicate, so `buildCell()` and the
+ * `contains` chain in `accumulateForce()` cannot disagree about which child owns a body. */
 function octantOf(x: number, y: number, z: number, cx: number, cy: number, cz: number): number {
     return (x >= cx ? 1 : 0) | (y >= cy ? 2 : 0) | (z >= cz ? 4 : 0);
 }
 
 export class Octree {
 
-    // Bodies: positions copied once per build, plus the permutation that makes
-    // each leaf's bodies a contiguous slice of `bodyOrder`.
     bodyX = new Float64Array(0);
     bodyY = new Float64Array(0);
     bodyZ = new Float64Array(0);
     bodyOrder = new Int32Array(0);
 
-    // Cells. Index 0 is the root after build(). A cell spans
-    // [center - half, center + half] on each axis.
+    // Index 0 is the root after build(); a cell spans [center - half, center + half].
     cellCenterX = new Float64Array(0);
     cellCenterY = new Float64Array(0);
     cellCenterZ = new Float64Array(0);
     cellHalf = new Float64Array(0);
-    /** Charge total, the aggregate magnitude factor (one unit charge per body). */
+    /** Charge total (one unit per body), the aggregate magnitude factor. */
     cellMass = new Float64Array(0);
     cellCenterOfMassX = new Float64Array(0);
     cellCenterOfMassY = new Float64Array(0);
@@ -75,15 +48,11 @@ export class Octree {
     /** First child index, or -1 when the cell is a leaf bucket. */
     cellFirstChild = new Int32Array(0);
     cellChildCount = new Int32Array(0);
-    /** Which octant of its parent each non-empty child occupies. */
     cellChildOctant = new Int8Array(0);
-    /** Slice of `bodyOrder` owned by a leaf bucket. */
     cellStart = new Int32Array(0);
     cellCount = new Int32Array(0);
 
-    /** Cells in use after the most recent build. */
     cells = 0;
-    /** Bodies in the tree after the most recent build. */
     bodies = 0;
 
     private theta = K.physics.barnesHutTheta;
@@ -101,14 +70,9 @@ export class Octree {
     private stackCell = new Int32Array(0);
     private stackContains = new Uint8Array(0);
 
-    // Radial-component scratch for Kernel.radialComponentsInto(), so the leaf
-    // pass allocates nothing steady-state.
+    // Scratch for Kernel.radialComponentsInto(), keeping the leaf pass allocation-free.
     private readonly radialScratch = new Float64Array(3);
 
-    /**
-     * Rebuild the tree from `vertices`. The arrays only ever grow, so a repeated
-     * build at the same size reuses every buffer.
-     */
     build(
         vertices: readonly Tag[],
         theta: number = K.physics.barnesHutTheta,
@@ -152,8 +116,8 @@ export class Octree {
 
         const span = Math.max(maxX - minX, maxY - minY, maxZ - minZ);
 
-        // Inflated by a whisker so rounding cannot leave a point just outside its
-        // own root cube; the minimum covers the all-coincident case.
+        // Inflated so rounding cannot leave a point outside its own root cube; the
+        // floor covers the all-coincident case.
         const half = span > 0 ? (span / 2) * (1 + 1e-9) : MIN_HALF_EXTENT;
 
         const root = this.newCell(
@@ -168,10 +132,7 @@ export class Octree {
         this.buildCell(root, 0, maxDepth);
     }
 
-    /**
-     * Add the approximate repulsion on every body into `outX/outY/outZ`. It adds
-     * rather than assigns, matching the exact kernel's accumulate contract.
-     */
+    /** Adds into outX/outY/outZ, matching the exact kernel's accumulate contract. */
     accumulateForce(outX: Float64Array, outY: Float64Array, outZ: Float64Array): void {
 
         const n = this.bodies;
@@ -214,8 +175,8 @@ export class Octree {
             let fy = 0;
             let fz = 0;
 
-            // Depth-first walk. `contains` records whether the cell on the stack
-            // holds body i; such a cell must never be accepted as an aggregate.
+            // Depth-first walk. `contains` marks whether the stacked cell holds body i;
+            // such a cell must never be accepted as an aggregate.
             let stackSize = 0;
             stackCell[stackSize] = 0;
             stackContains[stackSize] = 1;
@@ -229,7 +190,6 @@ export class Octree {
                 const contains = stackContains[stackSize];
                 const first = firstChild[cell];
 
-                // Leaf: evaluate every other body in the bucket exactly.
                 if (first < 0) {
 
                     const sliceStart = start[cell];
@@ -247,9 +207,8 @@ export class Octree {
                         const dz = pz - bodyZ[j];
                         const r = radius(dx, dy, dz);
 
-                        // Direction, clamp and the coincident tie-break are the
-                        // kernel's, so a leaf agrees with the exact kernel about
-                        // which of a coincident pair is pushed along -x.
+                        // Direction, clamp and coincident tie-break come from Kernel,
+                        // so a leaf agrees with the exact kernel about the pushed body.
                         radialComponentsInto(
                             dx,
                             dy,
@@ -274,17 +233,13 @@ export class Octree {
                 const d = radius(dx, dy, dz);
                 const extent = 2 * half[cell];
 
-                // Far enough away to use the aggregate: a cell holding `mass`
-                // unit charges repels with `mass` times one charge's magnitude.
-                // `d === 0` makes the test false, so such a cell recurses instead.
+                // Far enough away to use the aggregate; `d === 0` fails the test, so a
+                // cell whose centre of mass coincides with the body recurses instead.
                 if (!contains && d > 0 && extent / d < theta) {
 
-                    // Deliberately inline rather than Kernel.radialComponentsInto(),
-                    // unlike the leaf below: this is the hot traversal, and routing
-                    // it through the helper measured 8-25% slower on the committed
-                    // benchmark's repulsion column (docs/performance.md). `d > 0` is
-                    // guaranteed by the test above, so the coincident tie-break
-                    // cannot apply, and the arithmetic is the helper's own.
+                    // Deliberately inlined, unlike the leaf below: routing this hot
+                    // traversal through Kernel.radialComponentsInto() measured 8-25%
+                    // slower (docs/performance.md).
                     const magnitude = mass[cell] * repulsionMagnitude(d);
 
                     fx += (magnitude * dx) / d;
@@ -294,8 +249,7 @@ export class Octree {
                     continue;
                 }
 
-                // Recurse. The child on body i's side of the split inherits
-                // `contains`, and the octant comes from the one predicate.
+                // Recurse; the child on body i's side of the split inherits `contains`.
                 const octant = octantOf(px, py, pz, centerX[cell], centerY[cell], centerZ[cell]);
 
                 const children = childCount[cell];
@@ -323,8 +277,7 @@ export class Octree {
 
         const cellHalf = this.cellHalf[cell];
 
-        // The precision floor: beyond the depth cap, or once halving can no
-        // longer move, keep a bucket and let traversal do exact pairwise work.
+        // Precision floor: past the depth cap, or once halving cannot move, keep a bucket.
         if (sliceCount === 1 || depth >= maxDepth || !(cellHalf > 0)) {
             this.makeLeaf(cell, sliceStart, sliceCount);
             return;
@@ -367,8 +320,7 @@ export class Octree {
         for (let k = sliceStart; k < sliceStart + sliceCount; k++)
             order[k] = partition[k];
 
-        // Allocate every non-empty child up front so a cell's children are
-        // contiguous and traversal can walk them by offset.
+        // Allocate non-empty children up front so a cell's children stay contiguous for traversal.
         const childHalf = cellHalf / 2;
         const first = this.cells;
         let children = 0;
@@ -399,8 +351,6 @@ export class Octree {
         for (let c = 0; c < children; c++)
             this.buildCell(first + c, depth + 1, maxDepth);
 
-        // Aggregate bottom-up: mass is the charge total, the centre of mass its
-        // charge-weighted mean.
         let totalMass = 0;
         let mx = 0;
         let my = 0;

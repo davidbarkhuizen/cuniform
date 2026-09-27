@@ -5,10 +5,7 @@ export interface Edge {
     v2: Tag;
 }
 
-/**
- * The endpoint of `edge` that is not `tag`, or null when `tag` is not an
- * endpoint at all or the edge is a self-loop.
- */
+/** The endpoint of `edge` other than `tag`; null for a self-loop or an unknown tag. */
 export function otherEndpoint(edge: Edge, tag: Tag): Tag | null {
     if (edge.v1 === edge.v2)
         return null;

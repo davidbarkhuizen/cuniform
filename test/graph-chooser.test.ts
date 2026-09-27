@@ -15,7 +15,6 @@ import {
     withUIController,
 } from "./support/dom";
 
-/** A comparable snapshot of the live camera, which a reset must not disturb. */
 function cameraState(controller: UIController) {
     const camera = controller.state.camera;
 
@@ -37,8 +36,6 @@ function chooseMolecule(controller: UIController, id: string): void {
 
     el(tag!.element).dispatch("click");
 }
-
-// ---------------------------------------------------------------- opening
 
 test("onReset opens the chooser and leaves the running graph identical", () => {
     withUIController(({ controller }) => {
@@ -105,8 +102,6 @@ test("a chooser after a choice is dismissible and seeded from that choice", () =
         assert.equal(second.branchingInput.value, "3");
     });
 });
-
-// ------------------------------------------------------------- completing
 
 test("completing with a random spec swaps the graph and re-registers nothing", () => {
     withUIController(({ dom, elements, canvas, controller }) => {
@@ -187,8 +182,6 @@ test("the panel's graph line names the loaded graph", () => {
     });
 });
 
-// -------------------------------------------------------------- cancelling
-
 test("cancelling leaves the graph, timer, listeners and camera untouched", () => {
     withUIController(({ dom, elements, canvas, controller }) => {
         // Make a choice first, so cancelling below has a definite graph to keep.
@@ -220,8 +213,6 @@ test("cancelling leaves the graph, timer, listeners and camera untouched", () =>
         assert.equal(canvas.focused, true, "focus returns to the canvas through onDismiss");
     });
 });
-
-// ------------------------------------------------------------ composition
 
 test("openGraphWizard closes an open context menu", () => {
     withUIController(({ canvas, controller }) => {

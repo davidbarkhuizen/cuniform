@@ -6,22 +6,15 @@ export class Graph {
 	vertices: Array<Tag> = [];
 	edges: Array<Edge> = [];
 
-	/**
-	 * Incident edges per vertex, kept in sync with `edges`; the spring pass walks these
-	 * instead of rescanning every edge, turning O(V*E) per step into O(V + E).
-	 */
+	/** Incident edges per vertex, kept in sync with `edges`. */
 	adjacency: Map<Tag, Array<Edge>> = new Map();
 
-	/**
-	 * Undirected membership index, kept in sync with `edges`; `hasEdge` reads it in
-	 * O(1) instead of rescanning every edge. A self-loop indexes its vertex here,
-	 * but `hasEdge(v, v)` is still false.
-	 */
+	/** Undirected membership index, kept in sync with `edges`. */
 	private readonly neighbourSets: Map<Tag, Set<Tag>> = new Map();
 
 	addNode(tag: Tag) {
 		// A repeated vertex would double-count in the O(N^2) pass and make every
-		// index-based tie-break ambiguous, so it is rejected like a foreign edge.
+		// index-based tie-break ambiguous, so it is rejected.
 		if (this.adjacency.has(tag))
 			throw new Error("Graph.addNode: vertex is already in the graph");
 
@@ -31,8 +24,6 @@ export class Graph {
 	};
 
 	addEdge(v1: Tag, v2: Tag) {
-		// The adjacency map is the membership index: addNode() is its only writer,
-		// so a tag it holds is in `vertices`. An O(1) lookup, not an indexOf scan.
 		const incidentToV1 = this.adjacency.get(v1);
 		const incidentToV2 = this.adjacency.get(v2);
 		const neighboursOfV1 = this.neighbourSets.get(v1);
@@ -50,19 +41,15 @@ export class Graph {
 		if (v2 !== v1)
 			incidentToV2.push(edge);
 
-		// Membership is undirected and idempotent under the duplicate edges addEdge
-		// permits. A self-loop still records the pair; hasEdge applies the
-		// "a vertex is not its own neighbour" rule on read.
+		// A self-loop still records the pair here; `hasEdge` applies the not-own-neighbour rule on read.
 		neighboursOfV1.add(v2);
 		neighboursOfV2.add(v1);
 	};
 
-	/** The edges incident to `v`, in insertion order. Empty for an unknown tag. */
 	incidentEdges(v: Tag): Array<Edge> {
 		return this.adjacency.get(v) ?? [];
 	};
 
-	/** True when an undirected edge already joins v1 and v2. O(1). */
 	hasEdge(v1: Tag, v2: Tag) {
 		// A vertex is not its own neighbour, even though a self-loop is indexed.
 		if (v1 === v2)
@@ -71,10 +58,7 @@ export class Graph {
 		return this.neighbourSets.get(v1)?.has(v2) ?? false;
 	};
 
-	/**
-	 * The distinct neighbours of `v`, in insertion order, one entry per adjacent vertex;
-	 * duplicate edges and self-loops never produce a repeated entry.
-	 */
+	/** The distinct neighbours of `v`, in insertion order. */
 	neighbours(v: Tag) {
 		var out: Array<Tag> = [];
 		var seen = new Set<Tag>();
@@ -96,7 +80,6 @@ export class Graph {
 		return out;
 	};
 
-	/** The first selected vertex, or null when nothing is selected. */
 	selectedVertex(): Tag | null {
 		return this.vertices.find(v => v.isSelected) ?? null;
 	};

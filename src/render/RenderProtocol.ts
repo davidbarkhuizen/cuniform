@@ -8,18 +8,8 @@ import { render } from "./Renderer";
 import { RenderSurface, resizeBackingStore } from "./RenderSurface";
 
 /**
- * The message protocol between the main thread and a dedicated render worker,
- * plus the worker-side engine that applies it.
- *
- * This module is pure: it names no browser global, so it can be driven by the
- * worker entry, by the main thread and by an in-memory fake in tests. The worker
- * entry (`render.worker.ts`) is the only piece that touches `self`, the
- * `OffscreenCanvas` or `postMessage`.
- *
- * Everything per-frame is a typed array. A frame carries the model positions one
- * way and returns them, plus the frame's depths, the other way, both as pointer
- * moves: the main thread keeps the projection out of its tick and the drawer
- * owns the depths it actually drew.
+ * The protocol between the main thread and the render worker, plus the worker-side engine. Pure: only
+ * `render.worker.ts` touches `self`, `OffscreenCanvas` or `postMessage`.
  */
 
 /** A camera as it crosses the boundary: 9 orientation entries, 3 target coordinates, distance. */
@@ -32,7 +22,6 @@ export interface InitRequest {
     labels: string[];
     /** Undirected edge endpoints as node-index pairs, length 2E. */
     edges: Int32Array;
-    /** Node positions as `[x0, y0, z0, x1, ...]`, length 3N. */
     positions: Float64Array;
 }
 
@@ -41,17 +30,11 @@ export interface FrameRequest {
     generation: number;
     /** Monotonic id, echoed in the ack so the main thread can drop a stale frame. */
     frameId: number;
-    /** The camera, packed by `encodeCamera`: length `CAMERA_VALUES`. */
     camera: Float64Array;
-    /** The frame's model positions, length 3N. Posted with transfer; returned in the ack. */
+    /** The frame's model positions, length 3N, posted with transfer and returned in the ack. */
     positions: Float64Array;
-    /** Index of the selected node, or -1. An index, not an object, crosses. */
     selected: number;
-    /**
-     * The frame's display emphasis, its `Emphasis` wire value. A number rather
-     * than a name, because nothing per frame is a string; an unknown value
-     * decodes to `nodes`.
-     */
+    /** The `Emphasis` wire value; an unknown value decodes to `nodes`. */
     emphasis: number;
     /** Logical (CSS-pixel) canvas size and the device-pixel ratio to size the store with. */
     width: number;
@@ -66,7 +49,6 @@ export interface ExportRequest {
 
 export type RenderRequest = InitRequest | FrameRequest | ExportRequest;
 
-/** Posted once, at worker script load. */
 export interface ReadyResponse {
     type: "ready";
 }
@@ -75,16 +57,12 @@ export interface DrawnResponse {
     type: "drawn";
     generation: number;
     frameId: number;
-    /** The frame's `positions` buffer, handed back so the main thread reuses it. */
     positions: Float64Array;
-    /** This frame's view depths, length N. Posted with transfer. */
+    /** This frame's view depths, length N, posted with transfer. */
     depths: Float64Array;
 }
 
-/**
- * Produced by the worker entry, not by the engine: `convertToBlob` is not part
- * of the drawing subset `RenderSurface` describes.
- */
+/** Produced by the worker entry, not the engine: `convertToBlob` is outside the `RenderSurface` subset. */
 export interface PngResponse {
     type: "png";
     requestId: number;
@@ -104,8 +82,7 @@ export function initRequest(graph: Graph, generation: number): InitRequest {
 
     const vertices = graph.vertices;
 
-    // The render mirror needs the real labels; the wire form is otherwise the
-    // shared encoding, so only this realm pays for them.
+    // The render mirror needs the real labels; the rest of the wire form is the shared encoding.
     const labels: string[] = new Array(vertices.length);
 
     for (let i = 0; i < vertices.length; i++)
@@ -116,16 +93,11 @@ export function initRequest(graph: Graph, generation: number): InitRequest {
     return { type: "init", generation, labels, edges: wire.edges, positions: wire.positions };
 }
 
-/** Pack a camera's 13 mutable numbers, so a frame message is a typed array. */
 export function encodeCamera(view: CameraView): Float64Array {
     return encodeCameraInto(view, new Float64Array(CAMERA_VALUES));
 }
 
-/**
- * `encodeCamera` written into caller-owned scratch, so a steady-state frame
- * allocates nothing. The scratch is posted by structured clone, not transfer,
- * because the sender reuses it.
- */
+/** `encodeCamera` into caller-owned scratch; posted by clone, not transfer, because the sender reuses it. */
 export function encodeCameraInto(view: CameraView, out: Float64Array): Float64Array {
 
     for (let i = 0; i < 9; i++)
@@ -140,9 +112,8 @@ export function encodeCameraInto(view: CameraView, out: Float64Array): Float64Ar
 }
 
 /**
- * Unpack a camera. `focalLength` and `nearPlane` are fixed for a camera's life
- * (`Camera.ts`) and never change at runtime, so both realms read them from `K`
- * rather than paying for them in every frame.
+ * `focalLength` and `nearPlane` are fixed for a camera's life (`Camera.ts`), so they are read from `K`, never
+ * sent.
  */
 export function decodeCamera(values: Float64Array): CameraView {
     return {
@@ -163,10 +134,8 @@ export function decodeCamera(values: Float64Array): CameraView {
 }
 
 /**
- * The worker-side renderer. It rebuilds the same `Tag` graph the main thread
- * has (through the shared `buildMirrorGraph`), projects it with the frame's
- * camera and draws it, so a frame's pixels and depths are produced in one realm
- * by the one projector that camera implies.
+ * Rebuilds the main thread's `Tag` graph through the shared `buildMirrorGraph`, then projects and draws it.
+ * Pixels and depths come from the one projector that camera implies (invariant 2).
  */
 export class RenderWorkerEngine {
 
@@ -176,16 +145,12 @@ export class RenderWorkerEngine {
     private target: RenderTarget | null = null;
     private generation = -1;
 
-    // Cached so a frame at an unchanged size never reallocates the backing
-    // store, which on a real canvas is a costly reallocation.
+    // Cached so a frame at an unchanged size never reallocates the backing store.
     private sizedWidth = -1;
     private sizedHeight = -1;
     private sizedDpr = -1;
 
-    /**
-     * Inject the drawing surface and its writable canvas. The engine then names
-     * no canvas type and touches no DOM global.
-     */
+    /** Inject the drawing surface and its writable canvas, so the engine names no canvas type. */
     attach(surface: RenderSurface, target: RenderTarget): void {
         this.surface = surface;
         this.target = target;
@@ -194,7 +159,6 @@ export class RenderWorkerEngine {
         this.sizedDpr = -1;
     }
 
-    /** Apply one request; returns the response to post, or null when none is due. */
     handle(request: RenderRequest): DrawnResponse | null {
 
         if (request.type === "init") {
@@ -205,8 +169,7 @@ export class RenderWorkerEngine {
         if (request.type === "frame")
             return this.draw(request);
 
-        // `export` is the entry's to fulfil: `convertToBlob` is not part of the
-        // drawing subset, so the engine stays pure and returns nothing.
+        // `export` is the entry's to fulfil: `convertToBlob` is outside the drawing subset.
         return null;
     }
 
@@ -215,8 +178,7 @@ export class RenderWorkerEngine {
         const surface = this.surface;
         const graph = this.graph;
 
-        // A frame before init, or one computed for a graph that has since been
-        // replaced, has nothing to draw.
+        // A frame before init, or one for a graph since replaced, has nothing to draw.
         if (surface === null || graph === null || this.target === null)
             return null;
 
@@ -225,8 +187,7 @@ export class RenderWorkerEngine {
 
         this.resize(request.width, request.height, request.dpr);
 
-        // The frame's positions are the model state; write them onto the mirror
-        // before projecting, exactly as the main thread's tags would have been.
+        // The frame's positions are the model state: write them onto the mirror before projecting.
         writePositions(graph, request.positions);
 
         const projector = Projector.forCanvas(request.width, request.height, decodeCamera(request.camera));
@@ -239,8 +200,7 @@ export class RenderWorkerEngine {
 
         render(surface, graph, projector.camera, selected, emphasisFromWire(request.emphasis));
 
-        // A fresh depth array crosses back (transferred), so the main thread can
-        // restore `Tag.depth` for the drag and the cull tie-break.
+        // A fresh depth array crosses back (transferred), so the main thread can restore `Tag.depth`.
         const depths = new Float64Array(graph.vertices.length);
 
         for (let i = 0; i < depths.length; i++)
@@ -270,8 +230,7 @@ export class RenderWorkerEngine {
         if (target === null || surface === null)
             return;
 
-        // The same helper the in-process backend uses, so both realms size the
-        // backing store and set the transform identically.
+        // The same helper the in-process backend uses, so both realms size the backing store identically.
         resizeBackingStore(target, surface, width, height, dpr);
     }
 

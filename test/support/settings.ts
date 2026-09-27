@@ -1,25 +1,14 @@
-// The `K.renderer` threshold override, shared by the test suite and the
-// benchmark. It lives outside `support/dom.ts` so the benchmark can use it
-// without pulling in the DOM fakes.
+// Lives outside `support/dom.ts` so the benchmark can use it without pulling in the DOM fakes.
 
 import { K } from "../../src/core/K";
 
-/** The `K.renderer` thresholds a caller may need to move for one scope. */
 export interface RendererSettings {
     labelMaxNodes?: number;
     batchEdgesMinEdges?: number;
     minNodes?: number;
 }
 
-/**
- * Run `fn` with the given `K.renderer` thresholds overridden, always restoring
- * every one of them.
- *
- * `K` must not be mutated at runtime, so a caller that needs a size-gated path
- * takes the override for exactly its own scope. One helper for all three keys, so
- * a new overridable key cannot be covered by one suite and silently missed by
- * another.
- */
+// `K` must not be mutated at runtime; one helper covers all three keys so a new one cannot be missed.
 export function withRendererSettings<T>(settings: RendererSettings, fn: () => T): T {
 
     const saved = {

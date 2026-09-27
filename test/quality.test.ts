@@ -23,8 +23,7 @@ test("accurate and fast override the graph size", () => {
 });
 
 test("the fast angle survives the octree's clamp", () => {
-    // openingAngleFor() returns unclamped so Octree owns the ceiling; the fast
-    // angle itself must sit under it and pass through unchanged.
+    // openingAngleFor() is deliberately unclamped; Octree owns the ceiling.
     assert.ok(K.physics.barnesHutFastTheta <= MAX_OPENING_ANGLE, "the fast angle exceeds the ceiling");
     assert.equal(clampOpeningAngle(K.physics.barnesHutFastTheta), K.physics.barnesHutFastTheta);
 });

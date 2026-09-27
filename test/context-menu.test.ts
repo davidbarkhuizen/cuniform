@@ -16,7 +16,6 @@ import {
     withUIControllerAsync,
 } from "./support/dom";
 
-/** Let every pending setTimeout(..., 0) callback run. */
 function flushDeferred() {
     return new Promise(resolve => setTimeout(resolve, 0));
 }
@@ -34,8 +33,6 @@ function entry(controller: UIController, label: string): FakeElement {
     return found!.element as unknown as FakeElement;
 }
 
-// ---------------------------------------------------------------- ContextMenu
-
 test("a context menu starts hidden and keeps its entries in order", () => {
     withFakeDom({}, () => {
         const menu = new ContextMenu([
@@ -52,7 +49,6 @@ test("the menu and its entries carry their own inline styles", () => {
     withFakeDom({}, () => {
         const menu = new ContextMenu([{ label: 'one', onSelect: () => {} }]);
 
-        // setStyle writes through the real style properties rather than an any.
         assert.equal(menu.element.style.position, 'absolute');
         assert.equal(menu.element.style.display, 'none');
         assert.equal(menu.entries[0].element.style.cursor, 'pointer');
@@ -78,7 +74,6 @@ test("open clamps the menu inside the viewport", () => {
         const menu = new ContextMenu([{ label: 'one', onSelect: () => {} }]);
         const element = el(menu.element);
 
-        // A right/bottom-edge menu of this size, against the fake 1024x768 viewport.
         element.rect = { ...element.rect, width: 200, height: 100 };
 
         menu.open(1000, 700);
@@ -111,8 +106,6 @@ test("selecting an entry hides the menu and runs its callback once", () => {
         assert.equal(menu.isOpen, false);
     });
 });
-
-// ----------------------------------------------------------- UIController UI
 
 test("right-click opens the context menu at the cursor and suppresses the browser menu", () => {
     withUIController(({ canvas, controller }) => {
@@ -161,8 +154,6 @@ test("the menu offers export, reset and clear selection", () => {
         );
     });
 });
-
-// -------------------------------------------------------- keyboard access
 
 test("menu entries are buttons carrying menu roles", () => {
     withFakeDom({}, () => {
@@ -223,8 +214,7 @@ test("focusing an entry directly resyncs the arrow-key roving index", () => {
         menu.open(1, 2);
         assert.equal(entries[0].focused, true, "open focuses the first entry");
 
-        // A pointer click or Tab moves focus without the arrow-key handler, so the
-        // focus event has to move the roving index with it.
+        // A pointer click or Tab bypasses the arrow-key handler, so focus must resync the roving index.
         entries[2].focus();
 
         el(menu.element).dispatch('keydown', keyEvent({ key: 'ArrowDown' }));
@@ -320,8 +310,7 @@ test("export navigates to a blob: URL, not a data: URL", async () => {
     await withUIControllerAsync(async ({ dom, controller }) => {
         entry(controller, 'export').dispatch('click');
 
-        // The PNG comes from the backend's promise, so the download is one
-        // microtask behind the click.
+        // The PNG comes from the backend's promise, so the download is one microtask behind the click.
         await flushDeferred();
 
         assert.equal(dom.objectUrls.created.length, 1, "export should mint exactly one object URL");
@@ -359,13 +348,11 @@ test("export revokes the object URL it created", async () => {
     await withUIControllerAsync(async ({ dom, controller }) => {
         entry(controller, 'export').dispatch('click');
 
-        // Let the backend's promise settle and the download run; the revoke it
-        // schedules is one timer behind, so it must not have fired yet.
+        // The backend's promise and the download run first; the revoke is one timer behind.
         await flushDeferred();
 
         assert.deepEqual(dom.objectUrls.revoked, [], "revocation must be deferred, not synchronous");
 
-        // The revoke runs from setTimeout(..., 0); flush it while the fake URL namespace is installed.
         await flushDeferred();
 
         assert.deepEqual(dom.objectUrls.revoked, dom.objectUrls.created);
@@ -436,7 +423,6 @@ test("a completed reset swaps the graph without rebuilding the menu or double-re
 
 test("initialize is idempotent: a second call doubles nothing", () => {
     withUIController(({ dom, elements, canvas, controller }) => {
-        // withController already initialized once; initialize again without terminating.
         controller.initialize();
 
         assert.equal(dom.animationFrames.length, 1, "one animation frame after two initializes");

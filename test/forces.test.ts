@@ -85,8 +85,7 @@ test("net force is the sum of the two force kernels", () => {
 });
 
 test("netForceAtNode is meaningful before the first step()", () => {
-    // Pre-step calls used to read step()-only caches and return {0, 0}, making
-    // convergence.test.ts's balance assertion vacuous.
+    // Must work before the first step(); convergence.test.ts's balance assertion depends on it.
     const { a, fdg } = pairAt(100);
 
     const e = fdg.netElectrostaticForceAtNode(a);
@@ -99,7 +98,6 @@ test("netForceAtNode is meaningful before the first step()", () => {
 });
 
 test("step() writes no force data onto a Tag", () => {
-    // Force is step-local, so a Tag never holds a half-written tick.
     const { graph, fdg } = pairAt(100);
 
     fdg.step(CANVAS_W, CANVAS_H);
@@ -128,8 +126,7 @@ test("coincident pairs separate deterministically, and the other edges still add
     assertClose(repel.x, -clamped - REPULSION_CONSTANT / Math.pow(10, 1.9), 1e-9, `repulsion was ${repel.x}`);
     assertClose(repel.y, 0, 1e-12, "repulsion must stay radial");
 
-    // Duplicate zero-length edges and the self-loop contribute no spring force,
-    // so only the a-c edge is felt.
+    // Duplicate zero-length edges and the self-loop add no spring force, so only the a-c edge is felt.
     const spring = fdg.netSpringForceAtNode(a);
     assertClose(
         spring.x,
@@ -175,8 +172,7 @@ test("exactly coincident unconnected nodes separate instead of staying a fixed p
 });
 
 test("paired repulsion equals the per-node reference exactly", () => {
-    // The paired accumulation order is bitwise-identical to the per-node
-    // reference, so the difference must be exactly 0, not within a tolerance.
+    // The paired order is bitwise-identical to the per-node reference, so the difference must be exactly 0.
     const fixtures: Graph[] = [newGraph(8, 3)];
 
     const coincident = new Graph();
@@ -203,7 +199,6 @@ test("paired repulsion equals the per-node reference exactly", () => {
         graph.vertices.forEach((tag, i) => {
             const reference = fdg.netElectrostaticForceAtNode(tag);
 
-            // eps = 0 takes assertClose's absolute branch: exactly 0, but -0 vs 0 still tolerated.
             assertClose(paired[i].x, reference.x, 0, `${tag.label} x`);
             assertClose(paired[i].y, reference.y, 0, `${tag.label} y`);
         });
@@ -217,9 +212,7 @@ test("one step evaluates repulsion once per unordered pair", () => {
 
     const fdg = new ForceDirectedGraph(graph);
 
-    // repulsionMagnitude calls Math.pow once per pair, and this graph is
-    // springless, so pow is a faithful pair counter now that hypot is gone from
-    // the kernel.
+    // repulsionMagnitude calls Math.pow once per pair and this graph is springless, so pow counts pairs.
     const realPow = Math.pow;
     let calls = 0;
 
@@ -234,7 +227,6 @@ test("one step evaluates repulsion once per unordered pair", () => {
         Math.pow = realPow;
     }
 
-    // C(5,2) = 10, where the old per-node scan made 20.
     assert.equal(calls, 10, `expected one evaluation per unordered pair, got ${calls}`);
 });
 
