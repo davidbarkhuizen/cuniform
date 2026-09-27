@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | Planned |
+| **Status** | Implemented |
 | **Area** | new `src/core/Emphasis.ts`, `src/render/Renderer.ts`, `src/render/RenderSurface.ts`, `src/render/RenderProtocol.ts`, `src/render/RenderRunner.ts`, `src/core/K.ts`, `src/app/UIController.ts`, `src/app/State.ts`, `src/app/entrypoint.ts`, `web/index.html`, `web/stylez.css`, `bench/render-frame.ts`, `test/architecture.test.ts`, `test/render.test.ts`, `test/render-worker.test.ts`, `test/render-runner.test.ts`, `test/display-emphasis.test.ts` (new), `test/layout.test.ts`, `test/support/dom.ts`, `docs/model-camera-and-rendering.md`, `docs/visual-layout-and-interaction.md`, `docs/constants.md`, `docs/invariants.md`, `docs/next-steps.md` |
 | **Depends on** | nothing outstanding — `main` is green at 946ffa4 (`npm run ci`, 524 tests) |
 | **Blocks** | nothing |
@@ -466,4 +466,43 @@ landed.
 
 ## 11. Post-implementation notes
 
-Recorded after the feature PRs land, so the plan and the code do not drift.
+Recorded after the feature PRs landed, so the plan and the code do not drift.
+PR 2 was #145; PR 3 is the panel control and the remaining docs.
+
+**Q1 resolved to the plan's own preset table, not the status quo.** `nodes`
+ships `edgeAlphaScale 0.55`, so the default frame does change and the
+`test/render.test.ts` goldens move with it. The status-quo alternative was
+rejected because §2's evidence is the plan's whole rationale and because the new
+`display-emphasis.test.ts` pins the contrast against `alphaAt()` rather than
+only through a golden. The measured table in §2 was re-derived rather than
+copied: dimming the edges to `0.55` does raise near node/edge contrast to
+6.75:1, and dimming the node fills to `0.70` does drop it to 1.95:1.
+
+**Q2 resolved to re-draw.** The coarse `edges` path re-draws the selected
+node's ring and the labels of the selection and its incident neighbours after
+the edge pass, bounded by `degree(selected) + 1`. The per-item and batched paths
+need no extra pass: they draw the whole node loop after the edge pass already.
+
+**Q3 and Q4 stand as proposed.** The emphasis rides the `frame` message as a
+number; `Emphasis`/`emphasis`/`emphasisSection`/`data-emphasis` are the shipped
+names.
+
+**A comparator bug the plan did not anticipate.** §4.2's `||` chain is not a
+total order: two items of different ranks fall through to the depth term, so
+V8's sort ordered the two classes arbitrarily and a first draft drew the mesh
+last in *both* configurations. The rank term is now its own `if`, and
+`docs/invariants.md` records why.
+
+**Two additions beyond the plan.** `State.emphasis` is re-seeded to `nodes` in
+`initialize()` (the plan's D3/D6 left the reset path implicit), so a second run
+is a fresh demo rather than a restored preference; and `Emphasis.ts` carries a
+name/value bridge (`isEmphasisName`/`emphasisValue`/`emphasisName`) beside the
+wire guard, because the panel's vocabulary is strings while the wire's is
+numbers and one table is what keeps them from drifting.
+
+**Everything durable is folded in:** the emphasis, the protocol row and the
+one-policy-three-paths rule in `docs/model-camera-and-rendering.md`; the panel
+section and its interaction rules in `docs/visual-layout-and-interaction.md`;
+the presets and the contrast table in `docs/constants.md`; the order and
+allocation invariants in `docs/invariants.md`. The `docs/next-steps.md` row is
+dropped. 524 tests before, 560 after.

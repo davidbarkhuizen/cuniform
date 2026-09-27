@@ -5,12 +5,15 @@
 The canvas fills the viewport: it is stretched over a fixed, full-viewport
 `.canvas-container`, and the backing store is re-sized when the window is
 resized. Everything else lives in a single floating overlay panel in the
-top-left corner, split into four sections:
+top-left corner, split into five sections, read top to bottom as identity →
+readings → camera → display → actions:
 
 - a **fixed menu** — the centred `cuniform` title and the current graph;
 - the **currently selected node** — the selection and its neighbours;
 - the **camera console** — six buttons that rotate the camera about its own
   axes, and two that dolly it in and out;
+- the **display emphasis** — two buttons that pick which of the graph's two
+  elements is the subject of the frame;
 - the **actions** — `export` and `reset`, at the foot of the panel.
 
 The panel's current-graph line names the loaded graph technically: the full
@@ -64,6 +67,16 @@ panel's drag surface.
 - **Shift+F10** (or the context-menu key) — opens the same actions menu from
   the keyboard. Its entries are buttons: Tab or the arrow keys move between
   them, Enter or Space activates one, and Escape closes the menu.
+- **Display emphasis** — two buttons, `nodes` (the default) and `edges`, in a
+  labelled group. `nodes` draws the vertices over the mesh; `edges` draws the
+  mesh over the vertices and 2.5 px heavier. It is a **frame** property, not a
+  selection one: global, unpersisted (a reload starts at `nodes`), and it changes
+  only what the drawer produces — never the graph, the physics, the camera, the
+  selection or the hit-test. Switching it redraws; it never wakes a settled
+  layout. The selected button carries `aria-pressed="true"`, and — because the
+  panel is a drag surface and these are real buttons — a press on one never
+  starts a drag. See
+  [Display emphasis](model-camera-and-rendering.md#display-emphasis).
 - **Drag the overlay panel** — by mouse or pen, anywhere on the panel; by touch,
   by the grip at its top. The grip is the only touch drag surface, so the panel
   body stays scrollable.
