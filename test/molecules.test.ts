@@ -36,7 +36,7 @@ function stub(id: string, commonName: string): CatalogEntry {
     return { id, commonName } as unknown as CatalogEntry;
 }
 
-test("the catalog holds at least twenty entries with unique keys, names and families", () => {
+test("the catalog holds at least twenty entries with unique keys and names", () => {
     assert.ok(CATALOG.length >= 20, `expected at least 20 entries, got ${CATALOG.length}`);
 
     const ids = new Set(MOLECULES.map(molecule => molecule.id));
@@ -44,9 +44,26 @@ test("the catalog holds at least twenty entries with unique keys, names and fami
 
     const commonNames = new Set(MOLECULES.map(molecule => molecule.commonName));
     assert.equal(commonNames.size, MOLECULES.length, "every common name must be unique");
+});
 
-    const familyNames = new Set(MOLECULES.map(molecule => molecule.family));
-    assert.equal(familyNames.size, MOLECULES.length, "every entry must represent its own family");
+test("every structural family has one flagship, except the two chlorophylls", () => {
+    // One flagship per family is the catalog's rule; chlorophylls a and b are the
+    // two compounds of a single family, so theirs is the only name that may repeat.
+    const byFamily = new Map<string, string[]>();
+
+    for (const molecule of MOLECULES)
+        byFamily.set(molecule.family, [...(byFamily.get(molecule.family) ?? []), molecule.id]);
+
+    for (const [family, ids] of byFamily) {
+        if (ids.length === 1)
+            continue;
+
+        assert.deepEqual(
+            ids,
+            ["chlorophyll-a", "chlorophyll-b"],
+            `family '${family}' repeats outside the chlorophylls`
+        );
+    }
 });
 
 test("every entry parses, with a positive atom, bond and ring count", () => {
