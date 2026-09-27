@@ -86,6 +86,9 @@ let itemKind = new Uint8Array(0);
 let itemIndex = new Int32Array(0);
 let itemDepth = new Float64Array(0);
 let batchOrder = new Int32Array(0);
+// The (style x alpha bucket) group of each batched edge item, computed once in
+// the counting pass and reused by the scatter pass.
+let batchGroup = new Int32Array(0);
 let groupCount = new Int32Array(0);
 let groupStart = new Int32Array(0);
 let groupWrite = new Int32Array(0);
@@ -112,6 +115,7 @@ function ensureBatchCapacity(n: number): void {
 	const capacity = doublingCapacity(batchOrder.length, n);
 
 	batchOrder = new Int32Array(capacity);
+	batchGroup = new Int32Array(capacity);
 }
 
 function ensureGroupCapacity(n: number): void {
@@ -372,6 +376,52 @@ export function render(
 		drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
 }
 
+// The leaf marks the per-item and coarse paths share. Those paths differ in
+// *when* they emit these, not in what they emit, so the primitives live once and
+// a size-gated path cannot drift.
+
+/** One edge segment at its cached canvas endpoints. */
+function edgeSegment(context: RenderSurface, edge: { v1: Tag; v2: Tag }): void {
+	context.moveTo(edge.v1.translatedPosition.x, edge.v1.translatedPosition.y);
+	context.lineTo(edge.v2.translatedPosition.x, edge.v2.translatedPosition.y);
+}
+
+/** True when `tag` is either endpoint of `edge`. */
+function edgeIncidentTo(edge: { v1: Tag; v2: Tag }, tag: Tag | null): boolean {
+	return tag !== null && (tag === edge.v1 || tag === edge.v2);
+}
+
+/**
+ * The selection ring, scaled to the node's depth-cued radius. Its width is set
+ * per stroke: an `edges` frame leaves `lineWidth` at the edge width, and the ring
+ * must not inherit it.
+ */
+function strokeSelectionRing(context: RenderSurface, x: number, y: number, radius: number): void {
+	circlePath(context, x, y, ringRadiusFor(radius));
+	context.strokeStyle = K.colours.nodeSelected;
+	context.lineWidth = NODE_RING_WIDTH;
+	context.stroke();
+}
+
+/** The node's label at the full depth ramp, which the fill's alpha scale never dims. */
+function drawNodeLabel(
+	context: RenderSurface,
+	node: Tag,
+	depth: number,
+	minDepth: number,
+	maxDepth: number,
+	hasRange: boolean
+): void {
+
+	context.globalAlpha = alphaAt(depth, minDepth, maxDepth, hasRange);
+	context.fillStyle = K.colours.label;
+	context.fillText(
+		node.label,
+		node.translatedPosition.x + K.label.horizontalSpacing,
+		node.translatedPosition.y - K.label.verticalSpacing
+	);
+}
+
 function drawEdge(
 	context: RenderSurface,
 	edge: { v1: Tag; v2: Tag },
@@ -386,15 +436,14 @@ function drawEdge(
 
 	context.globalAlpha = scaledAlpha(alphaAt(depth, minDepth, maxDepth, hasRange), alphaScale);
 	context.strokeStyle = colourFor(
-		selected === edge.v1 || selected === edge.v2,
+		edgeIncidentTo(edge, selected),
 		K.colours.edgeIncident,
 		K.colours.edgeDefault
 	);
 	context.lineWidth = width;
 
 	context.beginPath();
-	context.moveTo(edge.v1.translatedPosition.x, edge.v1.translatedPosition.y);
-	context.lineTo(edge.v2.translatedPosition.x, edge.v2.translatedPosition.y);
+	edgeSegment(context, edge);
 	context.stroke();
 }
 
@@ -415,7 +464,6 @@ function drawNode(
 	const x = node.translatedPosition.x;
 	const y = node.translatedPosition.y;
 	const radius = radiusAt(depth, focalLength);
-	const ringRadius = ringRadiusFor(radius);
 
 	// The node scale applies to the fill only: a label at 0.19 alpha would be
 	// unreadable, so text keeps the full depth ramp.
@@ -426,14 +474,8 @@ function drawNode(
 	circlePath(context, x, y, radius);
 	context.fill();
 
-	if (node.isSelected) {
-		circlePath(context, x, y, ringRadius);
-		context.strokeStyle = K.colours.nodeSelected;
-
-		// The ring has its own width so an `edges` frame cannot thicken it.
-		context.lineWidth = NODE_RING_WIDTH;
-		context.stroke();
-	}
+	if (node.isSelected)
+		strokeSelectionRing(context, x, y, radius);
 
 	// Label culling: with thousands of nodes the text is unreadable and fillText
 	// is the dominant real-canvas cost, so only the selection and its neighbours
@@ -443,11 +485,8 @@ function drawNode(
 		node === selected ||
 		(selected !== null && graph.hasEdge(selected, node));
 
-	if (labelled) {
-		context.globalAlpha = alphaAt(depth, minDepth, maxDepth, hasRange);
-		context.fillStyle = K.colours.label;
-		context.fillText(node.label, x + K.label.horizontalSpacing, y - K.label.verticalSpacing);
-	}
+	if (labelled)
+		drawNodeLabel(context, node, depth, minDepth, maxDepth, hasRange);
 }
 
 /**
@@ -482,14 +521,14 @@ function drawBatchedEdges(
 	for (let g = 0; g < groups; g++)
 		groupCount[g] = 0;
 
-	// The edge items occupy [0, edgeCount) of the item arrays, edges-first.
+	// The edge items occupy [0, edgeCount) of the item arrays, edges-first. The
+	// item's group is computed once here, then reused by the scatter pass.
 	for (let k = 0; k < edgeCount; k++) {
 
-		const edge = edges[itemIndex[k]];
-
 		const bucket = alphaBucket(itemDepth[k], minDepth, maxDepth, hasRange, buckets, span);
-		const group = (selected === edge.v1 || selected === edge.v2 ? buckets : 0) + bucket;
+		const group = (edgeIncidentTo(edges[itemIndex[k]], selected) ? buckets : 0) + bucket;
 
+		batchGroup[k] = group;
 		groupCount[group]++;
 	}
 
@@ -501,16 +540,8 @@ function drawBatchedEdges(
 		offset += groupCount[g];
 	}
 
-	for (let k = 0; k < edgeCount; k++) {
-
-		const index = itemIndex[k];
-		const edge = edges[index];
-
-		const bucket = alphaBucket(itemDepth[k], minDepth, maxDepth, hasRange, buckets, span);
-		const group = (selected === edge.v1 || selected === edge.v2 ? buckets : 0) + bucket;
-
-		batchOrder[groupWrite[group]++] = index;
-	}
+	for (let k = 0; k < edgeCount; k++)
+		batchOrder[groupWrite[batchGroup[k]]++] = itemIndex[k];
 
 	for (let g = 0; g < groups; g++) {
 
@@ -528,11 +559,8 @@ function drawBatchedEdges(
 
 		context.beginPath();
 
-		for (let t = groupStart[g]; t < groupStart[g] + count; t++) {
-			const edge = edges[batchOrder[t]];
-			context.moveTo(edge.v1.translatedPosition.x, edge.v1.translatedPosition.y);
-			context.lineTo(edge.v2.translatedPosition.x, edge.v2.translatedPosition.y);
-		}
+		for (let t = groupStart[g]; t < groupStart[g] + count; t++)
+			edgeSegment(context, edges[batchOrder[t]]);
 
 		context.stroke();
 	}
@@ -664,25 +692,19 @@ function drawCoarseNode(
 	if (isDepthCulled(node.depth, nearPlane))
 		return;
 
-	const x = node.translatedPosition.x;
-	const y = node.translatedPosition.y;
-
+	// The ring draws at the label's alpha, over the fill the batched pass emitted.
 	context.globalAlpha = alphaAt(node.depth, minDepth, maxDepth, hasRange);
-	context.fillStyle = K.colours.label;
 
 	if (ring && K.renderer.performance.selectionRing) {
-		const radius = radiusAt(node.depth, focalLength);
-
-		circlePath(context, x, y, ringRadiusFor(radius));
-		context.strokeStyle = K.colours.nodeSelected;
-
-		// The ring's own width: an `edges` frame has a wider `lineWidth` set by
-		// its edge pass by the time this runs.
-		context.lineWidth = NODE_RING_WIDTH;
-		context.stroke();
+		strokeSelectionRing(
+			context,
+			node.translatedPosition.x,
+			node.translatedPosition.y,
+			radiusAt(node.depth, focalLength)
+		);
 	}
 
-	context.fillText(node.label, x + K.label.horizontalSpacing, y - K.label.verticalSpacing);
+	drawNodeLabel(context, node, node.depth, minDepth, maxDepth, hasRange);
 }
 
 /** Quantized bucket for a depth's fade alpha: 0 is nearest, buckets-1 farthest. */
