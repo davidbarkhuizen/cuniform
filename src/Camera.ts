@@ -5,16 +5,19 @@ import { point3, Point3D } from "./Point3D";
 import { CameraView, defaultCameraView } from "./Projector";
 
 /**
- * The axes a console button rotates about, and the directions it turns. Each
- * vocabulary is a runtime tuple with its type derived from it, so the type and
- * the guard that validates a `data-axis`/`data-direction` attribute cannot drift
- * apart.
+ * The axes a console button rotates about, the directions it turns, and the
+ * directions it dollies. Each vocabulary is a runtime tuple with its type
+ * derived from it, so the type and the guard that validates a
+ * `data-axis`/`data-direction`/`data-zoom` attribute cannot drift apart.
  */
 export const CAMERA_AXES = ['x', 'y', 'z'] as const;
 export type CameraAxis = typeof CAMERA_AXES[number];
 
 export const CAMERA_DIRECTIONS = ['cw', 'acw'] as const;
 export type CameraDirection = typeof CAMERA_DIRECTIONS[number];
+
+export const CAMERA_ZOOMS = ['in', 'out'] as const;
+export type CameraZoom = typeof CAMERA_ZOOMS[number];
 
 /** True when `value` names a camera axis. */
 export function isCameraAxis(value: string | null): value is CameraAxis {
@@ -24,6 +27,11 @@ export function isCameraAxis(value: string | null): value is CameraAxis {
 /** True when `value` names a rotation direction. */
 export function isCameraDirection(value: string | null): value is CameraDirection {
     return value !== null && (CAMERA_DIRECTIONS as readonly string[]).includes(value);
+}
+
+/** True when `value` names a zoom direction. */
+export function isCameraZoom(value: string | null): value is CameraZoom {
+    return value !== null && (CAMERA_ZOOMS as readonly string[]).includes(value);
 }
 
 /**
@@ -220,6 +228,16 @@ export class Camera implements CameraView {
             K.camera.minDistance,
             K.camera.maxDistance
         );
+    }
+
+    /**
+     * Dolly one step in a named direction: zooming in moves the camera toward
+     * the target, which is a negative dolly. The console button names a
+     * direction rather than a sign, so that mapping lives here beside `dolly`'s
+     * own sign convention.
+     */
+    zoom(direction: CameraZoom): void {
+        this.dolly(direction === 'in' ? -1 : 1);
     }
 
     /** Move the point the camera looks at; node positions are never touched. */

@@ -1,10 +1,12 @@
 import {
 	CameraAxis,
 	CameraDirection,
+	CameraZoom,
 	cameraScratch,
 	copyCameraView,
 	isCameraAxis,
 	isCameraDirection,
+	isCameraZoom,
 	sameCameraView,
 } from "./Camera";
 import { ContextMenu } from "./ContextMenu";
@@ -38,11 +40,12 @@ const defaultGraphSource: GraphSource = spec => new GraphFactory().build(spec);
 const isButtonActivationKey = (event: KeyboardEvent): boolean =>
 	event.key === 'Enter' || event.key === ' ';
 
-// A parsed console button: which camera axis and which way.
-interface CameraButton {
-    axis: CameraAxis;
-    direction: CameraDirection;
-}
+// A parsed console button: a rotation about one camera axis, or a dolly step.
+// The two shapes are discriminated so the handlers can branch on `kind` without
+// re-reading the element's attributes.
+type CameraButton =
+	| { kind: 'rotate'; axis: CameraAxis; direction: CameraDirection }
+	| { kind: 'zoom'; zoom: CameraZoom };
 
 export class UIController {
 
@@ -115,8 +118,8 @@ export class UIController {
     cameraConsole: HTMLElement | null;
 
     // The console button currently held, or null. While set, each simulation
-    // tick applies one small rotation step, so holding turns smoothly.
-    private heldRotation: CameraButton | null = null;
+    // tick applies one small step, so holding turns or zooms smoothly.
+    private heldButton: CameraButton | null = null;
 
     // One tick's worth of console rotation, radians; derived from a rate so the
     // felt speed survives a retune of the tick period.
@@ -345,8 +348,8 @@ export class UIController {
 	};
 
 	// Parse a console button out of an event target. The container is stable, so
-	// one delegated listener per event type serves all six buttons, and the
-	// data attributes name the axis and direction.
+	// one delegated listener per event type serves every button, and the data
+	// attributes name the direction (and, for a rotation, the axis).
 	private cameraButton(target: EventTarget | null): CameraButton | null {
 
 		const element = target as HTMLElement | null;
@@ -354,23 +357,35 @@ export class UIController {
 		if (!element || typeof element.getAttribute !== 'function')
 			return null;
 
+		// The guards are the runtime half of the CameraAxis/CameraDirection/
+		// CameraZoom vocabularies, so this cannot accept a value a type does not
+		// name. A zoom is tried first: its button carries no axis or direction.
+		const zoom = element.getAttribute('data-zoom');
+
+		if (isCameraZoom(zoom))
+			return { kind: 'zoom', zoom };
+
 		const axis = element.getAttribute('data-axis');
 		const direction = element.getAttribute('data-direction');
 
-		// The guards are the runtime half of the CameraAxis/CameraDirection
-		// vocabularies, so this cannot accept a value the type does not name.
 		if (!isCameraAxis(axis))
 			return null;
 
 		if (!isCameraDirection(direction))
 			return null;
 
-		return { axis, direction };
+		return { kind: 'rotate', axis, direction };
 	}
 
-	// One tick of rotation for `button`. Anticlockwise is the right-hand
-	// positive sense about the axis, so it is the positive step.
-	private rotateBy(button: CameraButton): void {
+	// One step of a console button: a small rotation, or one dolly notch.
+	// Anticlockwise is the right-hand positive sense about the axis, so it is the
+	// positive step; a zoom names its direction, so the camera owns that sign.
+	private applyCameraButton(button: CameraButton): void {
+
+		if (button.kind === 'zoom') {
+			this.state.camera.zoom(button.zoom);
+			return;
+		}
 
 		const step = button.direction === 'acw'
 			? UIController.ROTATION_PER_TICK
@@ -379,27 +394,27 @@ export class UIController {
 		this.state.camera.rotateLocal(button.axis, step);
 	}
 
-	// One tick's worth of a held button. Called from onTimerTick() before the
-	// step, so the rotation rides the render loop.
-	onCameraRotateTick = () => {
+	// One tick's worth of a held button. Called from onTimerTick() and the
+	// animation frame before the step, so the hold rides the render loop.
+	onCameraHoldTick = () => {
 
-		if (this.heldRotation)
-			this.rotateBy(this.heldRotation);
+		if (this.heldButton)
+			this.applyCameraButton(this.heldButton);
 	};
 
-	// Begin rotating: one step at once so a tap still moves, then one per tick.
+	// Begin a hold: one step at once so a tap still moves, then one per tick.
 	private startCameraHold(button: CameraButton): void {
 
-		this.heldRotation = button;
-		this.rotateBy(button);
+		this.heldButton = button;
+		this.applyCameraButton(button);
 
-		// A console rotation is interaction, so a settled layout starts moving again.
+		// A console step is interaction, so a settled layout starts moving again.
 		this.wake();
 	}
 
-	/** Stop any held rotation. Safe when nothing is held. */
+	/** Stop any held console button. Safe when nothing is held. */
 	stopCameraHold = () => {
-		this.heldRotation = null;
+		this.heldButton = null;
 	};
 
 	// A press on a console button. The pointer can be released anywhere, so the
@@ -453,7 +468,7 @@ export class UIController {
 	};
 
 	// Pointer and key activation both produce a click, and the hold paths
-	// cover those; `detail === 0` is the one click that still rotates.
+	// cover those; `detail === 0` is the one click that still steps.
 	onCameraButtonClick = (event: MouseEvent) => {
 
 		if (event.detail !== 0)
@@ -462,7 +477,7 @@ export class UIController {
 		const button = this.cameraButton(event.target);
 
 		if (button)
-			this.rotateBy(button);
+			this.applyCameraButton(button);
 	};
 
 	/** The projection for the current canvas size and live camera. */
@@ -710,10 +725,10 @@ export class UIController {
 
 	// Physics for one fixed tick, without drawing. Returns the live camera, so
 	// the draw resolves its projector from the same camera this step ran under
-	// (invariant 2). A held console button turns the camera first.
+	// (invariant 2). A held console button turns or zooms the camera first.
 	private advanceOneTick(): CameraView {
 
-		this.onCameraRotateTick();
+		this.onCameraHoldTick();
 
 		const graph = this.solver.graph;
 
@@ -971,8 +986,8 @@ export class UIController {
 
 			// A settled layout has nothing left to step, so drop the backlog
 			// rather than run it - unless a console button is held, whose
-			// rotation rides this fixed clock and must keep turning.
-			if (this.settled && this.heldRotation === null) {
+			// rotation or zoom rides this fixed clock and must keep turning.
+			if (this.settled && this.heldButton === null) {
 				this.accumulator = 0;
 				break;
 			}
@@ -980,11 +995,11 @@ export class UIController {
 			this.accumulator -= period;
 			steps++;
 
-			// Once settled, only the camera is still moving. Turning it without
-			// re-stepping the solved layout is what lets a hold outlive the settle
-			// without paying for the physics again.
+			// Once settled, only the camera is still moving. Turning or zooming
+			// it without re-stepping the solved layout is what lets a hold
+			// outlive the settle without paying for the physics again.
 			if (this.settled)
-				this.onCameraRotateTick();
+				this.onCameraHoldTick();
 			else
 				this.advanceOneTick();
 		}

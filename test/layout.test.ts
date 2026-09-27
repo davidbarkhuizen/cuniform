@@ -134,6 +134,28 @@ test("the camera console has six labelled axis/direction rotate buttons", () => 
     assert.ok(!/data-axis="[^xyz]/.test(markup), "an axis attribute must name one of x, y or z");
 });
 
+test("the camera console has a labelled zoom row with in and out buttons", () => {
+    const panel = panelMarkup(readWeb("index.html"));
+
+    // Attributes may span several lines, so compare against whitespace-normalised markup.
+    const markup = panel.replace(/\s+/g, " ");
+
+    for (const direction of ["in", "out"]) {
+        assert.ok(
+            markup.includes(`data-zoom="${direction}"`),
+            `the console needs a zoom ${direction} button`
+        );
+        assert.ok(
+            markup.includes(`aria-label="zoom ${direction}"`),
+            `the zoom ${direction} button needs an accessible name`
+        );
+    }
+
+    const cameraSection = panel.slice(panel.indexOf('class="cameraSection"'));
+    assert.ok(cameraSection.includes(">zoom<"), "the zoom row needs its label");
+    assert.ok(!/data-zoom="[^io]/.test(markup), "a zoom attribute must name in or out");
+});
+
 test("the console buttons read as buttons, not as panel drag handles", () => {
     const css = readWeb("stylez.css");
 

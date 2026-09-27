@@ -58,7 +58,7 @@ top-left corner, split into three sections:
   `reset`;
 - the **currently selected node** — the selection and its neighbours;
 - the **camera console** — six buttons that rotate the camera about its own
-  axes.
+  axes, and two that dolly it in and out.
 
 The panel's current-graph line names the loaded graph technically: the full
 systematic name for a molecule, the node and edge counts for a random graph. It
@@ -90,15 +90,18 @@ panel's drag surface.
   the camera distance changes; it is clamped between `camera.minDistance` and
   `camera.maxDistance`.
 - **Camera console** — three rows, one per camera axis, each with a clockwise
-  and an anticlockwise button. A press applies one small step — one simulation
-  tick's worth, 3° at the default 60°/s — and **holding turns the view
-  continuously**: one more step per simulation tick, so the rotation is as
-  smooth as the render and never jumps. The buttons are real buttons, so Tab
+  and an anticlockwise button, and a fourth **zoom** row with a minus (out) and
+  a plus (in). A press applies one small step — one simulation tick's worth, 3°
+  of rotation at the default 60°/s, or one wheel notch of dolly — and **holding
+  repeats it continuously**: one more step per simulation tick, so the motion is
+  as smooth as the render and never jumps. The buttons are real buttons, so Tab
   reaches them and Enter or Space starts and stops a keyboard hold.
   Anticlockwise is the right-hand positive sense about that axis: on screen, x
   tilts the view about the horizontal, y turns it about the vertical, and z rolls
   it about the view axis. Unlike the middle-drag guard, an explicit axis rotation
-  is free to carry the view through a pole.
+  is free to carry the view through a pole. The zoom buttons share the wheel's
+  dolly: the same clamp between `camera.minDistance` and `camera.maxDistance`,
+  and the same constant focal length.
 - **Right-click** — opens a context menu with `export`, `reset` and
   `clear selection`. The native browser menu is suppressed. On macOS
   `Ctrl+click` is the same gesture.
@@ -251,11 +254,11 @@ work at all and leaves the previous frame on the canvas.
 
 Once the largest node travel stays below `settleEpsilon` for `settleFrames`
 consecutive steps the layout is settled and stepping stops, leaving only the
-change check above. A drag, orbit, dolly, console rotation, resize or graph swap
-starts it again. Without `requestAnimationFrame` the controller falls back to the
-original fixed-interval tick; `onTimerTick()` still means exactly one tick plus
-one draw, deliberately bypassing the idle-frame skip, which is what the tests and
-the fallback use.
+change check above. A drag, orbit, dolly, console rotation or zoom, resize or
+graph swap starts it again. Without `requestAnimationFrame` the controller falls
+back to the original fixed-interval tick; `onTimerTick()` still means exactly one
+tick plus one draw, deliberately bypassing the idle-frame skip, which is what the
+tests and the fallback use.
 
 Where the browser has a `Worker`, the physics runs in
 `dist/simulation.worker.js`, owned by `PhysicsRunner`, and the drawing runs in
