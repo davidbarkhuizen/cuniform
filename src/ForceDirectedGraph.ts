@@ -4,7 +4,8 @@ import { K } from "./K";
 import { radius, repulsionMagnitude } from "./Kernel";
 import { Octree } from "./Octree";
 import { point3, Point3D, zero3 } from "./Point3D";
-import { ProjectionScratch, Projector } from "./Projector";
+import { projectGraph } from "./Projection";
+import { Projector } from "./Projector";
 import { openingAngleFor } from "./Quality";
 import { Tag } from "./Tag";
 
@@ -26,7 +27,8 @@ export class ForceDirectedGraph {
     private springZ = new Float64Array(0);
 
     // Projection destination, reused per node; see Projector.projectInto().
-    private readonly projected: ProjectionScratch = { screenX: 0, screenY: 0, depth: 0 };
+    // The projection pass itself lives in Projection.ts, so a render backend can
+    // run it without the solver.
 
     // The Barnes-Hut tree, rebuilt from the pre-step positions each step. It owns
     // its own pooled buffers, so it also allocates nothing steady-state.
@@ -432,23 +434,7 @@ export class ForceDirectedGraph {
 	 * main thread keeps projecting with its own camera.
 	 */
 	project(projector: Projector): void {
-
-		const vertices = this.graph.vertices;
-
-		// One projector for the whole pass: the camera and viewport are loop
-		// invariants, resolved once per tick, not per node. An indexed loop, so no
-		// array iterator is allocated.
-		for (let i = 0; i < vertices.length; i++) {
-			const node = vertices[i];
-
-			projector.projectInto(node.position, this.projected);
-			projector.viewport.toCanvasInto(
-				this.projected.screenX,
-				this.projected.screenY,
-				node.translatedPosition
-			);
-			node.depth = this.projected.depth;
-		}
+		projectGraph(this.graph, projector);
 	};
 
 	/** One full step: physics then projection, as every pre-Plan-6 caller expects. */

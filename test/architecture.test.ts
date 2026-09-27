@@ -37,6 +37,7 @@ const PURE_MODULES = [
     "Octree.ts",
     "Quality.ts",
     "PhysicsProtocol.ts",
+    "Projection.ts",
     "Camera.ts",
     "Projector.ts",
     "Renderer.ts",
