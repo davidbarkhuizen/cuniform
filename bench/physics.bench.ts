@@ -15,6 +15,7 @@ import { PerformanceObserver } from "perf_hooks";
 import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
 import { Graph } from "../src/Graph";
 import { GraphFactory } from "../src/GraphFactory";
+import { radius } from "../src/Kernel";
 import { Projector } from "../src/Projector";
 import { render } from "../src/Renderer";
 import { Tag } from "../src/Tag";
@@ -29,6 +30,7 @@ const STEP_CASES: Array<[number, number]> = [[256, 8], [512, 6], [1024, 4], [204
 const REPULSION_ORDERS = [256, 512, 1024, 2048];
 const RENDER_ORDERS = [512, 1024, 2048, 4096];
 const GC_ORDER = 1024;
+const KERNEL_SAMPLES = 1000000;
 
 /** Deterministic xorshift32, so runs are comparable. */
 function makeRandom(seed: number): () => number {
@@ -140,6 +142,39 @@ function benchRepulsion(): void {
     }
 }
 
+function benchKernel(): void {
+    console.log("\n== distance kernel ==");
+    row("variant", "ms / 1e6 calls");
+
+    const random = makeRandom(24680);
+    const deltas = new Float64Array(KERNEL_SAMPLES * 3);
+
+    for (let i = 0; i < deltas.length; i++)
+        deltas[i] = random() * 1200 - 600;
+
+    // The sums stop the loop being optimised away and let the two variants be
+    // checked as doing the same work.
+    const sums = new Float64Array(2);
+
+    const hypotMs = timePer(() => {
+        let sum = 0;
+        for (let i = 0; i < KERNEL_SAMPLES; i++)
+            sum += Math.hypot(deltas[3 * i], deltas[3 * i + 1], deltas[3 * i + 2]);
+        sums[0] = sum;
+    }, 3);
+
+    const radiusMs = timePer(() => {
+        let sum = 0;
+        for (let i = 0; i < KERNEL_SAMPLES; i++)
+            sum += radius(deltas[3 * i], deltas[3 * i + 1], deltas[3 * i + 2]);
+        sums[1] = sum;
+    }, 3);
+
+    row("Math.hypot", hypotMs.toFixed(2));
+    row("Kernel.radius", `${radiusMs.toFixed(2)}  (${(hypotMs / radiusMs).toFixed(2)}x)`);
+    row("checksum delta", Math.abs(sums[0] - sums[1]).toExponential(2));
+}
+
 function benchProjection(): void {
     console.log("\n== projection loop ==");
 
@@ -233,6 +268,7 @@ async function main(): Promise<void> {
     benchGeneration();
     benchSolver();
     benchRepulsion();
+    benchKernel();
     benchProjection();
     benchRender();
     await benchGc();

@@ -219,22 +219,24 @@ test("one step evaluates repulsion once per unordered pair", () => {
 
     const fdg = new ForceDirectedGraph(graph);
 
-    const realHypot = Math.hypot;
+    // repulsionMagnitude calls Math.pow once per pair, and this graph is
+    // springless, so pow is a faithful pair counter now that hypot is gone from
+    // the kernel (Plan 3).
+    const realPow = Math.pow;
     let calls = 0;
 
-    Math.hypot = (...args: number[]) => {
+    Math.pow = (base: number, exponent: number) => {
         calls++;
-        return realHypot(...args);
+        return realPow(base, exponent);
     };
 
     try {
         fdg.step(CANVAS_W, CANVAS_H);
     } finally {
-        Math.hypot = realHypot;
+        Math.pow = realPow;
     }
 
-    // No springs here, so every hypot call is repulsion: C(5,2) = 10, where the
-    // old per-node scan made 20.
+    // C(5,2) = 10, where the old per-node scan made 20.
     assert.equal(calls, 10, `expected one evaluation per unordered pair, got ${calls}`);
 });
 

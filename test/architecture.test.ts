@@ -20,6 +20,7 @@ const PURE_MODULES = [
     "Graph.ts",
     "GraphFactory.ts",
     "GraphSpec.ts",
+    "Kernel.ts",
     "Camera.ts",
     "Projector.ts",
     "Mat3.ts",
