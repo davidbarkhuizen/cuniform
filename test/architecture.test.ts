@@ -41,6 +41,7 @@ const PURE_MODULES = [
     "PhysicsProtocol.ts",
     "Projection.ts",
     "MirrorGraph.ts",
+    "Numeric.ts",
     "RenderProtocol.ts",
     "Camera.ts",
     "Projector.ts",

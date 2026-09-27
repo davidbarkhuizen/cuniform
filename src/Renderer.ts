@@ -2,6 +2,7 @@ import { otherEndpoint } from "./Edge";
 import { doublingCapacity } from "./Growth";
 import { Graph } from "./Graph";
 import { K } from "./K";
+import { clamp } from "./Numeric";
 import { CameraView, isDepthCulled } from "./Projector";
 import { RenderSurface } from "./RenderSurface";
 import { Tag } from "./Tag";
@@ -43,7 +44,7 @@ function alphaAt(depth: number, minDepth: number, maxDepth: number, hasRange: bo
 // Perspective size: nearer is larger, clamped at both ends.
 function radiusAt(depth: number, focalLength: number): number {
 	const raw = (NODE_RADIUS * focalLength) / depth;
-	return Math.min(Math.max(raw, K.depthCue.minNodeRadiusPx), K.depthCue.maxNodeRadiusPx);
+	return clamp(raw, K.depthCue.minNodeRadiusPx, K.depthCue.maxNodeRadiusPx);
 }
 
 // The selection ring keeps the drawn node's proportions, so it scales with the

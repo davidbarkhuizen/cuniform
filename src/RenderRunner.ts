@@ -317,13 +317,25 @@ class WorkerBackend implements RenderBackend {
     }
 
     terminate(): void {
+        this.dispose("the render worker is terminated");
+    }
+
+    /**
+     * The teardown both `terminate()` and the failed-start path need: stop the
+     * clock, kill the worker, and settle every pending export with `reason`.
+     *
+     * One sequence, so a step added here cannot be applied on one path and
+     * missed on the other - which would leave an export promise unsettled
+     * forever.
+     */
+    private dispose(reason: string): void {
 
         this.disposed = true;
         this.clearTimer();
         this.worker.terminate();
 
         for (const pending of this.exports.values())
-            pending.reject(new Error("the render worker is terminated"));
+            pending.reject(new Error(reason));
 
         this.exports.clear();
     }
@@ -489,14 +501,7 @@ class WorkerBackend implements RenderBackend {
         if (this.disposed || this.probePassed)
             return;
 
-        this.disposed = true;
-        this.clearTimer();
-        this.worker.terminate();
-
-        for (const pending of this.exports.values())
-            pending.reject(new Error("the render worker failed to start"));
-
-        this.exports.clear();
+        this.dispose("the render worker failed to start");
 
         this.onFallback();
     }

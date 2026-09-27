@@ -2,6 +2,16 @@ import { DragController } from "./DragController";
 import { RenderRunner } from "./RenderRunner";
 import { UIController } from "./UIController";
 
+/**
+ * The demo's element ids, in one place. `web/index.html` is the other half of
+ * this contract, and `test/layout.test.ts` pins that side; `src/index.ts` passes
+ * these rather than re-typing the literals.
+ */
+export const SELECTION_INFO_PANEL_ID = 'selectionInfoPanel';
+export const CANVAS_ID = 'canvas';
+export const EXPORT_ELEMENT_ID = 'export_canvas_link';
+export const RESET_ELEMENT_ID = 'reset_link';
+
 const SELECTED_NODE_LABEL_ID = 'selectedNodeInfoLabel';
 const SELECTED_NODE_LIST_ID = 'selectedNodeInfoList';
 
@@ -12,11 +22,15 @@ const CURRENT_GRAPH_LABEL_ID = 'currentGraphLabel';
 /** The panel's touch grip; without it the whole panel is the touch drag surface. */
 const PANEL_DRAG_HANDLE_ID = 'panelDragHandle';
 
+/** The one reporter for a required element that is missing, so every failure
+ * names the offending id the same way. */
+const reportMissing = (id: string) => console.error(`could not find element for ID: ${id}`);
+
 export const entrypoint = (
-    selectionInfoPanelID: string,
-    canvasElementID: string,
-    exportElementID: string,
-    resetElementID: string
+    selectionInfoPanelID: string = SELECTION_INFO_PANEL_ID,
+    canvasElementID: string = CANVAS_ID,
+    exportElementID: string = EXPORT_ELEMENT_ID,
+    resetElementID: string = RESET_ELEMENT_ID
 ): UIController | null => {
 
     const e = (id: string) => document.getElementById(id);
@@ -24,7 +38,7 @@ export const entrypoint = (
     const canvas = e(canvasElementID) as HTMLCanvasElement | null;
 
     if (!canvas) {
-        console.error(`could not find element for ID: ${canvasElementID}`);
+        reportMissing(canvasElementID);
         return null;
     }
 
@@ -43,7 +57,7 @@ export const entrypoint = (
         const missing = resolved.filter(entry => !entry.element);
 
         for (const entry of missing)
-            console.error(`could not find element for ID: ${entry.id}`);
+            reportMissing(entry.id);
 
         if (missing.length > 0)
             return null;
@@ -71,7 +85,7 @@ export const entrypoint = (
     if (selectionInfoPanel)
         new DragController(selectionInfoPanel, e(PANEL_DRAG_HANDLE_ID));
     else
-        console.error(`could not find selection info panel for ID: ${selectionInfoPanelID}`);
+        reportMissing(selectionInfoPanelID);
 
     const uiController = new UIController(
         body,
