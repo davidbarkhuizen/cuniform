@@ -28,13 +28,13 @@ export class ForceDirectedGraph {
     private readonly projected: ProjectionScratch = { screenX: 0, screenY: 0, depth: 0 };
 
     // The Barnes-Hut tree, rebuilt from the pre-step positions each step. It owns
-    // its own pooled buffers (Plan 1), so it also allocates nothing steady-state.
+    // its own pooled buffers, so it also allocates nothing steady-state.
     private readonly octree = new Octree();
 
     /**
      * The largest distance any node travelled during the most recent step
-     * (equivalently, the largest speed; pinned nodes count as zero). Plan 6's
-     * settle detector reads it to stop stepping once the layout is quiet.
+     * (equivalently, the largest speed; pinned nodes count as zero). The settle
+     * detector reads it to stop stepping once the layout is quiet.
      */
     lastMaxDisplacement = 0;
 
@@ -426,7 +426,7 @@ export class ForceDirectedGraph {
 
 	/**
 	 * Cache each node's canvas position and view depth for one projector. Split
-	 * from stepPhysics() so Plan 6's worker can advance the physics while the
+	 * from stepPhysics() so the worker can advance the physics while the
 	 * main thread keeps projecting with its own camera.
 	 */
 	project(projector: Projector): void {

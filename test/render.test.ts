@@ -323,7 +323,7 @@ test("render sizes nodes with the focal length of the camera it is given", () =>
     assertClose(zoomed, NODE_RADIUS * 2, 1e-9, "the doubled focal length must double the radius");
 });
 
-// ------------------------------------------------- size-gated scaling (Plan 5)
+// ---------------------------------------------------------- size-gated scaling
 
 /** Run `fn` with a `K.renderer` override, always restoring it. */
 function withRendererSetting<T>(

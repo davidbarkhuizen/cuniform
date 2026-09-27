@@ -23,7 +23,7 @@ const CHARGE_PRODUCT =
  * returns 0 where `hypot` would return a tiny positive value; every caller has
  * an explicit `r === 0` coincident branch and evaluates the magnitude at
  * `minimumInteractionRadius`, so that lands in a bounded, deterministic case
- * rather than a division by zero. See docs/performance/03-distance-kernel.md.
+ * rather than a division by zero. See the README's "Performance" section.
  */
 export function radius(dx: number, dy: number, dz: number): number {
     return Math.sqrt(dx * dx + dy * dy + dz * dz);

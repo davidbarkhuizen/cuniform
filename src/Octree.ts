@@ -3,16 +3,16 @@ import { radius, repulsionMagnitude } from "./Kernel";
 import { Tag } from "./Tag";
 
 /**
- * Barnes-Hut octree over the model positions (docs/performance/01).
+ * Barnes-Hut octree over the model positions (README, "Performance").
  *
- * The all-pairs repulsion pass is O(N^2) and 85-98% of a step at N >= 512. The
+ * The all-pairs repulsion pass is O(N^2) and was 85-98% of a step at N >= 512. The
  * tree replaces the far field with a cell's charge total at its centre of mass,
  * which is the standard approximation for a long-range law; the near field stays
  * exact. It is pure geometry and arithmetic, like Projector.ts.
  *
  * Everything is structure-of-arrays: bodies and cells live in pooled
  * `Float64Array`/`Int32Array` buffers that are reused across builds, so a step
- * allocates nothing steady-state (Plan 2 owns the same pattern on the solver).
+ * allocates nothing steady-state.
  */
 
 // Half-extent floor for the root cube, so an all-coincident (or single-point)

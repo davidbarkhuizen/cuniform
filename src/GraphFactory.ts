@@ -22,7 +22,7 @@ function moleculeSeedPositions(n: number): Point3D[] {
 
 // Rejection sampling is O(1) expected on the sparse graphs the chooser builds;
 // this cap bounds the work on a nearly complete graph before the linear
-// fallback runs. See docs/performance/04-graph-generation.md.
+// fallback runs.
 const MAX_REJECTION_ATTEMPTS = 32;
 
 export class GraphFactory {
