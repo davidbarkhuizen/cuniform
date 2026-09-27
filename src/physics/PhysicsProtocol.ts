@@ -1,7 +1,7 @@
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
-import { Graph } from "./Graph";
-import { buildMirrorGraph, packMirror, readPositions } from "./MirrorGraph";
-import { Tag } from "./Tag";
+import { Graph } from "../graph/Graph";
+import { buildMirrorGraph, packMirror, readPositions } from "../graph/MirrorGraph";
+import { Tag } from "../graph/Tag";
 
 /**
  * The message protocol between PhysicsRunner (main thread) and the physics

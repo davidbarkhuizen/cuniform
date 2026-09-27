@@ -1,13 +1,13 @@
-import { otherEndpoint } from "./Edge";
-import { Graph } from "./Graph";
-import { K } from "./K";
+import { otherEndpoint } from "../graph/Edge";
+import { Graph } from "../graph/Graph";
+import { K } from "../core/K";
 import { integrateVelocity, radialComponentsInto, radius, repulsionMagnitude, springMagnitude } from "./Kernel";
 import { Octree } from "./Octree";
-import { point3, Point3D, zero3 } from "./Point3D";
-import { projectGraph } from "./Projection";
-import { Projector } from "./Projector";
+import { point3, Point3D, zero3 } from "../core/Point3D";
+import { projectGraph } from "../view/Projection";
+import { Projector } from "../view/Projector";
 import { openingAngleFor } from "./Quality";
-import { Tag } from "./Tag";
+import { Tag } from "../graph/Tag";
 
 export class ForceDirectedGraph {
 

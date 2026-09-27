@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { entrypoint, SELECTION_INFO_PANEL_ID, CANVAS_ID, EXPORT_ELEMENT_ID, RESET_ELEMENT_ID } from "../src/entrypoint";
+import { entrypoint, SELECTION_INFO_PANEL_ID, CANVAS_ID, EXPORT_ELEMENT_ID, RESET_ELEMENT_ID } from "../src/app/entrypoint";
 import { FakeCanvas, demoElements, newUIController, withFakeDom } from "./support/dom";
 
 const IDS: [string, string, string, string] = [

@@ -1,14 +1,14 @@
 // Minimal DOM stand-ins for the UI-facing modules under `node --test`; the
 // physics solver is DOM-free and needs none of this.
 
-import { Graph } from "../../src/Graph";
-import { GraphWizard } from "../../src/GraphWizard";
-import { K } from "../../src/K";
-import { CameraView } from "../../src/Projector";
-import { RenderRequest, RenderResponse, RenderWorkerEngine } from "../../src/RenderProtocol";
-import { RenderBackend, RenderWorkerFactory, RenderWorkerPort } from "../../src/RenderRunner";
-import { Tag } from "../../src/Tag";
-import { UIController } from "../../src/UIController";
+import { Graph } from "../../src/graph/Graph";
+import { GraphWizard } from "../../src/ui/GraphWizard";
+import { K } from "../../src/core/K";
+import { CameraView } from "../../src/view/Projector";
+import { RenderRequest, RenderResponse, RenderWorkerEngine } from "../../src/render/RenderProtocol";
+import { RenderBackend, RenderWorkerFactory, RenderWorkerPort } from "../../src/render/RenderRunner";
+import { Tag } from "../../src/graph/Tag";
+import { UIController } from "../../src/app/UIController";
 
 type Listener = (event: any) => void;
 

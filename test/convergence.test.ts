@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
+import { ForceDirectedGraph } from "../src/physics/ForceDirectedGraph";
 import { assertClose } from "./support/assert";
 import {
     ANALYTIC_EQUILIBRIUM,

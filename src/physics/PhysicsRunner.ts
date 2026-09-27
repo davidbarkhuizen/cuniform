@@ -1,8 +1,8 @@
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
-import { Graph } from "./Graph";
-import { readPositions, writePositions } from "./MirrorGraph";
+import { Graph } from "../graph/Graph";
+import { readPositions, writePositions } from "../graph/MirrorGraph";
 import { initRequest, PositionsResponse, stepWithPin, StepRequest, WorkerRequest } from "./PhysicsProtocol";
-import { WorkerPort } from "./WorkerChannel";
+import { WorkerPort } from "../core/WorkerChannel";
 
 /**
  * The main-thread owner of the physics: either an in-process solver or a

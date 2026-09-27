@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
-import { Graph } from "../src/Graph";
-import { K } from "../src/K";
-import { Projector } from "../src/Projector";
-import { Tag } from "../src/Tag";
-import { Viewport } from "../src/Viewport";
+import { ForceDirectedGraph } from "../src/physics/ForceDirectedGraph";
+import { Graph } from "../src/graph/Graph";
+import { K } from "../src/core/K";
+import { Projector } from "../src/view/Projector";
+import { Tag } from "../src/graph/Tag";
+import { Viewport } from "../src/view/Viewport";
 import { assertClose } from "./support/assert";
 
 const W0 = K.space.W_0;

@@ -1,8 +1,8 @@
 import { Graph } from "./Graph";
 import { GraphSpec } from "./GraphSpec";
-import { K } from "./K";
+import { K } from "../core/K";
 import { moleculeById } from "./Molecules";
-import { point3, Point3D } from "./Point3D";
+import { point3, Point3D } from "../core/Point3D";
 import { Tag } from "./Tag";
 
 // Phyllotaxis spiral aimed at the spring rest length: `sqrt(i / PI)` gives each atom

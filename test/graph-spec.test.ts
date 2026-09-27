@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { defaultGraphSpec, parseRandomSpec, specLabel } from "../src/GraphSpec";
-import { K } from "../src/K";
-import { moleculeById } from "../src/Molecules";
+import { defaultGraphSpec, parseRandomSpec, specLabel } from "../src/graph/GraphSpec";
+import { K } from "../src/core/K";
+import { moleculeById } from "../src/graph/Molecules";
 
 test("defaultGraphSpec is the shipped reference demo", () => {
     assert.deepEqual(defaultGraphSpec(), {

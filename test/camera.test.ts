@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Camera, cameraScratch, copyCameraView, sameCameraView } from "../src/Camera";
-import { K } from "../src/K";
-import { apply, fromYawPitch, identity, Mat3, multiply, rotX, rotY, rotZ } from "../src/Mat3";
-import { point3 } from "../src/Point3D";
-import { defaultCameraView } from "../src/Projector";
+import { Camera, cameraScratch, copyCameraView, sameCameraView } from "../src/view/Camera";
+import { K } from "../src/core/K";
+import { apply, fromYawPitch, identity, Mat3, multiply, rotX, rotY, rotZ } from "../src/view/Mat3";
+import { point3 } from "../src/core/Point3D";
+import { defaultCameraView } from "../src/view/Projector";
 import { assertClose, assertMatClose } from "./support/assert";
 
 test("a fresh camera is the identity orientation at the K defaults", () => {

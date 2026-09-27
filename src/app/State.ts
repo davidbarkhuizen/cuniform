@@ -1,5 +1,5 @@
-import { Camera } from './Camera';
-import { Point2D } from './Point2D';
+import { Camera } from '../view/Camera';
+import { Point2D } from '../core/Point2D';
 
 export class State {
 

@@ -1,7 +1,7 @@
 // The innermost arithmetic shared by every force consumer: the solver's exact
 // pairwise pass, the per-node reference, and the Barnes-Hut octree.
 
-import { K } from "./K";
+import { K } from "../core/K";
 
 // k*q^2, the numerator of the repulsion law. Hoisted because repulsionMagnitude
 // runs at least once per interaction and the factors are constants.

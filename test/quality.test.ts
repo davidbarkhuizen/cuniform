@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { K } from "../src/K";
-import { clampOpeningAngle, MAX_OPENING_ANGLE } from "../src/Octree";
-import { openingAngleFor } from "../src/Quality";
+import { K } from "../src/core/K";
+import { clampOpeningAngle, MAX_OPENING_ANGLE } from "../src/physics/Octree";
+import { openingAngleFor } from "../src/physics/Quality";
 
 const FAST = K.physics.barnesHutFastMinNodes;
 

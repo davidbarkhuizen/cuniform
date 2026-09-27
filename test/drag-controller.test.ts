@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { DragController } from "../src/DragController";
+import { DragController } from "../src/ui/DragController";
 import { FakeElement, FakeRect, pointerEvent } from "./support/dom";
 
 // The demo panel's geometry: a 300x400 panel at (150, 100) inside a 1000x800

@@ -1,9 +1,9 @@
-import { ForceDirectedGraph } from "../../src/ForceDirectedGraph";
-import { Graph } from "../../src/Graph";
-import { GraphFactory } from "../../src/GraphFactory";
-import { K } from "../../src/K";
-import { Point3D } from "../../src/Point3D";
-import { Tag } from "../../src/Tag";
+import { ForceDirectedGraph } from "../../src/physics/ForceDirectedGraph";
+import { Graph } from "../../src/graph/Graph";
+import { GraphFactory } from "../../src/graph/GraphFactory";
+import { K } from "../../src/core/K";
+import { Point3D } from "../../src/core/Point3D";
+import { Tag } from "../../src/graph/Tag";
 
 // Canvas size only affects the model -> canvas translation, never the physics.
 export const CANVAS_W = 800;

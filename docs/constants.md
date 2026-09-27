@@ -1,6 +1,6 @@
 # Constants
 
-All tuning lives in [`src/K.ts`](../src/K.ts):
+All tuning lives in [`src/core/K.ts`](../src/core/K.ts):
 
 | Constant | Value | Meaning |
 | --- | --- | --- |

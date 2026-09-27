@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { K } from "../src/K";
+import { K } from "../src/core/K";
 import {
     FakeRenderWorker,
     countSteps,

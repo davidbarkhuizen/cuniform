@@ -1,4 +1,4 @@
-import { K } from "./K";
+import { K } from "../core/K";
 import { moleculeById } from "./Molecules";
 
 // A discriminated description of the graph to build: the vocabulary shared by

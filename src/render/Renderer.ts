@@ -1,11 +1,11 @@
-import { otherEndpoint } from "./Edge";
-import { doublingCapacity } from "./Growth";
-import { Graph } from "./Graph";
-import { K } from "./K";
-import { clamp } from "./Numeric";
-import { CameraView, isDepthCulled } from "./Projector";
+import { otherEndpoint } from "../graph/Edge";
+import { doublingCapacity } from "../core/Growth";
+import { Graph } from "../graph/Graph";
+import { K } from "../core/K";
+import { clamp } from "../core/Numeric";
+import { CameraView, isDepthCulled } from "../view/Projector";
 import { RenderSurface } from "./RenderSurface";
-import { Tag } from "./Tag";
+import { Tag } from "../graph/Tag";
 
 // Node dot and selection-ring radii, in CSS pixels.
 const NODE_RADIUS = 5;

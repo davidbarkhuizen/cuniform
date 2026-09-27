@@ -8,22 +8,22 @@ import {
 	isCameraDirection,
 	isCameraZoom,
 	sameCameraView,
-} from "./Camera";
-import { ContextMenu } from "./ContextMenu";
-import { ForceDirectedGraph } from "./ForceDirectedGraph";
-import { Graph } from "./Graph";
-import { GraphFactory } from "./GraphFactory";
-import { defaultGraphSpec, GraphSpec, specLabel } from "./GraphSpec";
-import { GraphWizard } from "./GraphWizard";
-import { K } from "./K";
-import { point, Point2D } from "./Point2D";
-import { point3 } from "./Point3D";
-import { PhysicsRunner } from "./PhysicsRunner";
-import { CameraView, Projector } from "./Projector";
-import { RenderBackend, RenderRunner, RenderWorkerFactory } from "./RenderRunner";
-import { handleNodeSelectionAttempt } from "./Selection";
+} from "../view/Camera";
+import { ContextMenu } from "../ui/ContextMenu";
+import { ForceDirectedGraph } from "../physics/ForceDirectedGraph";
+import { Graph } from "../graph/Graph";
+import { GraphFactory } from "../graph/GraphFactory";
+import { defaultGraphSpec, GraphSpec, specLabel } from "../graph/GraphSpec";
+import { GraphWizard } from "../ui/GraphWizard";
+import { K } from "../core/K";
+import { point, Point2D } from "../core/Point2D";
+import { point3 } from "../core/Point3D";
+import { PhysicsRunner } from "../physics/PhysicsRunner";
+import { CameraView, Projector } from "../view/Projector";
+import { RenderBackend, RenderRunner, RenderWorkerFactory } from "../render/RenderRunner";
+import { handleNodeSelectionAttempt } from "../ui/Selection";
 import { State } from "./State";
-import { Tag } from "./Tag";
+import { Tag } from "../graph/Tag";
 
 /**
  * Builds the graph a `GraphSpec` describes. Supplied by the caller rather than

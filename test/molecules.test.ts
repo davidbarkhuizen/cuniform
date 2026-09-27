@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { K } from "../src/K";
+import { K } from "../src/core/K";
 import {
     CATALOG,
     CatalogEntry,
@@ -10,8 +10,8 @@ import {
     moleculeById,
     moleculeTooltip,
     sortCatalog,
-} from "../src/Molecules";
-import { parseSmiles } from "../src/Smiles";
+} from "../src/graph/Molecules";
+import { parseSmiles } from "../src/graph/Smiles";
 import { catalogEntry } from "./support/catalog";
 
 /** Non-hydrogen atom count of a formula: an element symbol plus an optional count. */

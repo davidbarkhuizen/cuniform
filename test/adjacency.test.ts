@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ForceDirectedGraph } from "../src/ForceDirectedGraph";
-import { Graph } from "../src/Graph";
-import { Edge, otherEndpoint } from "../src/Edge";
-import { K } from "../src/K";
-import { Tag } from "../src/Tag";
+import { ForceDirectedGraph } from "../src/physics/ForceDirectedGraph";
+import { Graph } from "../src/graph/Graph";
+import { Edge, otherEndpoint } from "../src/graph/Edge";
+import { K } from "../src/core/K";
+import { Tag } from "../src/graph/Tag";
 import { assertClose } from "./support/assert";
 import { CANVAS_H, CANVAS_W, newGraph, tag } from "./support/physics";
 

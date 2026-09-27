@@ -1,4 +1,4 @@
-import { Point3D } from "./Point3D";
+import { Point3D } from "../core/Point3D";
 
 /**
  * A 3x3 rotation as a row-major 9-tuple: `m[row * 3 + column]`. A value, not a

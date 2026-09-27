@@ -1,5 +1,5 @@
 import { advanceIndex } from "./FocusRing";
-import { clamp } from "./Numeric";
+import { clamp } from "../core/Numeric";
 
 export interface ContextMenuItem {
     label: string;

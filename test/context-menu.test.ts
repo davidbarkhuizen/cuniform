@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ContextMenu } from "../src/ContextMenu";
-import { UIController } from "../src/UIController";
+import { ContextMenu } from "../src/ui/ContextMenu";
+import { UIController } from "../src/app/UIController";
 import {
     CAMERA_HOLD_RELEASE_EVENTS,
     CANVAS_EVENTS,

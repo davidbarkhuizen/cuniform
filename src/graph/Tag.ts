@@ -1,5 +1,5 @@
-import { point, Point2D } from "./Point2D";
-import { point3, Point3D, zero3 } from "./Point3D";
+import { point, Point2D } from "../core/Point2D";
+import { point3, Point3D, zero3 } from "../core/Point3D";
 
 export class Tag {
 

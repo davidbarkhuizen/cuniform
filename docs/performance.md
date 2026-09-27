@@ -100,7 +100,7 @@ draw calls for the same graph, camera and selection.
 ## Scaling and complexity
 
 - **Repulsion** is Barnes-Hut above `K.physics.barnesHutMinNodes` (64) nodes:
-  the octree in [`src/Octree.ts`](../src/Octree.ts) approximates the far field with
+  the octree in [`src/physics/Octree.ts`](../src/physics/Octree.ts) approximates the far field with
   each cell's charge total at its centre of mass, `O(N log N)` per step. Below
   the crossover the exact all-pairs kernel still runs, so demo-scale layouts are
   unchanged, and the tree never accepts the cell containing a body as an
@@ -109,7 +109,7 @@ draw calls for the same graph, camera and selection.
   measured repulsion pass is 85 ms at theta 0.5 (0.3% mean error) and 23 ms at
   0.9 (1.8% mean), roughly the three.js default. `K.physics.quality` (default
   `"auto"`) decides between them in one place,
-  [`src/Quality.ts`](../src/Quality.ts): accurate below `barnesHutFastMinNodes`
+  [`src/physics/Quality.ts`](../src/physics/Quality.ts): accurate below `barnesHutFastMinNodes`
   (2048), fast at or above, which is where the step stops fitting a tick at the
   accurate angle; `"accurate"` and `"fast"` force one angle regardless of size.
   The setting is a compile-time default read identically in both realms, so it
@@ -117,7 +117,7 @@ draw calls for the same graph, camera and selection.
   worker boundary. A cut-off radius is deliberately *not* used: the law is long
   range, so
   truncating it changes the physics rather than approximating it.
-- **The radius helper** in [`src/Kernel.ts`](../src/Kernel.ts) uses
+- **The radius helper** in [`src/physics/Kernel.ts`](../src/physics/Kernel.ts) uses
   `Math.sqrt(dx*dx + dy*dy + dz*dz)` rather than `Math.hypot`, which is variadic
   and rescaled and so cannot compile to a square root plus two multiplies; the
   benchmark measures about 10x on the kernel alone. `Math.pow(r, 1.9)` is kept:
