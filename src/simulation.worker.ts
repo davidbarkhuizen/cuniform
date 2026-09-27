@@ -5,15 +5,9 @@
 // PhysicsProtocol.ts, which stays pure and is driven here.
 
 import { PhysicsWorkerEngine, WorkerRequest } from "./PhysicsProtocol";
+import { WorkerScope } from "./WorkerChannel";
 
-// Typed locally rather than through the WebWorker lib, which cannot be combined
-// with the DOM lib the rest of the project needs.
-interface WorkerScope {
-    onmessage: ((event: { data: WorkerRequest }) => void) | null;
-    postMessage: (message: unknown, transfer: Transferable[]) => void;
-}
-
-const scope = self as unknown as WorkerScope;
+const scope = self as unknown as WorkerScope<WorkerRequest>;
 const engine = new PhysicsWorkerEngine();
 
 scope.onmessage = event => {
