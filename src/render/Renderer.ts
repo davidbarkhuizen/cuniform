@@ -241,11 +241,10 @@ export function render(
                 selected
             );
 
-            drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
-
             drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
 
-            // Re-drawn after the mesh so the selected label is not buried by it.
+            // Once, after the mesh, so the selected label is not buried by it; drawn before the mesh too it
+            // would composite twice and brighten.
             drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
 
             return;
