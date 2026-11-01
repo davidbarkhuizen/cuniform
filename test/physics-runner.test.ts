@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { mock } from "node:test";
 import assert from "node:assert/strict";
 
 import { ForceDirectedGraph } from "../src/physics/ForceDirectedGraph";
@@ -374,6 +374,69 @@ test("an edge added at constant order reaches the worker mirror", () => {
     port.deliver();
 
     assert.equal(port.engine.graph?.edges.length, before + 1);
+});
+
+// F7: only onerror used to trigger the fallback, so a worker that hung left the layout frozen.
+test("a step left unanswered for workerStepTimeoutMS hands back to the in-process solver", () => {
+
+    mock.timers.enable({ apis: ["setTimeout"] });
+
+    try {
+        const graph = sparseGraph(12, 51);
+        const port = new QueuedPhysicsWorker();
+        const runner = new PhysicsRunner(new ForceDirectedGraph(graph), () => port);
+
+        port.deliver();
+        runner.step(-1, 0, 0, 0);
+        port.deliver();
+        runner.sync(graph);
+
+        const reported = graph.vertices.map(v => ({ ...v.position }));
+
+        // Posted, never answered.
+        runner.step(-1, 0, 0, 0);
+
+        mock.timers.tick(K.physics.workerStepTimeoutMS - 1);
+        assert.equal(runner.usesWorker, true, "a slow-but-alive worker is not declared dead early");
+
+        mock.timers.tick(1);
+        assert.equal(runner.usesWorker, false);
+        assert.deepEqual(graph.vertices.map(v => ({ ...v.position })), reported, "the tags resume from the last reply");
+
+        runner.step(-1, 0, 0, 0);
+        assert.notDeepEqual(graph.vertices.map(v => ({ ...v.position })), reported, "the in-process solver steps");
+    } finally {
+        mock.timers.reset();
+    }
+});
+
+test("answered steps never trip the physics watchdog, and terminate leaves no timer", () => {
+
+    mock.timers.enable({ apis: ["setTimeout"] });
+
+    try {
+        const graph = sparseGraph(12, 52);
+        const port = new QueuedPhysicsWorker();
+        const runner = new PhysicsRunner(new ForceDirectedGraph(graph), () => port);
+
+        port.deliver();
+
+        for (let tick = 0; tick < 5; tick++) {
+            runner.step(-1, 0, 0, 0);
+            mock.timers.tick(K.physics.workerStepTimeoutMS - 1);
+            port.deliver();
+        }
+
+        assert.equal(runner.usesWorker, true);
+
+        runner.step(-1, 0, 0, 0);
+        runner.terminate();
+        mock.timers.tick(K.physics.workerStepTimeoutMS * 2);
+
+        assert.equal(runner.usesWorker, true, "a terminated runner's timer never fires the fallback");
+    } finally {
+        mock.timers.reset();
+    }
 });
 
 test("the runner falls back in-process when no worker can be constructed", () => {
