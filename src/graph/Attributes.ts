@@ -94,6 +94,8 @@ export const Mark = {
     segments: 1 << 3,
     hatched: 1 << 4,
     hollow: 1 << 5,
+    // A unit of an expanded component: drawn as a plain dot in its component's family colour.
+    unit: 1 << 6,
     activationShift: 8,
     activationMask: 0xf << 8,
 } as const;

@@ -35,6 +35,7 @@ const PURE_MODULES = [
     "network/BuildGraph.ts",
     "network/Details.ts",
     "network/Format2.ts",
+    "network/Incoming.ts",
     "network/NetworkModel.ts",
     "view/Camera.ts",
     "view/Fit.ts",

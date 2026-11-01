@@ -200,6 +200,9 @@ export const K = {
         stackGap: 400,
         // Curved edges' control points, in model units: a residual bows +x and a recurrent loop -x, by a
         // share of the height it spans plus an offset, so a one-band skip still reads as a curve.
+        // The unit level (D7 L1): each unit's strongest incoming weights drawn, at most this many per band.
+        edgesPerUnit: 4,
+        maxWeightEdgesPerBand: 2048,
         residualBow: 0.35,
         residualOffset: 30,
         recurrentBow: 0.25,

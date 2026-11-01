@@ -21,6 +21,8 @@ const CURRENT_GRAPH_LABEL_ID = 'currentGraphLabel';
 /** The loader's file picker and the model panel's list; optional, so an embedding host may leave them out. */
 export const MODEL_FILE_INPUT_ID = 'modelFileInput';
 export const MODEL_INFO_LIST_ID = 'modelInfoList';
+export const EXPAND_TOGGLE_ID = 'expandToggle';
+export const EDGES_PER_UNIT_ID = 'edgesPerUnitInput';
 
 /** The panel's touch grip; without it the whole panel is the touch drag surface. */
 const PANEL_DRAG_HANDLE_ID = 'panelDragHandle';
@@ -113,6 +115,8 @@ export const entrypoint = (
 
     uiController.modelFileInput = e(MODEL_FILE_INPUT_ID) as HTMLInputElement | null;
     uiController.modelInfoList = e(MODEL_INFO_LIST_ID);
+    uiController.expandToggle = e(EXPAND_TOGGLE_ID);
+    uiController.edgesPerUnitInput = e(EDGES_PER_UNIT_ID) as HTMLInputElement | null;
 
     uiController.initialize();
 

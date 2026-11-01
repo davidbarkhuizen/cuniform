@@ -28,10 +28,14 @@ implementation, shape, input, model width, the factors of a window-recurrent
 network, the band count, and the node and edge counts at the current level.
 Both elements are optional: an embedding host may leave them out.
 
-Selecting a network's component replaces the neighbour list with the
-component's details: its kind, where it sits in the layers as written, its
+Selecting a network's component (or one of its units) shows an `expand` (or
+`collapse`) button and replaces the neighbour list with the component's
+details: its kind, where it sits in the layers as written, its
 units, its spec fields, and each weight array's shape with its min, max, mean
-and RMS. Every string is written with `textContent`.
+and RMS. Every string is written with `textContent`. Expanding shows the
+component's units with weight edges to their strongest inputs; collapsing folds
+them back and selects the component's node. The model panel's `weights per
+unit` field sets how many incoming weights each unit draws (1 to 16).
 
 The panel is opaque and high-contrast so it stays readable over the graph, and
 it can be dragged out of the way: with a mouse anywhere on the panel, or with a

@@ -719,8 +719,12 @@ function familyColour(kind: number): string {
     return K.colours.family[nodeFamily(kind)];
 }
 
-function glyphRadius(kind: number, depth: number, focalLength: number): number {
-    return radiusAt(depth, focalLength) * (kind === NodeKind.unit ? 1 : GLYPH_SCALE);
+function isUnit(kind: number, marks: number): boolean {
+    return kind === NodeKind.unit || (marks & Mark.unit) !== 0;
+}
+
+function glyphRadius(unit: boolean, depth: number, focalLength: number): number {
+    return radiusAt(depth, focalLength) * (unit ? 1 : GLYPH_SCALE);
 }
 
 /** A closed polygon of `sides` around (x, y), its first vertex at `start` radians. */
@@ -916,14 +920,15 @@ function drawNetworkNode(
     const y = node.translatedPosition.y;
     const kind = attributes.kind[index];
     const marks = attributes.marks[index];
-    const r = glyphRadius(kind, depth, focalLength);
+    const unit = isUnit(kind, marks);
+    const r = glyphRadius(unit, depth, focalLength);
     const isSelected = node === selected;
     const colour = isSelected ? K.colours.nodeSelected : familyColour(kind);
 
     context.globalAlpha = scaledAlpha(alphaAt(depth, minDepth, maxDepth, hasRange), alphaScale);
 
     context.beginPath();
-    glyphPath(context, kind, x, y, r);
+    glyphPath(context, unit ? NodeKind.unit : kind, x, y, r);
 
     if (marks & Mark.hollow) {
         strokeMark(context, colour, HOLLOW_WIDTH);
@@ -938,7 +943,9 @@ function drawNetworkNode(
         isSelected ||
         (selected !== null && graph.hasEdge(selected, node));
 
-    drawMarks(context, kind, marks, x, y, r, labelled);
+    // A unit is a plain dot: its component's glyph and marks belong to the collapsed node.
+    if (!unit)
+        drawMarks(context, kind, marks, x, y, r, labelled);
 
     if (isSelected)
         strokeSelectionRing(context, x, y, r);
@@ -1070,7 +1077,9 @@ function drawBatchedNetworkFills(
             if (selectionPass ? node !== selected : (node === selected || attributes.kind[i] !== kind))
                 continue;
 
-            glyphPath(context, attributes.kind[i], node.translatedPosition.x, node.translatedPosition.y, glyphRadius(attributes.kind[i], itemDepth[item], focalLength));
+            const unit = isUnit(attributes.kind[i], attributes.marks[i]);
+
+            glyphPath(context, unit ? NodeKind.unit : attributes.kind[i], node.translatedPosition.x, node.translatedPosition.y, glyphRadius(unit, itemDepth[item], focalLength));
             any = true;
         }
 

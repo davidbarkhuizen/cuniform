@@ -216,6 +216,33 @@ body
     overflow-wrap		: anywhere;
 }
 
+.edgesPerUnit
+{
+    display			: flex;
+    align-items		: center;
+    gap			: 8px;
+    margin-top		: 8px;
+
+    font-size		: small;
+    color			: var(--muted);
+}
+
+.edgesPerUnit input
+{
+    width			: 4em;
+}
+
+.expandToggle
+{
+    display			: block;
+    margin-top		: 8px;
+}
+
+.expandToggle[hidden]
+{
+    display			: none;
+}
+
 /* Hidden from sight but not from assistive technology, so its label still opens it. */
 .visuallyHidden
 {

@@ -237,3 +237,12 @@ test("the tinyshakespeare model renders at L0 with its rotary marks and skips", 
     const heads = Array.from(built.attributes!.kind).filter(k => k === NodeKind.head).length;
     assert.ok(context.arcs.length >= heads, "every rotary head has its ring");
 });
+
+test("a unit of an expanded component is a plain dot in its component's family colour, without marks", () => {
+    const context = drawn(single(NodeKind.head, Mark.unit));
+
+    assert.equal(context.lineTos.length, 0, "no hexagon");
+    assert.equal(context.arcs.length, 1, "one dot");
+    assert.equal(context.fills[0], K.colours.family[Family.attention]);
+    assert.equal(context.textLabels.filter(t => t !== "n").length, 0, "no text marks");
+});
