@@ -86,9 +86,13 @@ test("the modules that touch browser globals are classified explicitly", () => {
 });
 
 test("the renderer is the only module that draws", () => {
-    const drawingCall = /\w+\.(clearRect|beginPath|moveTo|lineTo|arc|stroke|fill|fillText)\s*\(/;
+    const drawingCall = /\w+\.(clearRect|beginPath|moveTo|lineTo|arc|stroke|fillText)\s*\(/;
 
-    const drawers = Object.keys(sources).filter(name => drawingCall.test(sources[name]));
+    // A canvas fill() takes no value; a typed array's fill(value) does, so buffer clears are not drawing.
+    const canvasFill = /\w+\.fill\s*\(\s*\)/;
+
+    const drawers = Object.keys(sources).filter(name =>
+        drawingCall.test(sources[name]) || canvasFill.test(sources[name]));
 
     assert.deepEqual(drawers, ["render/Renderer.ts"], "drawing must live behind the Renderer module");
 });
