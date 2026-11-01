@@ -65,7 +65,10 @@ relaxation, not an energy minimisation:
   in any direction.
 - **Dragging** pins the selected node, holds the position the pointer writes and
   zeroes its velocity, so releasing the mouse does not fling it. The rest of the
-  graph still feels its forces while it is held.
+  graph still feels its forces while it is held. On the worker path the runner
+  overlays the latest pin on every reply, because a reply was computed with the
+  pin of an earlier step; without the overlay `sync()` would pull the dragged
+  node back a round trip behind the pointer.
 
 Each step runs in fixed passes — all repulsion, all springs, the per-component
 anchor, all velocities, then all positions — so every node sees the same frozen

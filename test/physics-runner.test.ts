@@ -238,6 +238,96 @@ test("a response from a superseded generation is dropped", () => {
     assert.equal(runner.maxDisplacement, 2);
 });
 
+/** A worker that answers only when the test delivers, as a real one answers a tick later. */
+class QueuedPhysicsWorker implements PhysicsWorkerPort {
+
+    onmessage: ((event: { data: PositionsResponse }) => void) | null = null;
+    onerror: ((event: unknown) => void) | null = null;
+
+    readonly engine = new PhysicsWorkerEngine();
+    private readonly queue: WorkerRequest[] = [];
+
+    postMessage(message: WorkerRequest): void {
+        this.queue.push(message);
+    }
+
+    terminate(): void {}
+
+    deliver(): void {
+        while (this.queue.length > 0) {
+            const response = this.engine.handle(this.queue.shift()!);
+
+            if (response !== null)
+                this.onmessage?.({ data: response });
+        }
+    }
+}
+
+// Regression: sync() copied the worker's previous reply over the pinned tag, so a
+// dragged node trailed the pointer by a round trip and flickered between the two.
+test("a dragged node stays at the pointer through sync() on the worker path", () => {
+
+    const graph = sparseGraph(12, 31);
+    const port = new QueuedPhysicsWorker();
+    const runner = new PhysicsRunner(new ForceDirectedGraph(graph), () => port);
+
+    port.deliver();
+
+    const dragged = graph.vertices[0];
+
+    for (const x of [100, 200, 300]) {
+        dragged.position = { x, y: 5, z: -5 };
+
+        runner.step(0, x, 5, -5);
+        runner.sync(graph);
+
+        assert.deepEqual(dragged.position, { x, y: 5, z: -5 }, `after posting the pin at x=${x}`);
+
+        port.deliver();
+        runner.sync(graph);
+
+        assert.deepEqual(dragged.position, { x, y: 5, z: -5 }, `after the reply for x=${x}`);
+    }
+});
+
+test("a pin moved while a step is in flight survives that step's reply", () => {
+
+    const graph = sparseGraph(12, 32);
+    const port = new QueuedPhysicsWorker();
+    const runner = new PhysicsRunner(new ForceDirectedGraph(graph), () => port);
+
+    port.deliver();
+
+    runner.step(0, 10, 0, 0);
+    // In flight, so not posted; the pin must still be recorded.
+    runner.step(0, 50, 0, 0);
+
+    port.deliver();
+    runner.sync(graph);
+
+    assert.equal(graph.vertices[0].position.x, 50);
+});
+
+test("a released pin lets the worker's position win again", () => {
+
+    const graph = sparseGraph(12, 33);
+    const port = new QueuedPhysicsWorker();
+    const runner = new PhysicsRunner(new ForceDirectedGraph(graph), () => port);
+
+    port.deliver();
+
+    runner.step(0, 400, 0, 0);
+    port.deliver();
+
+    runner.step(-1, 0, 0, 0);
+    port.deliver();
+    runner.sync(graph);
+
+    // Released at x=400 with zero velocity, so one step moves it only by its new force.
+    assert.notEqual(graph.vertices[0].position.x, 400);
+    assert.ok(Math.abs(graph.vertices[0].position.x - 400) < 50);
+});
+
 test("the runner falls back in-process when no worker can be constructed", () => {
     const solver = new ForceDirectedGraph(sparseGraph(10, 5));
 
