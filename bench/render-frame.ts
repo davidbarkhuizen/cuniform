@@ -1,13 +1,21 @@
 // cuniform real-canvas frame harness (docs/performance.md): a manual instrument, not part of `npm test`.
 // It measures real-canvas per-frame time and long tasks, unlike bench/physics.bench.ts (FakeContext2D).
 // Run `./cli build`, serve the repo over HTTP, then open bench/render-frame.html.
-// Query params: ?n= ?dpr= ?frames= ?render= ?emphasis=.
+// Query params: ?n= ?dpr= ?frames= ?render= ?emphasis=, or ?model=<url>&level=0|1 for a format-2 network at
+// the component level (0) or with every component expanded (1), its layout settled first.
 
 import { Camera } from "../src/view/Camera";
 import { Emphasis, emphasisFromWire } from "../src/core/Emphasis";
 import { Graph } from "../src/graph/Graph";
 import { RenderMode, RenderRunner, renderModeFromLocation } from "../src/render/RenderRunner";
 import { sparseGraph } from "../test/support/physics";
+import { buildGraph } from "../src/network/BuildGraph";
+import { fitView } from "../src/view/Fit";
+import { ForceDirectedGraph } from "../src/physics/ForceDirectedGraph";
+import { readFormat2 } from "../src/network/Format2";
+
+// Steps a network takes before its frames are timed, so the layout is the one a viewer sees.
+const SETTLE_STEPS = 300;
 
 const CANVAS_W = 1280;
 const CANVAS_H = 800;
@@ -23,6 +31,8 @@ interface Params {
     frames: number;
     mode: RenderMode;
     emphasis: Emphasis;
+    model: string | null;
+    level: 0 | 1;
 }
 
 interface Measurement {
@@ -58,6 +68,8 @@ function queryParams(): Params {
         frames: frames !== null ? Number(frames) : DEFAULT_FRAMES,
         mode: renderModeFromLocation(),
         emphasis: emphasisFromWire(emphasis === "edges" ? Emphasis.edges : Emphasis.nodes),
+        model: query.get("model"),
+        level: query.get("level") === "1" ? 1 : 0,
     };
 }
 
@@ -76,9 +88,25 @@ function nextFrame(): Promise<number> {
     return new Promise(resolve => window.requestAnimationFrame(resolve));
 }
 
+/** A network from `url`, built at `level`, its layout settled, and the camera that frames it. */
+async function networkCase(url: string, level: 0 | 1): Promise<{ graph: Graph; camera: Camera }> {
+    const model = readFormat2(await (await fetch(url)).json());
+    const expanded = level === 1 ? new Set(model.stacks.flatMap(stack => stack.entries.flatMap(e => e.components.map(c => c.id)))) : undefined;
+    const graph = buildGraph(model, { expanded }).graph;
+    const solver = new ForceDirectedGraph(graph);
+
+    for (let s = 0; s < SETTLE_STEPS; s++)
+        solver.stepPhysics();
+
+    const camera = new Camera();
+    camera.setPose(fitView(graph.attributes!.bands)!);
+
+    return { graph, camera };
+}
+
 async function measureCase(
     runner: RenderRunner,
-    nodes: number,
+    subject: number | { graph: Graph; camera: Camera },
     dpr: number,
     frames: number,
     emphasis: Emphasis
@@ -87,8 +115,8 @@ async function measureCase(
     // The backend owns the backing store and device transform; hand it only the logical size.
     runner.resize(CANVAS_W, CANVAS_H, dpr);
 
-    const graph: Graph = sparseGraph(nodes, 4321 + nodes);
-    const camera = new Camera();
+    const graph: Graph = typeof subject === "number" ? sparseGraph(subject, 4321 + subject) : subject.graph;
+    const camera = typeof subject === "number" ? new Camera() : subject.camera;
 
     // Each case is a different graph, so a worker mirror is re-initialised here.
     runner.setGraph(graph);
@@ -225,9 +253,12 @@ async function main(): Promise<void> {
 
     const rows: Measurement[] = [];
 
-    for (const nodes of params.sizes) {
+    const network = params.model === null ? null : await networkCase(params.model, params.level);
+    const subjects: Array<number | { graph: Graph; camera: Camera }> = network === null ? params.sizes : [network];
+
+    for (const subject of subjects) {
         for (const dpr of params.dprs) {
-            const row = await measureCase(runner, nodes, dpr, params.frames, params.emphasis);
+            const row = await measureCase(runner, subject, dpr, params.frames, params.emphasis);
 
             rows.push(row);
 

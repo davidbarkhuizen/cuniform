@@ -5,14 +5,22 @@ Current state only; rewritten each session (the previous one goes to
 
 ## State (2026-11-01)
 
-- `main` at 03bf8a7, green: `npm run ci` passes 610 tests; CI (typecheck, tests,
-  production build) is a required check.
-- The 2026-11-01 audit remediation is done (PRs #153–#169).
-- **New direction:** cuniform becomes a viewer for indrajala-ml format-2 neural
-  networks only. The plan is
-  [workplans/network-visualizer.md](workplans/network-visualizer.md), with
-  decisions D1–D12 settled. PR 1, the plan itself, merged as #170. Nothing else
-  is built yet.
+- **cuniform is a viewer for indrajala-ml format-2 networks.** The
+  [network visualizer workplan](workplans/network-visualizer.md) is implemented:
+  PRs 2–9 merged as #172–#179, and its Status says so. `npm run ci` is green and
+  CI (typecheck, tests, production build) is a required check.
+- What exists:
+  - a reader (`src/network/Format2.ts`) for numpy and rust files; every one of
+    the ~52k format-2 files in the sibling repositories parses (`npm run census`);
+  - a builder (`src/network/BuildGraph.ts`) giving one node per component (L0),
+    or a component's units with top-k weight edges (L1);
+  - bands clamped in the solver (invariant 10);
+  - the visual grammar in the renderer;
+  - a loader (file picker, drop, `?model=`), a model panel, component details,
+    and expand and collapse.
+- Measured on real models (`docs/performance.md`, Networks): no frame over
+  16.7 ms. A fully expanded step costs at most 13.9 ms (tinyshakespeare: 1,601
+  nodes, 4,676 edges).
 
 ## In flight
 
@@ -20,45 +28,42 @@ Nothing.
 
 ## Next steps
 
-Execute the workplan from **PR 2**, in its §5 order, one branch and PR per row.
-Squash-merge each on green, sync `main` and delete the branch. Then:
+None is owed by the workplan. The open rows are in
+[next-steps.md](next-steps.md):
 
-1. **PR 2 — drop the other graph types (D1).** Remove `src/graph/Smiles.ts`,
-   `Molecules.ts`, `src/ui/GraphWizard.ts`, the chooser, `GraphSpec`'s random
-   and molecule kinds, and their tests (`smiles`, `molecules`, `graph-wizard`,
-   `graph-chooser`, `graph-spec`, `test/support/catalog.ts`). Move
-   `GraphFactory` to `test/support/`; `bench/physics.bench.ts` and
-   `test/support/physics.ts` import it. `UIController.ts` and
-   `test/architecture.test.ts` reference these modules too.
-2. PRs 3–9 as the workplan lists them.
+- **Gated on other work:**
+  - the server `ModelSource` (row 11);
+  - the cross-attention and grouped-query views, once indrajala-ml writes them
+    into format 2 (row 12);
+  - ensembles as several stacks (row 13).
+- **Ready now:** label placement for deep models at L0 (row 14). Its labels
+  overlap; see [known-limitations.md](known-limitations.md#networks).
+- **Unchanged from before the visualizer:** rows 1–10.
 
 ## Things a new session needs
 
 - **Format 2 is defined in indrajala-ml:**
-  `indrajala_ml/model/persistence/format2.py` (its docstring is the spec),
-  `format2_json.py` (codecs; `recurrence_parameters` gives the window-recurrent
-  weight order), and `indrajala_ml/model/specs/layer_specs.py`
-  (`expand_specs`, the expansion the weight indices follow).
-- **Array networks only (D2):** numpy and rust share one weight layout. The
-  census found 0 pure-Python files among 1385.
-- **Real files for the integration test.** They are read in place from sibling
-  repos and never copied into git:
-  - `../indrajala-models/addition/2026-10-11-sweep/models/*/network.json`
-    (small sequence models);
-  - `../indrajala-ml/data/generation/tinyshakespeare-2layer-rotary-e10-s0.json`
-    (7.5 MB; d=64, 4 heads, rotary; the G7 scale case);
-  - `../indrajala-studies/data/window-recurrent/division-probe-2b/seed4-certified-step-10.network.json`
-    (window-recurrent, state inputs, 2 coded factors);
-  - `../indrajala-studies/data/window-recurrent/window-branches/b2/move-to-front-5/seed0/step-23.network.json`
-    (branches).
-- **Not yet in format 2:** cross-attention and grouped-query attention (D9).
-  Their grammar is planned and their code waits for indrajala-ml.
-- **Model source (D3):** a local file now; the server source comes later behind
-  the same interface.
-- **Commands:** `npm run ci` (typecheck and tests), `npm run bench`, and
-  `./build-and-run.sh` (`--build-only` to skip the browser). Node v24.
+  `indrajala_ml/model/persistence/format2.py` (the docstring is the spec),
+  `format2_json.py` (`recurrence_parameters`) and
+  `indrajala_ml/model/specs/layer_specs.py` (`expand_specs`, `spec_paths`).
+  Files saved before the factored state (indrajala-ml #739) hold a single
+  `state_size` at the top of `recurrence`; the reader reads one as one factor.
+- **Real models** are read in place from sibling repos and never copied into
+  git. `test/support/models.ts` names them, and their tests skip when the repos
+  are absent (as on CI).
+- **Visual checks:**
+  - serve `~/code` with `python3 -m http.server 8765` after `./cli build`;
+  - open `cuniform/web/index.html?model=/<repo>/<path>.json`;
+  - take a screenshot with `google-chrome --headless=new --screenshot=...`;
+  - collect real-canvas frame times with
+    `node bench/render-frame-collect.mjs '<.../bench/render-frame.html?model=...&level=0|1>'`.
+- **Commands:**
+  - `npm run ci` (typecheck and tests, about 2 s);
+  - `npm run bench` (includes the network rows);
+  - `npm run census` / `./cli census [dirs]` (about 10 min over the studies data);
+  - `./build-and-run.sh` (or `bash build-and-run.sh --build-only`). Node v24.
 
 ## Machines
 
-Development runs on pyramidon (local: build, tests, browser). The suite takes
-about 2 s, and nothing here needs the runners.
+Development runs on pyramidon (local build, tests, headless Chrome). Nothing
+here needs the runners.

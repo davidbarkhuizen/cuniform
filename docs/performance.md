@@ -133,3 +133,59 @@ draw calls for the same graph, camera and selection.
   `K.renderer` thresholds the draw path changes shape (label culling, batched
   edges, and above `performance.minNodes` the coarse preset's colour-batched node
   fills, see [Depth cue](model-camera-and-rendering.md#depth-cue)).
+
+## Networks
+
+Real models at the component level (L0) and with every component expanded (L1,
+the top 4 incoming weights per unit, at most 2048 weight edges per band), on
+pyramidon, 2026-11-01. `npm run bench` reports the first table when the sibling
+repositories are checked out; the second comes from `bench/render-frame.html`
+with `?model=<url>&level=0|1`, collected by
+`node bench/render-frame-collect.mjs <url>...`, which drives headless Chrome
+over the DevTools protocol and prints the harness's markdown table (serve
+`~/code` over HTTP after `./cli build`).
+
+**Node, `FakeContext2D` (JavaScript work only).** "Plain" is the same graph with
+its attributes removed, so the difference is the grammar's cost: glyphs, marks,
+bands, curves.
+
+| model | level | N | E | bands | frame ms plain → grammar | ops plain → grammar | step ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| tinyshakespeare (d 64, 2 blocks, 4 rotary heads) | L0 | 25 | 34 | 13 | 0.018 → 0.040 | 84 → 140 | 0.02 |
+| tinyshakespeare | L1 | 1601 | 4676 | 13 | 2.47 → 2.77 | 1609 → 1635 | 13.9 |
+| division probe (3 windows, 2 coded factors) | L0 | 42 | 56 | 28 | 0.027 → 0.062 | 140 → 223 | 0.04 |
+| division probe | L1 | 662 | 1768 | 28 | 0.84 → 0.99 | 2430 → 2486 | 3.96 |
+| window branches (move-to-front) | L0 | 61 | 82 | 42 | 0.043 → 0.083 | 204 → 326 | 0.08 |
+| window branches | L1 | 1045 | 2702 | 42 | 1.23 → 1.32 | 1053 → 1137 | 7.72 |
+
+The grammar roughly doubles a tiny L0 frame's JavaScript (fractions of a
+millisecond) and adds 7–12% at L1, where edges are batched. A fully expanded
+step (band clamp included) stays inside one 50 ms tick: 13.9 ms for the largest
+model. A banded step and projection allocate nothing (`network step+project
+x20` in the GC section: 0 pauses). Fully expanded, tinyshakespeare is 1,601
+nodes and 4,676 edges, where drawing every weight would be ~106k edges; the
+top-k rule is what keeps it in the interactive regime.
+
+**Real canvas, Chrome 156 headless (CPU rasterisation), 1280x800, 300 frames,
+render on the main thread, physics stopped after a 300-step settle.**
+
+| model | level | N | E | dpr | draw p50 ms | draw p95 ms | >16.7 ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| tinyshakespeare | L0 | 25 | 34 | 1 | 0.5 | 0.9 | 0/300 |
+| tinyshakespeare | L0 | 25 | 34 | 2 | 0.2 | 0.4 | 0/300 |
+| tinyshakespeare | L1 | 1601 | 4676 | 1 | 4.8 | 5.9 | 0/300 |
+| tinyshakespeare | L1 | 1601 | 4676 | 2 | 4.4 | 6.3 | 0/300 |
+| division probe | L0 | 42 | 56 | 1 | 0.7 | 1.1 | 0/300 |
+| division probe | L0 | 42 | 56 | 2 | 0.4 | 0.7 | 0/300 |
+| division probe | L1 | 662 | 1768 | 1 | 2.9 | 3.8 | 0/300 |
+| division probe | L1 | 662 | 1768 | 2 | 2.3 | 3.4 | 0/300 |
+| window branches | L0 | 61 | 82 | 1 | 0.9 | 1.3 | 0/300 |
+| window branches | L0 | 61 | 82 | 2 | 0.4 | 0.9 | 0/300 |
+| window branches | L1 | 1045 | 2702 | 1 | 3.6 | 4.8 | 0/300 |
+| window branches | L1 | 1045 | 2702 | 2 | 2.8 | 3.2 | 0/300 |
+
+No network frame missed a 60 Hz budget. Each L1 run reports one long task of
+1.3–4.6 s before its first frame: that is the harness's settle, 300 physics
+steps on the main thread, not the draw path (the viewer runs those steps in
+the physics worker).
+
