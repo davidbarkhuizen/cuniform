@@ -17,6 +17,8 @@ export interface RenderSurface {
     beginPath(): void;
     moveTo(x: number, y: number): void;
     lineTo(x: number, y: number): void;
+    quadraticCurveTo(cpx: number, cpy: number, x: number, y: number): void;
+    setLineDash(segments: number[]): void;
     arc(x: number, y: number, r: number, start: number, end: number, ccw: boolean): void;
     stroke(): void;
     fill(): void;

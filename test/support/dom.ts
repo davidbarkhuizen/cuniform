@@ -226,6 +226,10 @@ export class FakeContext2D {
     arcs: number[][] = [];
     moveTos: number[][] = [];
     lineTos: number[][] = [];
+    curves: number[][] = [];
+    /** Every `setLineDash` argument, in call order. */
+    dashes: number[][] = [];
+    lineDash: number[] = [];
     fillRadii: number[] = [];
     ops: DrawOp[] = [];
     transforms: number[][] = [];
@@ -246,6 +250,15 @@ export class FakeContext2D {
 
     lineTo(x: number, y: number) {
         this.lineTos.push([x, y]);
+    }
+
+    quadraticCurveTo(cpx: number, cpy: number, x: number, y: number) {
+        this.curves.push([cpx, cpy, x, y]);
+    }
+
+    setLineDash(segments: number[]) {
+        this.lineDash = [...segments];
+        this.dashes.push([...segments]);
     }
 
     arc(x: number, y: number, radius: number, start: number, end: number, ccw: boolean) {

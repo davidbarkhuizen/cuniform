@@ -167,6 +167,49 @@ reusable frame scratch, so it allocates nothing in steady state. The coarse
 preset has no edge-thinning degree filter: its benefit is real-canvas-only, so it
 waits for a real-browser measurement rather than the fake-context `ops` count.
 
+## Drawing a network
+
+A graph with attributes (a network, see [Networks](networks.md#the-render-graph))
+draws with the visual grammar of workplan D8; a plain graph draws exactly as
+above. Three channels vary independently:
+
+- **Colour encodes the family**: `K.colours.family`, indexed by `Family`
+  (input, normalisation, attention, feed-forward, output, recurrence, other).
+  Each clears 3:1 against the canvas and the edges, and none is the selection
+  yellow.
+- **Shape encodes the kind**: a circle for a dense layer (an inner ring for the
+  output), a square for an embedding (outlined for a position, gridded for
+  patches, outlined for an initial state), an inverted triangle for a state
+  input, a wide flat bar for a layer or batch norm (hollow for a token mean), a
+  hexagon per attention head and for a factor's pooling (with a query dot), a
+  chamfered square for a conv, a pool (hollow) or a GRU cell (with `↻`), a grid
+  of dots for codes, a small `+` disc where a block adds, a `Σ` disc where
+  branches merge, and a diamond for an unknown kind. A component glyph is 1.5×
+  a plain dot's depth-cued radius.
+- **Marks encode the variant**: a triangle for causal attention, a ring for
+  rotary positions, a dotted outline for dropout, hatching for batch norm, a
+  bar for segments, and a letter for the activation (σ, r, l, s, g; drawn under
+  the label size gate).
+
+Edges: a residual skip is a quadratic curve bowing out along +x of its stack
+and a recurrent loop one bowing along -x, each control point projected from
+model space (`K.network.residualBow` and friends), so curves rotate with the
+scene; the data leaving a dropout is dashed. A flow or weight edge's width and
+alpha follow its |weight|, and a unit-level weight edge takes its hue from the
+sign. Batched edges keep their curves but draw at one width.
+
+Each band draws as an outline: its four projected corners, a translucent fill
+and a faint stroke in its family's colour. Bands are a third draw-item kind
+that ranks below edges and nodes in both emphases, so they always lead the
+painter order. `projectGraph` fills the per-frame band corners and curve
+control points into buffers on the graph, allocated once per graph size, so a
+steady-state frame still allocates nothing; a band or curve with a culled point
+is not drawn as such (a curve falls back to a line). In the coarse preset a
+network fills once per (kind, colour) and drops the marks.
+
+`RenderSurface` gained `quadraticCurveTo` and `setLineDash`, which both 2D
+contexts and the test fake implement.
+
 ## The render worker
 
 Where the browser has a `Worker`, the drawing runs in `dist/render.worker.js`,

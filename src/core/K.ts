@@ -165,6 +165,25 @@ export const K = {
         label : '#e8f4ff',
         edgeDefault : '#4b5b70',
         edgeIncident : SELECTION_COLOUR,
+
+        // A network's node colour encodes its family (workplan D8), indexed by `Family`; shape encodes the
+        // kind and marks the variant. Each clears 3:1 against the canvas and the edges, and none is the
+        // selection yellow (test/render-network.test.ts).
+        family: [
+            '#7cc0ff', // input
+            '#c9d1dc', // normalisation
+            '#ff9f43', // attention
+            '#39d98a', // feed-forward
+            '#ff9a9a', // output
+            '#d4a8ff', // recurrence
+            '#ff8de0', // other (unsupported)
+        ],
+        // Unit-level weight edges take their hue from the sign.
+        weightPositive : '#6fb8ff',
+        weightNegative : '#ff7a6b',
+        recurrentEdge : '#8e6bbf',
+        // Marks drawn inside a filled glyph: the canvas colour, web/stylez.css's --canvas-bg.
+        glyphInk : '#04070e',
     },
 
     network: {
@@ -179,5 +198,11 @@ export const K = {
         unitSpacing: EQUILIBRIUM_DISPLACEMENT,
         laneGap: 40,
         stackGap: 400,
+        // Curved edges' control points, in model units: a residual bows +x and a recurrent loop -x, by a
+        // share of the height it spans plus an offset, so a one-band skip still reads as a curve.
+        residualBow: 0.35,
+        residualOffset: 30,
+        recurrentBow: 0.25,
+        recurrentOffset: 60,
     },
 };

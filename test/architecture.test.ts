@@ -88,7 +88,7 @@ test("the modules that touch browser globals are classified explicitly", () => {
 });
 
 test("the renderer is the only module that draws", () => {
-    const drawingCall = /\w+\.(clearRect|beginPath|moveTo|lineTo|arc|stroke|fillText)\s*\(/;
+    const drawingCall = /\w+\.(clearRect|beginPath|moveTo|lineTo|quadraticCurveTo|setLineDash|arc|stroke|fillText)\s*\(/;
 
     // A canvas fill() takes no value; a typed array's fill(value) does, so buffer clears are not drawing.
     const canvasFill = /\w+\.fill\s*\(\s*\)/;

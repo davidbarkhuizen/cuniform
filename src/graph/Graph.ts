@@ -16,6 +16,15 @@ export class Graph {
      */
     attributes: GraphAttributes | null = null;
 
+    /**
+     * Per-frame projection caches for a banded graph, written by `projectGraph` and read by the renderer, as
+     * `Tag.translatedPosition` is: each band's four projected corners (x, y) and its centre's depth
+     * (BAND_SCREEN_STRIDE per band, depth NaN when culled), and each edge's projected curve control point
+     * (x, y; NaN for a straight edge). Allocated once per graph size.
+     */
+    bandScreen: Float64Array | null = null;
+    edgeControls: Float64Array | null = null;
+
     /** Undirected membership index, kept in sync with `edges`. */
     private readonly neighbourSets: Map<Tag, Set<Tag>> = new Map();
 

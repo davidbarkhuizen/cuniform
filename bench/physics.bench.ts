@@ -17,6 +17,10 @@ import { render } from "../src/render/Renderer";
 import { FakeContext2D } from "../test/support/dom";
 import { disconnectedPaths, seededRandom, sparseGraph } from "../test/support/physics";
 import { withRendererSettings } from "../test/support/settings";
+import { buildGraph } from "../src/network/BuildGraph";
+import { fitView } from "../src/view/Fit";
+import { modelJson, ModelName } from "../test/support/models";
+import { readFormat2 } from "../src/network/Format2";
 
 const CANVAS_W = 1280;
 const CANVAS_H = 800;
@@ -367,6 +371,47 @@ function benchRender(): void {
     }
 }
 
+// The real models the integration tests read, when their sibling repositories are checked out.
+const NETWORK_MODELS: ModelName[] = ["tinyshakespeare", "divisionProbe", "branches"];
+
+function benchNetwork(): void {
+    console.log("\n== networks at L0 (FakeContext2D; the plain frame is the same graph with its attributes removed) ==");
+    row("model: N / E / bands", "frame ms plain -> grammar   ops plain -> grammar   step ms");
+
+    for (const name of NETWORK_MODELS) {
+        const json = modelJson(name);
+
+        if (json === null) {
+            row(name, "skipped: its sibling repository is not checked out");
+            continue;
+        }
+
+        const graph = buildGraph(readFormat2(json)).graph;
+        const attributes = graph.attributes!;
+        const camera = fitView(attributes.bands)!;
+        const projector = Projector.forCanvas(CANVAS_W, CANVAS_H, camera);
+        const solver = new ForceDirectedGraph(graph);
+
+        for (let i = 0; i < 100; i++)
+            solver.stepPhysics();
+
+        const stepMs = timePer(() => solver.stepPhysics(), 200);
+
+        projectGraph(graph, projector);
+        const grammar = measureRender(graph, camera, 200);
+
+        graph.attributes = null;
+        projectGraph(graph, projector);
+        const plain = measureRender(graph, camera, 200);
+        graph.attributes = attributes;
+
+        row(
+            `${name}: ${graph.vertices.length} / ${graph.edges.length} / ${attributes.bands.length / 7}`.padEnd(32),
+            `${plain.ms.toFixed(3)} -> ${grammar.ms.toFixed(3)}   ${plain.ops} -> ${grammar.ops}   ${stepMs.toFixed(3)}`
+        );
+    }
+}
+
 async function measureGc(label: string, workload: () => void, reps: number): Promise<void> {
     workload();
 
@@ -413,6 +458,18 @@ async function benchGc(): Promise<void> {
 
     await measureGc("repulsion x20", () => solver.accumulateRepulsion(out), 20);
     await measureGc("step x20", () => solver.step(CANVAS_W, CANVAS_H, unpinned, projector), 20);
+
+    const json = modelJson("tinyshakespeare");
+
+    if (json === null)
+        return;
+
+    // A banded graph's steady state: the clamp, the projection caches and the grammar allocate nothing.
+    const network = new ForceDirectedGraph(buildGraph(readFormat2(json)).graph);
+    const camera = fitView(network.graph.attributes!.bands)!;
+    const networkProjector = Projector.forCanvas(CANVAS_W, CANVAS_H, camera);
+
+    await measureGc("network step+project x20", () => network.step(CANVAS_W, CANVAS_H, unpinned, networkProjector), 20);
 }
 
 async function main(): Promise<void> {
@@ -430,6 +487,7 @@ async function main(): Promise<void> {
     benchKernel();
     benchProjection();
     benchRender();
+    benchNetwork();
     await benchGc();
 }
 
