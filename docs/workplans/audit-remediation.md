@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | Implemented (PRs #153–#168, 2026-11-01), except the branch-protection half of D8; see §11 |
+| **Status** | Implemented (PRs #153–#169, 2026-11-01); see §11 |
 | **Area** | `src/render/Renderer.ts`, `src/render/RenderProtocol.ts`, `src/render/RenderRunner.ts`, `src/render/render.worker.ts`, `src/physics/PhysicsRunner.ts`, `src/physics/PhysicsProtocol.ts`, `src/physics/ForceDirectedGraph.ts`, `src/graph/Components.ts`, `src/graph/GraphFactory.ts`, `src/graph/GraphSpec.ts`, `src/graph/Smiles.ts`, `src/app/UIController.ts`, `src/ui/*.ts`, `src/core/K.ts`, new `src/core/Random.ts`, `web/index.html`, `package.json`, new `.github/workflows/ci.yml`, new `.editorconfig`, new `.git-blame-ignore-revs`, `test/architecture.test.ts`, `test/render-worker.test.ts`, `test/render-runner.test.ts`, `test/physics-runner.test.ts`, `test/support/dom.ts`, docs |
 | **Depends on** | nothing outstanding: `main` is green at 73eaf32 (`npm run ci`, 561 tests; dev and production bundles build) |
 | **Blocks** | nothing; [Next steps](../next-steps.md) row 4 (embeddable component) gets easier once phases B and C land |
@@ -698,12 +698,11 @@ At close-out on `main` (df810d8): `npm run ci` passes 610 tests (561 before),
 
 **Deviations from the plan, and why.**
 
-- **D8 is half done.** The CI workflow runs on every push and PR and has
-  passed on each of #154–#167. Making it a *required* check on `main` was not
-  applied: Claude Code's auto-mode permission classifier blocked the branch-protection API call as
-  a CI bypass. It is the owner's call: `gh api -X PUT
-  repos/davidbarkhuizen/cuniform/branches/main/protection` with
-  `required_status_checks.contexts = ["ci"]`, no review requirement.
+- **D8's required check was applied by the owner.** Claude Code's auto-mode
+  permission classifier blocked the branch-protection API call as a CI bypass,
+  so the owner ran it after #168: `ci` is a required status check on `main`
+  (not strict, no review requirement, admins not enforced). #169, which records
+  this, was the first merge through it.
 - **PR 6's manual check used a crash stub instead of a debug hook.** Rather than
   add a development-only hook to production code, the built demo was served over
   HTTP with `dist/render.worker.js` replaced by a stub that crashes on its first
