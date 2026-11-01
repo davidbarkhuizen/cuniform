@@ -31,7 +31,9 @@ The suite enforces these, so they are the contract rather than suggestions:
    class order, and a layout is reproducible.
 5. **Pinned-node semantics.** A dragged node keeps the position the pointer
    writes, has its velocity zeroed, is skipped by integration, and still exerts
-   forces. Dragging never teleports depth.
+   forces. Dragging never teleports depth. On the worker path the physics
+   runner overlays the latest pin on every reply, so `sync()` never pulls the
+   pinned node back to the pin of an earlier step.
 6. **The exact 2D reduction.** With the identity orientation, `focalLength ==
    distance` and `z == 0`, projection reduces bit-exactly to the 2D viewport
    mapping.
@@ -45,6 +47,9 @@ The suite enforces these, so they are the contract rather than suggestions:
    transfer, and the worker returns that same buffer with the `drawn` ack, so a
    steady-state frame allocates no typed array on the main thread; the depth
    write-back is an in-place loop over the returned array.
+9. **One selection input for the renderer.** `render()` takes the selection
+   only from its `selected` argument and never reads `Tag.isSelected`, which is
+   UI state; the render worker's mirror tags carry no such flag.
 
 When timing a change, time it with the committed benchmark and report force
 error alongside any time that moves an approximation; "it feels faster" is not

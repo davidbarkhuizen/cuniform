@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | Planned |
+| **Status** | Implemented (PRs #153–#168, 2026-11-01), except the branch-protection half of D8; see §11 |
 | **Area** | `src/render/Renderer.ts`, `src/render/RenderProtocol.ts`, `src/render/RenderRunner.ts`, `src/render/render.worker.ts`, `src/physics/PhysicsRunner.ts`, `src/physics/PhysicsProtocol.ts`, `src/physics/ForceDirectedGraph.ts`, `src/graph/Components.ts`, `src/graph/GraphFactory.ts`, `src/graph/GraphSpec.ts`, `src/graph/Smiles.ts`, `src/app/UIController.ts`, `src/ui/*.ts`, `src/core/K.ts`, new `src/core/Random.ts`, `web/index.html`, `package.json`, new `.github/workflows/ci.yml`, new `.editorconfig`, new `.git-blame-ignore-revs`, `test/architecture.test.ts`, `test/render-worker.test.ts`, `test/render-runner.test.ts`, `test/physics-runner.test.ts`, `test/support/dom.ts`, docs |
 | **Depends on** | nothing outstanding: `main` is green at 73eaf32 (`npm run ci`, 561 tests; dev and production bundles build) |
 | **Blocks** | nothing; [Next steps](../next-steps.md) row 4 (embeddable component) gets easier once phases B and C land |
@@ -669,4 +669,69 @@ At close-out, on `main`:
 
 ## 11. Post-implementation notes
 
-(Filled in as PRs land.)
+**Delivered.** One squash-merged PR per row of §5, in order:
+
+| Row | PR | Row | PR |
+| ---: | --- | ---: | --- |
+| 1 workplan | #153 | 9 hygiene | #161 |
+| 2 CI | #154 | 10 style | #162 |
+| 3 selection source | #155 | 11 guard by call shape | #163 |
+| 4 pin overlay | #156 | 12 coarse double draw | #164 |
+| 5 shape tracking | #157 | 13 strict SMILES | #165 |
+| 6 render recovery | #158 | 14 seeded graphs | #166 |
+| 7 physics watchdog | #159 | 15 touch | #167 |
+| 8 `textContent` | #160 | 16 close-out | #168 |
+
+At close-out on `main` (df810d8): `npm run ci` passes 610 tests (561 before),
+`npm audit` reports 0 vulnerabilities, the production build is clean, and
+`npm run bench` step times are within run-to-run noise of the baseline
+(4096 nodes: 25.61 ms against 24.28–25.45 ms).
+
+**Open questions, answered.**
+
+1. *Does a real browser throw on the second transfer and on `getContext` after
+   it?* Yes. Headless Chrome throws `InvalidStateError` from both, and a
+   `cloneNode` of the canvas yields a working 2D context, so all of D5 shipped.
+2. *Long press or a panel menu button?* The long press shipped. It matches
+   right-click, needs no new chrome, and the panel already carries `export` and
+   `reset`.
+
+**Deviations from the plan, and why.**
+
+- **D8 is half done.** The CI workflow runs on every push and PR and has
+  passed on each of #154–#167. Making it a *required* check on `main` was not
+  applied: Claude Code's auto-mode permission classifier blocked the branch-protection API call as
+  a CI bypass. It is the owner's call: `gh api -X PUT
+  repos/davidbarkhuizen/cuniform/branches/main/protection` with
+  `required_status_checks.contexts = ["ci"]`, no review requirement.
+- **PR 6's manual check used a crash stub instead of a debug hook.** Rather than
+  add a development-only hook to production code, the built demo was served over
+  HTTP with `dist/render.worker.js` replaced by a stub that crashes on its first
+  frame. The page swapped the canvas and drew in process (1200x657, 12,349 lit
+  pixels), logging once. A control run with the real worker confirmed the canvas
+  is worker-owned when healthy.
+- **No separate test for a mismatched pooled buffer (PR 5).** The shape check now
+  runs before `sendFrame()`, so the push-back is defensive and unreachable
+  through the public API; the four shape-change tests cover the behaviour.
+- **Found on the way, fixed in PR 6:** the pre-probe fallback never resized the
+  in-process backing store, so a worker that 404ed over HTTP left a 300x150
+  canvas until the next window resize. Both fallbacks now adopt the size the
+  worker held.
+- **Behaviour change in PR 14:** a re-`initialize()` keeps the seed, so it
+  rebuilds the same graph rather than a new random one. This follows from
+  "the last chooser choice survives re-initialization"; the chooser's blank
+  seed field is the way to a new graph.
+- **Pointer Events trade-off (PR 15):** mouse buttons no longer chord, because a
+  second button pressed mid-drag arrives as a move, not a press. This is recorded
+  in [Known limitations](../known-limitations.md). The mouse path does not take
+  pointer capture, so a mouse leaving the canvas still resets the buttons as
+  before.
+- **PR 15 browser check:** done over the DevTools protocol with Chrome's touch
+  emulation and `?render=main`, so the page could read its own pixels. A tap on a
+  node selected it; a tap on empty canvas cleared it; a long press opened the
+  menu; a pinch apart grew the drawing's bounding box about 2.9x; a one-finger
+  drag changed the picture about 170x more than idle drift.
+- **Caught by the tests during PR 14:** `applyGraphSpec()` first built the graph
+  from the unseeded spec, so the recorded seed would not have rebuilt it. The
+  "same seed rebuilds the same graph" assertion failed, and the fix landed in the
+  same PR.
