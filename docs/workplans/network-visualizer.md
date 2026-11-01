@@ -296,7 +296,8 @@ the test fake implement.
   factor, `[q]`, `[W, U, b]`, `[E]` if coded, then `[c]`
   (`recurrence_parameters`).
 - Check each entry's array shapes against the spec (for example, attention's
-  `Wq` is `d x heads*key_size`). A mismatch is a named error that cites the
+  `Wq` against `d`, `heads` and `key_size`; PR 3 pins each kind's orientation
+  from indrajala-ml's numpy layers). A mismatch is a named error that cites the
   entry's path.
 - Keep weights as one `Float32Array` per parameter, which halves the JSON's
   memory. Compute the statistics here.
