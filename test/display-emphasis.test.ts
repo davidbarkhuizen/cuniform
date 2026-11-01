@@ -208,8 +208,8 @@ test("the coarse path keeps the ordinary order in nodes mode", () => {
     );
 });
 
-test("the coarse edges mode re-draws the selection's ring and labels over the mesh", () => {
-    // Without the bounded second pass a 2.5 px mesh would bury the selected label.
+test("the coarse edges mode draws the selection's ring and labels once, over the mesh", () => {
+    // Before the mesh a 2.5 px mesh would bury the selected label; before and after, it composited twice.
     const { graph, nodes } = DESCENDING();
     nodes[1].isSelected = true;
 
@@ -222,7 +222,7 @@ test("the coarse edges mode re-draws the selection's ring and labels over the me
 
     const after = context.textLabels.slice(-3);
     assert.deepEqual([...after].sort(), ["n0", "n1", "n2"]);
-    assert.equal(context.textLabels.length, 6, "each label is drawn on both passes");
+    assert.equal(context.textLabels.length, 3, "each label is drawn exactly once");
 });
 
 test("the coarse edges mode does not re-draw anything without a selection", () => {

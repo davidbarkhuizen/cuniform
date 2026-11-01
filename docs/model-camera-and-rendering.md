@@ -125,9 +125,9 @@ performance ladder, not three renderers, so all three honour the same
 order/alpha/width policy; a configuration that reversed above
 `batchEdgesMinEdges` would be invisible in the eleven-node demo. In `edges` mode
 the batched edge pass runs *after* the node loop (or the colour-batched fills),
-and the coarse path re-draws the selected node's ring and the labels of the
+and the coarse path draws the selected node's ring and the labels of the
 selection and its incident neighbours after that pass, so a 2.5 px mesh cannot
-bury the one label a user is reading. That pass is bounded by
+bury the one label a user is reading; it is drawn only there, once. That pass is bounded by
 `degree(selected) + 1`, not by N.
 
 Above the `K.renderer` size thresholds the frame switches to a cheaper, gated
