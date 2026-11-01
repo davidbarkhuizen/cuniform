@@ -111,7 +111,8 @@ function pitchAxis(orientation: Mat3): Point3D {
  */
 export class Camera implements CameraView {
 
-    // Assigned only by applyPose(); the definite assignment assertions rely on that.
+    // Assigned only by applyPose(), through the constructor, reset() and setPose(); the definite
+    // assignment assertions rely on that.
     orientation!: Mat3;
 
     target!: Point3D;
@@ -203,6 +204,11 @@ export class Camera implements CameraView {
 
     reset(): void {
         this.applyPose(defaultCameraView());
+    }
+
+    /** Take another view's orientation, target and distance; the initial fit on a model load uses it. */
+    setPose(view: CameraView): void {
+        this.applyPose(view);
     }
 
     // Shared by the constructor and reset(), so `defaultCameraView()` is the one definition.

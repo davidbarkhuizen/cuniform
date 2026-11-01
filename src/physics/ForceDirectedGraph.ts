@@ -1,4 +1,5 @@
 import { otherEndpoint } from "../graph/Edge";
+import { BAND_HALF, BAND_STRIDE, BAND_X_MAX, BAND_X_MIN, BAND_Y, BAND_Z_MAX, BAND_Z_MIN, NO_BAND } from "../graph/Attributes";
 import { Graph } from "../graph/Graph";
 import { labelComponents } from "../graph/Components";
 import { K } from "../core/K";
@@ -9,6 +10,29 @@ import { projectGraph } from "../view/Projection";
 import { Projector } from "../view/Projector";
 import { openingAngleFor } from "./Quality";
 import { Tag } from "../graph/Tag";
+
+/**
+ * Clamps the tag into band `b`'s box (workplan D5): y within the half thickness of the centre, x and z
+ * within the footprint. A clamped axis loses its velocity, the per-axis analogue of the pin rule.
+ */
+function clampToBand(tag: Tag, bands: Float64Array, b: number): void {
+
+    const o = b * BAND_STRIDE;
+    const p = tag.position;
+    const v = tag.velocity;
+
+    const yLow = bands[o + BAND_Y] - bands[o + BAND_HALF];
+    const yHigh = bands[o + BAND_Y] + bands[o + BAND_HALF];
+
+    if (p.y < yLow) { p.y = yLow; v.y = 0; }
+    else if (p.y > yHigh) { p.y = yHigh; v.y = 0; }
+
+    if (p.x < bands[o + BAND_X_MIN]) { p.x = bands[o + BAND_X_MIN]; v.x = 0; }
+    else if (p.x > bands[o + BAND_X_MAX]) { p.x = bands[o + BAND_X_MAX]; v.x = 0; }
+
+    if (p.z < bands[o + BAND_Z_MIN]) { p.z = bands[o + BAND_Z_MIN]; v.z = 0; }
+    else if (p.z > bands[o + BAND_Z_MAX]) { p.z = bands[o + BAND_Z_MAX]; v.z = 0; }
+}
 
 export class ForceDirectedGraph {
 
@@ -475,15 +499,49 @@ export class ForceDirectedGraph {
 
         let maxDisplacement = 0;
 
+        const attributes = this.graph.attributes;
+        const band = attributes?.band ?? null;
+        const bands = attributes?.bands ?? null;
+
         // Velocity before position; the first pass that writes a Tag.
         for (let i = 0; i < n; i++) {
 
             const tag = vertices[i];
+            const b = band === null ? NO_BAND : band[i];
 
             if (isPinned(tag)) {
                 tag.velocity.x = 0;
                 tag.velocity.y = 0;
                 tag.velocity.z = 0;
+
+                // A drag is held to the node's band too (invariant 10).
+                if (b !== NO_BAND)
+                    clampToBand(tag, bands!, b);
+
+                continue;
+            }
+
+            // A banded node is clamped into its band's box; its travel is what it actually moved.
+            if (b !== NO_BAND) {
+                const x = tag.position.x;
+                const y = tag.position.y;
+                const z = tag.position.z;
+
+                tag.velocity.x = integrateVelocity(tag.velocity.x, this.repulsionX[i]);
+                tag.velocity.y = integrateVelocity(tag.velocity.y, this.repulsionY[i]);
+                tag.velocity.z = integrateVelocity(tag.velocity.z, this.repulsionZ[i]);
+
+                tag.position.x = x + tag.velocity.x;
+                tag.position.y = y + tag.velocity.y;
+                tag.position.z = z + tag.velocity.z;
+
+                clampToBand(tag, bands!, b);
+
+                const moved = radius(tag.position.x - x, tag.position.y - y, tag.position.z - z);
+
+                if (moved > maxDisplacement)
+                    maxDisplacement = moved;
+
                 continue;
             }
 
