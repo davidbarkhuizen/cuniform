@@ -20,6 +20,12 @@ import { point3 } from "../core/Point3D";
 import { PhysicsRunner } from "../physics/PhysicsRunner";
 import { CameraView, Projector } from "../view/Projector";
 import { fitView } from "../view/Fit";
+import { buildGraph, BuiltGraph } from "../network/BuildGraph";
+import { componentDetails, modelSummary } from "../network/Details";
+import { fileSource, ModelSource, TextFile } from "./ModelSource";
+import { NetworkModel } from "../network/NetworkModel";
+import { readFormat2 } from "../network/Format2";
+import { BAND_STRIDE } from "../graph/Attributes";
 import { RenderBackend, RenderRunner, RenderWorkerFactory } from "../render/RenderRunner";
 import { handleNodeSelectionAttempt, nodeAt } from "../ui/Selection";
 import { State } from "./State";
@@ -104,6 +110,19 @@ export class UIController {
 
     // Cached selection passed to the renderer; refreshed by updateSelectionInfo().
     private selected: Tag | null = null;
+
+    // The loader's file picker and the model panel's list; null in fixtures without them.
+    modelFileInput: HTMLInputElement | null = null;
+    modelInfoList: HTMLElement | null = null;
+
+    // The loaded network, and the render graph built from it; null until a model opens.
+    model: NetworkModel | null = null;
+    built: BuiltGraph | null = null;
+    private modelName: string | null = null;
+    private loadError: string | null = null;
+
+    // Only the latest open may land, so a slow file cannot replace a later one.
+    private openRequest = 0;
 
     // Names what is on screen.
     currentGraphLabel: HTMLElement;
@@ -819,8 +838,16 @@ export class UIController {
 
         this.hideContextMenu();
 
-        // The same model again: the camera the viewer chose stays.
-        this.loadGraph(this.makeGraph(), false);
+        // The same model again, re-seeded from its band grid; the camera the viewer chose stays.
+        if (this.model !== null) {
+            this.built = buildGraph(this.model);
+            this.loadGraph(this.built.graph, false);
+        }
+        else {
+            this.loadGraph(this.makeGraph(), false);
+        }
+
+        this.updateModelInfo();
 
         return false;
     };
@@ -859,9 +886,99 @@ export class UIController {
             this.state.camera.setPose(view);
     }
 
-    private updateCurrentGraphLabel = () => {
-        this.currentGraphLabel.textContent = NO_MODEL_LABEL;
+    /**
+     * Reads, builds and shows a model from any source. A refusal is shown on the panel's model line and leaves
+     * whatever was on screen; resolves true when the model is now shown.
+     */
+    openModel = async (source: ModelSource): Promise<boolean> => {
+
+        const request = ++this.openRequest;
+        let model: NetworkModel;
+
+        try {
+            model = readFormat2(await source.load());
+        }
+        catch (error) {
+            if (request === this.openRequest) {
+                this.loadError = `could not open ${source.name}: ${error instanceof Error ? error.message : String(error)}`;
+                this.updateCurrentGraphLabel();
+            }
+
+            return false;
+        }
+
+        if (request !== this.openRequest)
+            return false;
+
+        this.model = model;
+        this.modelName = source.name;
+        this.loadError = null;
+        this.built = buildGraph(model);
+        this.loadGraph(this.built.graph);
+        this.updateCurrentGraphLabel();
+        this.updateModelInfo();
+
+        return true;
     };
+
+    private openFile(file: TextFile | undefined): void {
+        if (file !== undefined)
+            void this.openModel(fileSource(file));
+    }
+
+    onModelFileChange = () => {
+        const input = this.modelFileInput;
+
+        this.openFile(input?.files?.[0] ?? undefined);
+
+        // Cleared, so choosing the same file again still fires a change.
+        if (input)
+            input.value = '';
+    };
+
+    // Accepting the drag is what lets the drop land on the canvas.
+    onDragOver = (event: DragEvent) => {
+        event.preventDefault();
+    };
+
+    onDrop = (event: DragEvent) => {
+        event.preventDefault();
+        this.openFile(event.dataTransfer?.files?.[0] ?? undefined);
+    };
+
+    private updateCurrentGraphLabel = () => {
+        this.currentGraphLabel.textContent = this.loadError ?? this.modelName ?? NO_MODEL_LABEL;
+    };
+
+    private updateModelInfo(): void {
+        const list = this.modelInfoList;
+
+        if (list === null)
+            return;
+
+        UIController.clearList(list);
+
+        if (this.model === null || this.built === null)
+            return;
+
+        const graph = this.built.graph;
+        const bands = (graph.attributes?.bands.length ?? 0) / BAND_STRIDE;
+
+        for (const line of modelSummary(this.model, { bands, nodes: graph.vertices.length, edges: graph.edges.length })) {
+            const item = document.createElement('li');
+            item.textContent = line;
+            list.appendChild(item);
+        }
+    }
+
+    private static clearList(list: HTMLElement): void {
+        while (list.children.length > 0) {
+            const first = list.firstChild;
+            if (!first)
+                break;
+            list.removeChild(first);
+        }
+    }
 
     clearSelection = () => {
         this.solver.graph.clearSelection();
@@ -999,6 +1116,8 @@ export class UIController {
         bind("contextmenu", this.onContextMenu);
         bind("keydown", this.onKeyDown);
         bind("wheel", this.onWheel);
+        bind("dragover", this.onDragOver);
+        bind("drop", this.onDrop);
     }
 
     // One list for both directions, so attach and detach cannot drift apart.
@@ -1018,6 +1137,9 @@ export class UIController {
         bind(this.exportElement, "click", this.onExport);
 
         bind(this.resetElement, "click", this.onReset);
+
+        if (this.modelFileInput)
+            bind(this.modelFileInput, "change", this.onModelFileChange);
 
         // A held button is released wherever the pointer is, so release is watched on the window; blur covers lost
         // focus.
@@ -1066,15 +1188,22 @@ export class UIController {
         const selectedNodeInfoLabel = this.selectionInfoLabel;
         const list = this.selectionInfoList;
 
-        while (list.children.length > 0) {
-            const first = list.firstChild;
-            if (!first)
-                break;
-            list.removeChild(first);
-        }
+        UIController.clearList(list);
 
         if (!selectedNode) {
             selectedNodeInfoLabel.textContent = 'Click on a node to select...';
+        }
+        else if (this.built !== null && this.solver.graph === this.built.graph) {
+            // A network's component: its place, spec fields and weight statistics (D12).
+            selectedNodeInfoLabel.textContent = selectedNode.label;
+
+            const group = this.built.graph.attributes!.group[this.built.graph.vertices.indexOf(selectedNode)];
+
+            for (const line of componentDetails(this.built.componentEntries[group], this.built.components[group])) {
+                const item = document.createElement('li');
+                item.textContent = line;
+                list.appendChild(item);
+            }
         }
         else {
             selectedNodeInfoLabel.textContent = selectedNode.label;

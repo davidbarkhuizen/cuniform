@@ -16,8 +16,22 @@ readings → camera → display → actions:
   elements is the subject of the frame;
 - the **actions** — `export` and `reset`, at the foot of the panel.
 
-The panel's current-graph line names the loaded model, or says
-`no model loaded`.
+The panel's current-graph line names the loaded model, says `no model loaded`,
+or, when the last open was refused, says why (`could not open <name>: ...`,
+with the reader's message) while the previous model stays on screen.
+
+Under it are the **loader** and the **model panel**. `open model` is a label
+for a visually hidden file input, so the native control's look never shows. A
+file can also be dropped onto the canvas, and `?model=<url>` on the page's
+address opens one from a local static server. The model panel lists the
+implementation, shape, input, model width, the factors of a window-recurrent
+network, the band count, and the node and edge counts at the current level.
+Both elements are optional: an embedding host may leave them out.
+
+Selecting a network's component replaces the neighbour list with the
+component's details: its kind, where it sits in the layers as written, its
+units, its spec fields, and each weight array's shape with its min, max, mean
+and RMS. Every string is written with `textContent`.
 
 The panel is opaque and high-contrast so it stays readable over the graph, and
 it can be dragged out of the way: with a mouse anywhere on the panel, or with a
@@ -92,7 +106,8 @@ panel's drag surface.
 - **Drag the overlay panel** — by mouse or pen, anywhere on the panel; by touch,
   by the grip at its top. The grip is the only touch drag surface, so the panel
   body stays scrollable.
-- **Reset** — rebuilds the graph from its source and re-seeds the layout. The
+- **Reset** — rebuilds the graph from the loaded model (or the graph source,
+  before one) and re-seeds the layout from the band grid. The
   graph is **swapped in place**: the timer, the listeners, the context menu and
   the camera are all left alone, so the viewing angle and zoom survive a reset.
   `initialize()` keeps its lifecycle meaning (attach the listeners, build the

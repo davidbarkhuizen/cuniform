@@ -24,7 +24,7 @@
                 only.
             -->
             <canvas id="canvas" tabindex="0" role="img"
-                aria-label="Neural network in 3D. Left-drag to select and drag a node, middle-drag to orbit, Shift+middle-drag to pan, wheel to zoom. By touch: drag a node to move it, drag empty space to orbit, pinch to zoom, two-finger drag to pan, long-press for actions. Press Shift+F10 for actions.">
+                aria-label="Neural network in 3D. Open a format-2 model file with the panel's open model button or by dropping it here. Left-drag to select and drag a node, middle-drag to orbit, Shift+middle-drag to pan, wheel to zoom. By touch: drag a node to move it, drag empty space to orbit, pinch to zoom, two-finger drag to pan, long-press for actions. Press Shift+F10 for actions.">
                 Your browser does not support the canvas element, so the graph cannot be drawn.
             </canvas>
 
@@ -47,8 +47,23 @@
                     <div class="mainLabel">
                         cuniform
                     </div>
-                    <!-- Which model is loaded, or that none is. -->
+                    <!-- Which model is loaded, or that none is, or why the last one did not open. -->
                     <div id="currentGraphLabel" class="graphLabel"></div>
+
+                    <!--
+                        The loader: a file picker behind a button-styled label,
+                        so the native control's look never shows. A file can
+                        also be dropped onto the canvas, and ?model=<url>
+                        opens one from a local server.
+                    -->
+                    <div class="modelLoader">
+                        <label for="modelFileInput" class="main_menu_option">open model</label>
+                        <input type="file" id="modelFileInput" class="visuallyHidden"
+                            accept=".json,application/json">
+                    </div>
+
+                    <!-- The model panel: implementation, shape, input, width, bands and counts. -->
+                    <ul id="modelInfoList" class="modelInfo"></ul>
                 </div>
 
                 <div class="selectionSection">

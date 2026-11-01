@@ -744,6 +744,7 @@ export function poisonSelection(graph: Graph, message: string): void {
 /** Every listener initialize() attaches to the canvas. */
 export const CANVAS_EVENTS = [
     'pointermove', 'pointerdown', 'pointerup', 'pointercancel', 'pointerout', 'contextmenu', 'keydown', 'wheel',
+    'dragover', 'drop',
 ];
 
 export const CAMERA_CONSOLE_EVENTS = ['pointerdown', 'keydown', 'keyup', 'click'];

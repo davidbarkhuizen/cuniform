@@ -1,5 +1,6 @@
 import { DragController } from "../ui/DragController";
 import { RenderRunner } from "../render/RenderRunner";
+import { modelParameter, urlSource } from "./ModelSource";
 import { UIController } from "./UIController";
 
 /** Element ids shared with `web/index.html`, which `test/layout.test.ts` pins. */
@@ -16,6 +17,10 @@ const CAMERA_CONSOLE_ID = 'cameraConsole';
 const EMPHASIS_CONSOLE_ID = 'emphasisConsole';
 
 const CURRENT_GRAPH_LABEL_ID = 'currentGraphLabel';
+
+/** The loader's file picker and the model panel's list; optional, so an embedding host may leave them out. */
+export const MODEL_FILE_INPUT_ID = 'modelFileInput';
+export const MODEL_INFO_LIST_ID = 'modelInfoList';
 
 /** The panel's touch grip; without it the whole panel is the touch drag surface. */
 const PANEL_DRAG_HANDLE_ID = 'panelDragHandle';
@@ -106,7 +111,16 @@ export const entrypoint = (
         emphasisConsole
     );
 
+    uiController.modelFileInput = e(MODEL_FILE_INPUT_ID) as HTMLInputElement | null;
+    uiController.modelInfoList = e(MODEL_INFO_LIST_ID);
+
     uiController.initialize();
+
+    // `?model=<url>` opens a model from a local static server during development (D3).
+    const model = modelParameter(typeof location === 'undefined' ? '' : location.search);
+
+    if (model !== null)
+        void uiController.openModel(urlSource(model));
 
     return uiController;
 };
