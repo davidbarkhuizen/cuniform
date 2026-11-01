@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { mock } from "node:test";
 import assert from "node:assert/strict";
 
 import { Emphasis } from "../src/core/Emphasis";
@@ -488,6 +488,187 @@ test("a second initialize disposes the previous worker rather than leaking it", 
         assert.equal(workers.length, 2, "a fresh run asks for a fresh worker");
         assert.equal(workers[0].terminated, true, "the previous worker must not leak");
 
+        // The first canvas was transferred, so it can never draw again: the run starts on a fresh copy.
+        const fresh = ui.controller.canvas as unknown as FakeCanvas;
+
+        assert.notEqual(fresh, ui.canvas, "a transferred canvas is swapped before the new run");
+        assert.equal(ui.canvas.detached, true);
+        assert.equal(fresh.id, ui.canvas.id);
+
+        workers[1].becomeReady();
+
+        assert.equal(fresh.transferCount, 1, "the new worker takes control of the fresh canvas");
+        assert.equal(fresh.listenerCount("mousedown"), 1, "the canvas listeners are bound once");
+        assert.equal(ui.canvas.listenerCount("mousedown"), 0);
+
         ui.controller.terminate();
     }, { graph: settledGraph(), workerFactory: factory });
 });
+
+/** Captures console.error so an expected crash report stays out of the test output. */
+function quietErrors<T>(fn: (errors: string[]) => T): T {
+    const errors: string[] = [];
+    const original = console.error;
+
+    console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
+
+    try {
+        return fn(errors);
+    } finally {
+        console.error = original;
+    }
+}
+
+function assertSwappedAndDrawing(ui: { canvas: FakeCanvas; controller: { canvas: unknown }; dom: { runAnimationFrames: (t: number) => void } }, fake: FakeRenderWorker): void {
+
+    const fresh = ui.controller.canvas as unknown as FakeCanvas;
+
+    assert.equal(fake.terminated, true, "the dead worker is terminated");
+    assert.notEqual(fresh, ui.canvas, "the transferred canvas is replaced");
+    assert.equal(ui.canvas.detached, true, "the old canvas leaves the page");
+    assert.equal(fresh.id, ui.canvas.id, "the replacement keeps the id");
+    assert.equal(fresh.listenerCount("mousedown"), 1, "the canvas listeners move to the replacement");
+    assert.equal(ui.canvas.listenerCount("mousedown"), 0);
+
+    ui.dom.runAnimationFrames(1000);
+
+    assert.ok(fresh.context.clears.length > 0, "drawing continues in process on the replacement");
+    assert.ok(fresh.width > 0 && fresh.height > 0, "the replacement's backing store is sized");
+}
+
+// F3: after the transfer a worker failure used to be ignored, freezing the picture.
+test("an error reply after the probe swaps the canvas and drawing continues in process", () => {
+    const fake = new FakeRenderWorker();
+
+    quietErrors(errors => withUIController(ui => {
+        fake.becomeReady();
+        fake.deliver({ type: "error", reason: "the transferred canvas gave no 2d context" });
+
+        assertSwappedAndDrawing(ui, fake);
+        assert.equal(errors.length, 1, "the crash is reported once");
+
+        ui.controller.terminate();
+    }, { workerFactory: () => fake }));
+});
+
+test("a worker error event after the probe swaps the canvas", () => {
+    const fake = new FakeRenderWorker();
+
+    quietErrors(() => withUIController(ui => {
+        fake.becomeReady();
+        fake.fail();
+
+        assertSwappedAndDrawing(ui, fake);
+
+        ui.controller.terminate();
+    }, { workerFactory: () => fake }));
+});
+
+test("a frame left unanswered for workerFrameTimeoutMS swaps the canvas", () => {
+    const fake = new FakeRenderWorker();
+
+    mock.timers.enable({ apis: ["setTimeout"] });
+
+    try {
+        quietErrors(() => withUIController(ui => {
+            fake.becomeReady();
+            fake.hold();
+
+            ui.dom.runAnimationFrames(0);
+            ui.dom.runAnimationFrames(100);
+
+            assert.ok(frames(fake).length > 0, "a frame is in flight");
+
+            mock.timers.tick(K.renderer.workerFrameTimeoutMS - 1);
+            assert.equal(fake.terminated, false, "a slow-but-alive worker is not declared dead early");
+
+            mock.timers.tick(1);
+            assertSwappedAndDrawing(ui, fake);
+
+            ui.controller.terminate();
+        }, { workerFactory: () => fake }));
+    } finally {
+        mock.timers.reset();
+    }
+});
+
+test("an answered frame disarms the watchdog", () => {
+    const graph = sparseGraph(12, 21);
+
+    mock.timers.enable({ apis: ["setTimeout"] });
+
+    try {
+        const { fake, runner } = workerFixture(graph);
+
+        fake.becomeReady();
+
+        for (let frame = 0; frame < 5; frame++) {
+            runner.draw(graph, defaultCameraView(), null, 800, 600, Emphasis.nodes);
+            mock.timers.tick(K.renderer.workerFrameTimeoutMS - 1);
+        }
+
+        assert.equal(fake.terminated, false);
+        assert.equal(runner.usesWorker, true);
+
+        runner.terminate();
+    } finally {
+        mock.timers.reset();
+    }
+});
+
+test("a worker that fails before the probe hands the in-process backend its size", () => {
+    const { canvas, fake, runner } = workerFixture(sparseGraph(12, 22));
+
+    runner.resize(640, 480, 2);
+    fake.fail();
+
+    assert.equal(runner.usesWorker, false);
+    assert.equal(canvas.width, 1280, "the backing store takes the size the worker held");
+    assert.equal(canvas.height, 960);
+});
+
+test("export rejects when the worker answers with an error", async () => {
+    const { fake, runner } = workerFixture(sparseGraph(12, 23));
+
+    fake.becomeReady();
+    fake.exportReply = "error";
+
+    await assert.rejects(runner.exportPng(), /convertToBlob failed/);
+
+    runner.terminate();
+});
+
+test("export rejects when the worker never answers", async () => {
+    mock.timers.enable({ apis: ["setTimeout"] });
+
+    try {
+        const { fake, runner } = workerFixture(sparseGraph(12, 24));
+
+        fake.becomeReady();
+        fake.exportReply = "silent";
+
+        const pending = runner.exportPng();
+
+        mock.timers.tick(K.renderer.workerFrameTimeoutMS);
+
+        await assert.rejects(pending, /did not answer the export/);
+
+        runner.terminate();
+    } finally {
+        mock.timers.reset();
+    }
+});
+
+test("terminate rejects an export still in flight", async () => {
+    const { fake, runner } = workerFixture(sparseGraph(12, 25));
+
+    fake.becomeReady();
+    fake.exportReply = "silent";
+
+    const pending = runner.exportPng();
+
+    runner.terminate();
+
+    await assert.rejects(pending, /terminated/);
+});
+
