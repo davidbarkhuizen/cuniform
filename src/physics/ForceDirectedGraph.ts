@@ -265,12 +265,10 @@ export class ForceDirectedGraph {
         const vertices = this.graph.vertices;
         const componentId = this.componentId;
 
-        for (let c = 0; c < n; c++) {
-            this.centroidX[c] = 0;
-            this.centroidY[c] = 0;
-            this.centroidZ[c] = 0;
-            this.componentCount[c] = 0;
-        }
+        this.centroidX.fill(0, 0, n);
+        this.centroidY.fill(0, 0, n);
+        this.centroidZ.fill(0, 0, n);
+        this.componentCount.fill(0, 0, n);
 
         // Vertices order, matching anchorForceInto()'s accumulation rounding.
         for (let i = 0; i < n; i++) {
@@ -458,12 +456,9 @@ export class ForceDirectedGraph {
 
         this.ensureCapacity(n);
 
-        // Explicit loop: the architecture guard watches the typed array's bulk-fill method name.
-        for (let i = 0; i < n; i++) {
-            this.repulsionX[i] = 0;
-            this.repulsionY[i] = 0;
-            this.repulsionZ[i] = 0;
-        }
+        this.repulsionX.fill(0, 0, n);
+        this.repulsionY.fill(0, 0, n);
+        this.repulsionZ.fill(0, 0, n);
 
         this.accumulateRepulsionPass(n);
 

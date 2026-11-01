@@ -10,12 +10,8 @@ export function labelComponents(graph: Graph): Int32Array<ArrayBuffer> {
     const vertices = graph.vertices;
     const n = vertices.length;
 
-    // -1 marks "unvisited". The explicit loop is needed because a source-scanning
-    // architecture guard rejects the typed array's bulk-fill method name.
-    const labels: Int32Array<ArrayBuffer> = new Int32Array(n);
-
-    for (let i = 0; i < n; i++)
-        labels[i] = -1;
+    // -1 marks "unvisited".
+    const labels: Int32Array<ArrayBuffer> = new Int32Array(n).fill(-1);
 
     const index = new Map(vertices.map((tag, i) => [tag, i] as const));
 
