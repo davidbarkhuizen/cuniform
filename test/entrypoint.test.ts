@@ -44,7 +44,9 @@ test("entrypoint starts on a random graph without opening the chooser", () => {
 
         assert.ok(result, "entrypoint should hand back the controller");
         assert.ok(result.wizard === null, "startup must not trigger the reset wizard");
-        assert.deepEqual(result.spec, defaultGraphSpec(), "startup seeds the shipped random default");
+        const { seed, ...shape } = result.spec as { seed?: number };
+        assert.deepEqual(shape, defaultGraphSpec(), "startup seeds the shipped random default");
+        assert.equal(typeof seed, "number", "the startup graph records the seed that rebuilds it");
         assert.ok(result.solver.graph.vertices.length > 0, "a random graph is generated and simulated");
         assert.equal(dom.animationFrames.length, 1, "the simulation timer should be running");
     });

@@ -84,8 +84,10 @@ panel's drag surface.
   is created. Startup does not open it: the demo begins on the shipped random
   graph (`K.initialConditions`). Step one picks a **random** graph or a
   **molecule**:
-  - *random* — the node count and the maximum new edges per node, validated as
-    you type; `generate` is disabled while either field is out of range, and an
+  - *random* — the node count, the maximum new edges per node and an optional
+    seed (blank draws a new graph; the seed shown on the panel rebuilds the
+    current one), validated as you type; `generate` is disabled while any field
+    is out of range, and an
     order above `K.chooser.interactiveOrder` (1024) shows a non-blocking hint
     that the layout may advance below 20 Hz;
   - *molecules* — a searchable word cloud of twenty-three molecules: twenty indole

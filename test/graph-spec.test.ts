@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { defaultGraphSpec, parseRandomSpec, specLabel } from "../src/graph/GraphSpec";
+import { defaultGraphSpec, parseRandomSpec, SEED_FIELD, specLabel, withSeed } from "../src/graph/GraphSpec";
+import { SEED_LIMIT } from "../src/core/Random";
 import { K } from "../src/core/K";
 import { moleculeById } from "../src/graph/Molecules";
 
@@ -114,3 +115,45 @@ test("specLabel of a molecule spec is the systematic name, not the common name",
 test("specLabel of an unknown molecule id throws", () => {
     assert.throws(() => specLabel({ kind: "molecule", id: "unobtainium" }), /unknown molecule id/);
 });
+
+test("a blank seed parses to a spec without one, to be drawn later", () => {
+    assert.deepEqual(parseRandomSpec("11", "2", ""), { ok: true, spec: { kind: "random", order: 11, branching: 2 } });
+    assert.deepEqual(parseRandomSpec("11", "2", "  "), { ok: true, spec: { kind: "random", order: 11, branching: 2 } });
+});
+
+test("a typed seed is kept, up to the 32-bit limit", () => {
+    assert.deepEqual(parseRandomSpec("11", "2", "0"), { ok: true, spec: { kind: "random", order: 11, branching: 2, seed: 0 } });
+    assert.deepEqual(
+        parseRandomSpec("11", "2", String(SEED_LIMIT - 1)),
+        { ok: true, spec: { kind: "random", order: 11, branching: 2, seed: SEED_LIMIT - 1 } }
+    );
+});
+
+test("a seed that is not a whole number below the limit is rejected, naming the field", () => {
+    for (const text of ["abc", "-1", "1.5", "1e3", String(SEED_LIMIT)]) {
+        const result = parseRandomSpec("11", "2", text);
+
+        assert.equal(result.ok, false, `${text} should be rejected`);
+        assert.ok(!result.ok && result.message.startsWith(`${SEED_FIELD}:`));
+    }
+});
+
+test("withSeed seeds an unseeded random spec and leaves the rest alone", () => {
+    const seeded = withSeed({ kind: "random", order: 11, branching: 2 });
+
+    assert.ok(seeded.kind === "random" && typeof seeded.seed === "number");
+
+    const fixed = { kind: "random" as const, order: 11, branching: 2, seed: 9 };
+    assert.equal(withSeed(fixed), fixed);
+
+    const molecule = { kind: "molecule" as const, id: "caffeine" };
+    assert.equal(withSeed(molecule), molecule);
+});
+
+test("the label names a seed when the spec has one", () => {
+    assert.equal(
+        specLabel({ kind: "random", order: 11, branching: 2, seed: 77 }),
+        "random graph: 11 nodes, up to 2 new edges per node, seed 77"
+    );
+});
+

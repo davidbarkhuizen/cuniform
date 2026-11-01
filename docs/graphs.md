@@ -4,7 +4,7 @@ A graph is described by a `GraphSpec`
 ([`src/graph/GraphSpec.ts`](../src/graph/GraphSpec.ts)), a discriminated value the chooser
 produces and the controller remembers:
 
-- `{ kind: "random", order, branching }` —
+- `{ kind: "random", order, branching, seed? }` —
   `GraphFactory.generateGraph()`: a sparse semi-random graph on `order` nodes,
   where each node starts between 1 and `branching` new edges, with no self-loops
   and no duplicate edges. `branching` bounds the edges a node *starts*, not its
@@ -16,7 +16,11 @@ produces and the controller remembers:
   `branching` by
   `min(K.chooser.maxBranching, order - 1)` — a node cannot start more than
   `order - 1` distinct edges, so a larger value would silently start fewer edges
-  than asked for.
+  than asked for. Every random draw (positions, edge counts, partners) comes
+  from `mulberry32(seed)` in `core/Random.ts`, so one seed rebuilds the same
+  graph exactly. A spec without a seed is given a fresh one when it is applied
+  (`withSeed()`), and the panel's graph line names it, so any layout on screen
+  can be rebuilt by typing that seed into the chooser.
 - `{ kind: "molecule", id }` — a molecular graph from the catalog.
 
 ## The molecule catalog
