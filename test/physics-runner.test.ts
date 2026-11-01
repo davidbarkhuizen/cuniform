@@ -7,6 +7,7 @@ import { K } from "../src/core/K";
 import { PhysicsRunner, PhysicsWorkerPort } from "../src/physics/PhysicsRunner";
 import { PhysicsWorkerEngine, PositionsResponse, WorkerRequest } from "../src/physics/PhysicsProtocol";
 import { Projector } from "../src/view/Projector";
+import { Tag } from "../src/graph/Tag";
 import { openingAngleFor } from "../src/physics/Quality";
 import { CANVAS_H, CANVAS_W, disconnectedPaths, sparseGraph } from "./support/physics";
 import { withUIController } from "./support/dom";
@@ -326,6 +327,53 @@ test("a released pin lets the worker's position win again", () => {
     // Released at x=400 with zero velocity, so one step moves it only by its new force.
     assert.notEqual(graph.vertices[0].position.x, 400);
     assert.ok(Math.abs(graph.vertices[0].position.x - 400) < 50);
+});
+
+// Regression: the worker mirrored the graph's init-time size, so a vertex added in
+// place read past the reply buffer in sync() and went NaN.
+test("a vertex added in place reaches the worker and every tag stays finite", () => {
+
+    const graph = sparseGraph(10, 41);
+    const port = new QueuedPhysicsWorker();
+    const runner = new PhysicsRunner(new ForceDirectedGraph(graph), () => port);
+
+    port.deliver();
+
+    const added = new Tag({ x: 20, y: -15, z: 8 }, "added");
+    graph.addNode(added);
+    graph.addEdge(added, graph.vertices[0]);
+
+    for (let tick = 0; tick < 3; tick++) {
+        runner.step(-1, 0, 0, 0);
+        port.deliver();
+        runner.sync(graph);
+    }
+
+    assert.equal(port.engine.graph?.vertices.length, 11);
+
+    for (const tag of graph.vertices)
+        assert.ok(Number.isFinite(tag.position.x + tag.position.y + tag.position.z), `${tag.label} is finite`);
+
+    assert.notDeepEqual(added.position, { x: 20, y: -15, z: 8 }, "the new vertex is simulated");
+});
+
+test("an edge added at constant order reaches the worker mirror", () => {
+
+    const graph = sparseGraph(10, 42);
+    const port = new QueuedPhysicsWorker();
+    const runner = new PhysicsRunner(new ForceDirectedGraph(graph), () => port);
+
+    port.deliver();
+
+    const before = port.engine.graph?.edges.length ?? 0;
+    const target = graph.vertices.find((v, i) => i > 0 && !graph.hasEdge(graph.vertices[0], v))!;
+
+    graph.addEdge(graph.vertices[0], target);
+
+    runner.step(-1, 0, 0, 0);
+    port.deliver();
+
+    assert.equal(port.engine.graph?.edges.length, before + 1);
 });
 
 test("the runner falls back in-process when no worker can be constructed", () => {

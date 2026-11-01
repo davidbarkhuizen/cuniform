@@ -17,6 +17,7 @@ import {
     withUIControllerAsync,
 } from "./support/dom";
 import { sparseGraph } from "./support/physics";
+import { Tag } from "../src/graph/Tag";
 
 /** The controller draws through one render backend; these drive the seam with a recording fake. */
 
@@ -351,6 +352,51 @@ test("a steady-state frame reuses the pooled position buffers", () => {
     }
 
     assert.ok(seen.size <= 3, `expected at most three pooled buffers, saw ${seen.size}`);
+
+    runner.terminate();
+});
+
+// Regression: a graph grown in place mismatched the pooled buffers, and each frame
+// dropped one, so after three frames nothing was ever sent again.
+test("a vertex added in place re-inits the mirror and frames keep flowing", () => {
+    const graph = sparseGraph(12, 8);
+    const { fake, runner } = workerFixture(graph);
+
+    fake.becomeReady();
+    runner.draw(graph, defaultCameraView(), null, 800, 600, Emphasis.nodes);
+
+    const added = new Tag({ x: 5, y: 5, z: 5 }, "added");
+    graph.addNode(added);
+    graph.addEdge(added, graph.vertices[0]);
+
+    const before = frames(fake).length;
+
+    for (let frame = 0; frame < 10; frame++)
+        runner.draw(graph, defaultCameraView(), null, 800, 600, Emphasis.nodes);
+
+    const after = frames(fake).slice(before);
+
+    assert.equal(after.length, 10, "every draw posts a frame (the fake acks synchronously)");
+    assert.ok(after.every(frame => frame.positions.length === 13 * 3), "frames carry the grown graph");
+    assert.equal(fake.engine.graph?.vertices.length, 13);
+    assert.equal(fake.engine.graph?.edges.length, graph.edges.length);
+
+    runner.terminate();
+});
+
+test("an edge added at constant order re-inits the render mirror", () => {
+    const graph = sparseGraph(12, 9);
+    const { fake, runner } = workerFixture(graph);
+
+    fake.becomeReady();
+    runner.draw(graph, defaultCameraView(), null, 800, 600, Emphasis.nodes);
+
+    const target = graph.vertices.find((v, i) => i > 0 && !graph.hasEdge(graph.vertices[0], v))!;
+    graph.addEdge(graph.vertices[0], target);
+
+    runner.draw(graph, defaultCameraView(), null, 800, 600, Emphasis.nodes);
+
+    assert.equal(fake.engine.graph?.edges.length, graph.edges.length);
 
     runner.terminate();
 });

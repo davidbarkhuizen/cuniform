@@ -1,5 +1,5 @@
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
-import { Graph } from "../graph/Graph";
+import { Graph, GraphShape, graphShape, sameShape } from "../graph/Graph";
 import { readPositions, writePositions } from "../graph/MirrorGraph";
 import { initRequest, PositionsResponse, stepWithPin, StepRequest, WorkerRequest } from "./PhysicsProtocol";
 import { WorkerPort } from "../core/WorkerChannel";
@@ -86,12 +86,19 @@ class WorkerBackend implements PhysicsBackend {
     private pinY = 0;
     private pinZ = 0;
 
+    // The graph the worker mirrors, and its shape at the last init: a graph grown in
+    // place must be re-sent, or sync() writes an old-sized buffer and new tags go NaN.
+    private graph: Graph;
+    private shape: GraphShape;
+
     constructor(
         private readonly worker: PhysicsWorkerPort,
         graph: Graph,
         onFailure: (positions: Float64Array) => void
     ) {
 
+        this.graph = graph;
+        this.shape = graphShape(graph);
         this.latest = new Float64Array(graph.vertices.length * 3);
 
         // Mirror now: the first frame may be drawn before the worker answers.
@@ -110,6 +117,8 @@ class WorkerBackend implements PhysicsBackend {
     }
 
     step(pinnedIndex: number, x: number, y: number, z: number): void {
+
+        this.ensureShape();
 
         // Recorded even when no step is posted, so a pin moved while a step is in flight is not lost.
         this.recordPin(pinnedIndex, x, y, z);
@@ -137,11 +146,14 @@ class WorkerBackend implements PhysicsBackend {
     }
 
     sync(graph: Graph): void {
+        this.ensureShape();
         writePositions(graph, this.latest);
     }
 
     reinit(graph: Graph): void {
 
+        this.graph = graph;
+        this.shape = graphShape(graph);
         this.generation++;
         this.inFlight = false;
         this.latest = new Float64Array(graph.vertices.length * 3);
@@ -167,6 +179,12 @@ class WorkerBackend implements PhysicsBackend {
         this.applyPin(this.latest);
         this.latestMaxDisplacement = message.maxDisplacement;
         this.inFlight = false;
+    }
+
+    // Re-sent from the live tags, so the worker resumes from the current layout.
+    private ensureShape(): void {
+        if (!this.disposed && !sameShape(this.graph, this.shape))
+            this.reinit(this.graph);
     }
 
     private recordPin(index: number, x: number, y: number, z: number): void {

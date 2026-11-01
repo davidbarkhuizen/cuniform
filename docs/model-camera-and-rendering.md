@@ -217,7 +217,11 @@ space both directions agree on.
 If `Worker` is missing, construction throws, or a worker script fails to load,
 the drawing falls back to the canvas's 2D context, and the physics to the
 in-process solver. A graph swap re-initialises both workers and bumps a
-generation counter, so a response computed for the replaced graph is dropped.
+generation counter, so a response computed for the replaced graph is dropped. `Graph` is
+append-only, so a graph that grows in place (a new vertex, or a new edge at the
+same order) is treated the same way: each worker backend records the vertex and
+edge counts it last sent, and re-initialises its mirror from the live tags when
+either changes.
 (`./cli run` opens `web/index.html` over `file://`, where browsers refuse to
 start a worker, so the in-process fallback is what runs there; serve the
 directory over HTTP to exercise the workers. A transferred canvas cannot be
