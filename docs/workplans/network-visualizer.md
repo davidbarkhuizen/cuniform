@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | Planned (2026-11-01); decisions D1–D12 settled; execution starts in a new session at PR 2 |
+| **Status** | Implemented (2026-11-01): PRs 2–9 merged as #172–#179; the server source, D9's views and ensembles wait on other work (`docs/next-steps.md` rows 11–13) |
 | **Area** | `src/graph/*`, `src/physics/ForceDirectedGraph.ts`, `src/physics/PhysicsProtocol.ts`, `src/graph/MirrorGraph.ts`, `src/render/Renderer.ts`, `src/render/RenderProtocol.ts`, `src/app/UIController.ts`, `src/ui/*`, `src/core/K.ts`, new `src/network/*`, `web/index.html`, `test/*`, `bench/*`, docs |
 | **Depends on** | `main` green at 304fb65; indrajala-ml format 2 as documented in `indrajala_ml/model/persistence/format2.py` (`expand_specs` in `indrajala_ml/model/specs/layer_specs.py`) |
 | **Blocks** | the server-backed model source (D3), and cross-attention / grouped-query views (D9), which wait on indrajala-ml |

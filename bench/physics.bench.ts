@@ -375,10 +375,11 @@ function benchRender(): void {
 const NETWORK_MODELS: ModelName[] = ["tinyshakespeare", "divisionProbe", "branches"];
 
 function benchNetwork(): void {
-    console.log("\n== networks at L0 (FakeContext2D; the plain frame is the same graph with its attributes removed) ==");
-    row("model: N / E / bands", "frame ms plain -> grammar   ops plain -> grammar   step ms");
+    console.log("\n== networks at L0 and fully expanded, L1 (FakeContext2D; plain = the same graph without attributes) ==");
+    row("model L: N / E / bands", "frame ms plain -> grammar   ops plain -> grammar   step ms");
 
-    for (const name of NETWORK_MODELS) {
+    for (const name of NETWORK_MODELS)
+    for (const level of [0, 1]) {
         const json = modelJson(name);
 
         if (json === null) {
@@ -386,7 +387,9 @@ function benchNetwork(): void {
             continue;
         }
 
-        const graph = buildGraph(readFormat2(json)).graph;
+        const model = readFormat2(json);
+        const expanded = level === 1 ? new Set(model.stacks.flatMap(stack => stack.entries.flatMap(e => e.components.map(c => c.id)))) : undefined;
+        const graph = buildGraph(model, { expanded }).graph;
         const attributes = graph.attributes!;
         const camera = fitView(attributes.bands)!;
         const projector = Projector.forCanvas(CANVAS_W, CANVAS_H, camera);
@@ -395,18 +398,19 @@ function benchNetwork(): void {
         for (let i = 0; i < 100; i++)
             solver.stepPhysics();
 
-        const stepMs = timePer(() => solver.stepPhysics(), 200);
+        const reps = level === 0 ? 200 : 10;
+        const stepMs = timePer(() => solver.stepPhysics(), reps);
 
         projectGraph(graph, projector);
-        const grammar = measureRender(graph, camera, 200);
+        const grammar = measureRender(graph, camera, reps);
 
         graph.attributes = null;
         projectGraph(graph, projector);
-        const plain = measureRender(graph, camera, 200);
+        const plain = measureRender(graph, camera, reps);
         graph.attributes = attributes;
 
         row(
-            `${name}: ${graph.vertices.length} / ${graph.edges.length} / ${attributes.bands.length / 7}`.padEnd(32),
+            `${name} L${level}: ${graph.vertices.length} / ${graph.edges.length} / ${attributes.bands.length / 7}`.padEnd(40),
             `${plain.ms.toFixed(3)} -> ${grammar.ms.toFixed(3)}   ${plain.ops} -> ${grammar.ops}   ${stepMs.toFixed(3)}`
         );
     }
