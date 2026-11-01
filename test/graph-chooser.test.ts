@@ -153,7 +153,7 @@ test("completing with a molecule spec builds that molecule's graph", () => {
 test("the panel's graph line names the loaded graph", () => {
     withUIController(({ elements, controller }) => {
         assert.equal(
-            elements.currentGraphLabel.innerHTML,
+            elements.currentGraphLabel.textContent,
             specLabel(defaultGraphSpec()),
             "the startup graph's default label is technical"
         );
@@ -162,12 +162,12 @@ test("the panel's graph line names the loaded graph", () => {
         chooseMolecule(controller, "ibogaine");
 
         assert.equal(
-            elements.currentGraphLabel.innerHTML,
+            elements.currentGraphLabel.textContent,
             moleculeById("ibogaine").systematicName,
             "the line carries the systematic name, not the chip"
         );
         assert.notEqual(
-            elements.currentGraphLabel.innerHTML,
+            elements.currentGraphLabel.textContent,
             moleculeById("ibogaine").commonName
         );
 
@@ -176,7 +176,7 @@ test("the panel's graph line names the loaded graph", () => {
         generateRandom(wizard, 5, 2);
 
         assert.equal(
-            elements.currentGraphLabel.innerHTML,
+            elements.currentGraphLabel.textContent,
             specLabel({ kind: "random", order: 5, branching: 2 })
         );
     });

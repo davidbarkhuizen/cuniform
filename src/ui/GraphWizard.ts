@@ -93,7 +93,7 @@ export class GraphWizard {
             button.setAttribute("type", "button");
             button.className = "wizardChoice";
             button.setAttribute("data-choice", kind);
-            button.innerHTML = kind;
+            button.textContent = kind;
             button.addEventListener("click", () => this.showStep(kind));
 
             this.registerFocus(button);
@@ -120,7 +120,7 @@ export class GraphWizard {
         this.generateButton = document.createElement("button");
         this.generateButton.setAttribute("type", "button");
         this.generateButton.className = "wizardPrimary";
-        this.generateButton.innerHTML = "generate";
+        this.generateButton.textContent = "generate";
         this.generateButton.addEventListener("click", this.onGenerate);
         random.appendChild(this.generateButton);
 
@@ -159,13 +159,13 @@ export class GraphWizard {
         this.backButton = document.createElement("button");
         this.backButton.setAttribute("type", "button");
         this.backButton.className = "wizardBack";
-        this.backButton.innerHTML = "back";
+        this.backButton.textContent = "back";
         this.backButton.addEventListener("click", () => this.showStep("choose"));
 
         this.cancelButton = document.createElement("button");
         this.cancelButton.setAttribute("type", "button");
         this.cancelButton.className = "wizardCancel";
-        this.cancelButton.innerHTML = "cancel";
+        this.cancelButton.textContent = "cancel";
         this.cancelButton.addEventListener("click", this.onCancelClick);
 
         if (!options.dismissible)
@@ -241,7 +241,7 @@ export class GraphWizard {
         caption.setAttribute("for", id);
         input.id = id;
 
-        caption.innerHTML = label;
+        caption.textContent = label;
 
         field.appendChild(caption);
         field.appendChild(input);
@@ -258,11 +258,11 @@ export class GraphWizard {
         button.setAttribute("type", "button");
         button.className = "wizardTag";
         button.setAttribute("data-molecule", entry.id);
-        button.innerHTML = entry.commonName;
+        button.textContent = entry.commonName;
 
         const caption = document.createElement("span");
         caption.className = "wizardTagFamily";
-        caption.innerHTML = entry.family;
+        caption.textContent = entry.family;
         button.appendChild(caption);
 
         const tooltip = moleculeTooltip(entry);
@@ -331,16 +331,16 @@ export class GraphWizard {
             this.steps[key].style.display = key === step ? "block" : "none";
 
         if (step === "random") {
-            this.titleLabel.innerHTML = "random graph";
+            this.titleLabel.textContent = "random graph";
             this.seedRandomStep();
         }
         else if (step === "molecules") {
-            this.titleLabel.innerHTML = "molecules";
+            this.titleLabel.textContent = "molecules";
             this.searchInput.value = "";
             this.applyFilter();
         }
         else {
-            this.titleLabel.innerHTML = "choose a graph";
+            this.titleLabel.textContent = "choose a graph";
         }
 
         this.focusIndex = 0;
@@ -368,19 +368,19 @@ export class GraphWizard {
 
         if (result.ok) {
             this.generateButton.disabled = false;
-            this.validationLabel.innerHTML = "";
+            this.validationLabel.textContent = "";
 
             // Above the interactive size the layout still runs, just below 20 Hz; a hint, not a disable.
-            this.hintLabel.innerHTML = result.spec.order > K.chooser.interactiveOrder
+            this.hintLabel.textContent = result.spec.order > K.chooser.interactiveOrder
                 ? `${result.spec.order} nodes: layout advances below 20 Hz`
                 : "";
             return;
         }
 
         this.generateButton.disabled = true;
-        this.validationLabel.innerHTML = result.message;
+        this.validationLabel.textContent = result.message;
 
-        this.hintLabel.innerHTML = "";
+        this.hintLabel.textContent = "";
     }
 
     private applyFilter(): void {
@@ -398,11 +398,11 @@ export class GraphWizard {
                 visible++;
         }
 
-        this.countLabel.innerHTML = `${visible} of ${this.tags.length}`;
+        this.countLabel.textContent = `${visible} of ${this.tags.length}`;
 
         if (visible === 0) {
             // Static on purpose: the search text is never echoed into markup.
-            this.emptyLabel.innerHTML = "no molecule matches that search";
+            this.emptyLabel.textContent = "no molecule matches that search";
             this.emptyLabel.style.display = "block";
         }
         else {

@@ -136,7 +136,7 @@ test("the random step is pre-filled from the initial conditions", () => {
         assert.equal(wizard.orderInput.value, String(K.initialConditions.order));
         assert.equal(wizard.branchingInput.value, String(K.initialConditions.branching));
         assert.equal(wizard.generateButton.disabled, false);
-        assert.equal(wizard.validationLabel.innerHTML, "");
+        assert.equal(wizard.validationLabel.textContent, "");
     });
 });
 
@@ -166,13 +166,13 @@ test("an invalid field disables generate and shows the message", () => {
         el(wizard.orderInput).dispatch("input");
 
         assert.equal(wizard.generateButton.disabled, true);
-        assert.match(wizard.validationLabel.innerHTML, /^nodes:/);
+        assert.match(wizard.validationLabel.textContent, /^nodes:/);
 
         wizard.orderInput.value = "10";
         el(wizard.orderInput).dispatch("input");
 
         assert.equal(wizard.generateButton.disabled, false);
-        assert.equal(wizard.validationLabel.innerHTML, "", "a valid form clears the message");
+        assert.equal(wizard.validationLabel.textContent, "", "a valid form clears the message");
     });
 });
 
@@ -185,7 +185,7 @@ test("branching is validated against the order as it is typed", () => {
         el(wizard.branchingInput).dispatch("input");
 
         assert.equal(wizard.generateButton.disabled, true);
-        assert.match(wizard.validationLabel.innerHTML, /^new edges per node:/);
+        assert.match(wizard.validationLabel.textContent, /^new edges per node:/);
 
         wizard.branchingInput.value = "2";
         el(wizard.branchingInput).dispatch("input");
@@ -209,7 +209,7 @@ test("the number inputs carry the chooser bounds from K", () => {
 test("an order above interactiveOrder shows a hint without disabling generate", () => {
     withWizard(({ wizard }) => {
         wizard.open("random");
-        assert.equal(wizard.hintLabel.innerHTML, "", "the seeded default is below the threshold");
+        assert.equal(wizard.hintLabel.textContent, "", "the seeded default is below the threshold");
 
         const large = K.chooser.interactiveOrder + 1;
         wizard.orderInput.value = String(large);
@@ -217,8 +217,8 @@ test("an order above interactiveOrder shows a hint without disabling generate", 
         el(wizard.orderInput).dispatch("input");
 
         assert.equal(wizard.generateButton.disabled, false, "the hint must not block generate");
-        assert.match(wizard.hintLabel.innerHTML, new RegExp(`^${large} nodes:`));
-        assert.equal(wizard.validationLabel.innerHTML, "", "the hint is not a validation message");
+        assert.match(wizard.hintLabel.textContent, new RegExp(`^${large} nodes:`));
+        assert.equal(wizard.validationLabel.textContent, "", "the hint is not a validation message");
     });
 });
 
@@ -228,16 +228,16 @@ test("the hint clears at or below interactiveOrder and on a parse error", () => 
 
         wizard.orderInput.value = String(K.chooser.maxOrder);
         el(wizard.orderInput).dispatch("input");
-        assert.notEqual(wizard.hintLabel.innerHTML, "", "the large order must warn first");
+        assert.notEqual(wizard.hintLabel.textContent, "", "the large order must warn first");
 
         wizard.orderInput.value = String(K.chooser.interactiveOrder);
         el(wizard.orderInput).dispatch("input");
-        assert.equal(wizard.hintLabel.innerHTML, "", "the threshold itself must not warn");
+        assert.equal(wizard.hintLabel.textContent, "", "the threshold itself must not warn");
         assert.equal(wizard.generateButton.disabled, false);
 
         wizard.orderInput.value = "0";
         el(wizard.orderInput).dispatch("input");
-        assert.equal(wizard.hintLabel.innerHTML, "", "a parse error clears the hint");
+        assert.equal(wizard.hintLabel.textContent, "", "a parse error clears the hint");
         assert.equal(wizard.generateButton.disabled, true);
     });
 });
@@ -271,7 +271,7 @@ test("the molecules step shows every tag, sorted, with the count", () => {
         wizard.open("molecules");
 
         assert.equal(wizard.tags.length, CATALOG.length);
-        assert.equal(wizard.countLabel.innerHTML, `${CATALOG.length} of ${CATALOG.length}`);
+        assert.equal(wizard.countLabel.textContent, `${CATALOG.length} of ${CATALOG.length}`);
 
         const names = wizard.tags.map(tag => tag.entry.commonName);
         assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b)));
@@ -304,15 +304,15 @@ test("typing in the search box filters the tags, the count and the empty state",
         assert.ok(visible.length > 0, "the query should match something");
         assert.ok(visible.length < wizard.tags.length, "the query should hide something");
         assert.ok(visible.some(tag => tag.entry.id === "ibogaine"));
-        assert.equal(wizard.countLabel.innerHTML, `${visible.length} of ${wizard.tags.length}`);
+        assert.equal(wizard.countLabel.textContent, `${visible.length} of ${wizard.tags.length}`);
         assert.equal(el(wizard.emptyLabel).style.display, "none");
 
         wizard.searchInput.value = "zzzznotamolecule";
         el(wizard.searchInput).dispatch("input");
 
-        assert.equal(wizard.countLabel.innerHTML, `0 of ${wizard.tags.length}`);
+        assert.equal(wizard.countLabel.textContent, `0 of ${wizard.tags.length}`);
         assert.equal(el(wizard.emptyLabel).style.display, "block");
-        assert.match(wizard.emptyLabel.innerHTML, /no molecule matches/);
+        assert.match(wizard.emptyLabel.textContent, /no molecule matches/);
     });
 });
 
@@ -328,7 +328,7 @@ test("clearing the search box shows the whole cloud again", () => {
         el(wizard.searchInput).dispatch("input");
 
         assert.ok(wizard.tags.every(tag => el(tag.element).style.display !== "none"));
-        assert.equal(wizard.countLabel.innerHTML, `${CATALOG.length} of ${CATALOG.length}`);
+        assert.equal(wizard.countLabel.textContent, `${CATALOG.length} of ${CATALOG.length}`);
     });
 });
 
@@ -424,7 +424,7 @@ test("a chip carries its molecule id and its family caption", () => {
             assert.equal(element.getAttribute("data-molecule"), tag.entry.id);
             assert.equal(element.children.length, 1, "a chip has one family caption");
             assert.equal(element.children[0].className, "wizardTagFamily");
-            assert.equal(element.children[0].innerHTML, tag.entry.family);
+            assert.equal(element.children[0].textContent, tag.entry.family);
         }
     });
 });
@@ -435,7 +435,7 @@ test("the wizard accepts a custom catalog", () => {
 
         assert.equal(wizard.tags.length, 1);
         assert.equal(wizard.tags[0].entry.id, CATALOG[0].id);
-        assert.equal(wizard.countLabel.innerHTML, "1 of 1");
+        assert.equal(wizard.countLabel.textContent, "1 of 1");
     }, { catalog: [CATALOG[0]] });
 });
 
@@ -608,10 +608,10 @@ test("the search text is data, never markup", () => {
         el(wizard.searchInput).dispatch("input");
 
         // The filter still runs, but the user's text must never reach any element's markup.
-        assert.equal(wizard.countLabel.innerHTML, `0 of ${wizard.tags.length}`);
+        assert.equal(wizard.countLabel.textContent, `0 of ${wizard.tags.length}`);
         assert.equal(wizard.emptyLabel.style.display, "block");
         assert.ok(
-            subtree(el(wizard.element)).every(element => !element.innerHTML.includes(payload)),
+            subtree(el(wizard.element)).every(element => !element.textContent.includes(payload)),
             "the search text must never reach markup"
         );
     });

@@ -301,7 +301,7 @@ test("clear selection deselects every node and resets the info panel", () => {
 
         assert.ok(vertices.every((v: any) => v.isSelected === false));
         assert.equal(controller.contextMenu!.isOpen, false);
-        assert.equal(elements.selectedNodeInfoLabel.innerHTML, 'Click on a node to select...');
+        assert.equal(elements.selectedNodeInfoLabel.textContent, 'Click on a node to select...');
         assert.equal(canvas.focused, true, "activating an entry should return focus to the canvas");
     });
 });

@@ -49,7 +49,7 @@ export class FakeElement {
     clientHeight = 600;
     width = 0;
     height = 0;
-    innerHTML = '';
+    textContent = '';
     value = '';
     disabled = false;
     className = '';

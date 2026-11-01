@@ -42,7 +42,7 @@ export class ContextMenu {
             const entry = document.createElement('button');
             entry.setAttribute('type', 'button');
             entry.setAttribute('role', 'menuitem');
-            entry.innerHTML = item.label;
+            entry.textContent = item.label;
 
             this.setStyle(entry, {
                 display: 'block',
