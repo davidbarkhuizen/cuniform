@@ -237,7 +237,8 @@ export function render(
 				itemCount,
 				focalLength,
 				hasRange,
-				nodeAlphaScale
+				nodeAlphaScale,
+				selected
 			);
 
 			drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
@@ -263,7 +264,8 @@ export function render(
 			itemCount,
 			focalLength,
 			hasRange,
-			nodeAlphaScale
+			nodeAlphaScale,
+			selected
 		);
 
 		drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
@@ -390,12 +392,15 @@ function drawNode(
 	// The scale applies to the fill only: a label at 0.19 alpha is unreadable.
 	context.globalAlpha = scaledAlpha(alphaAt(depth, minDepth, maxDepth, hasRange), alphaScale);
 
-	context.fillStyle = colourFor(node.isSelected, K.colours.nodeSelected, K.colours.nodeDefault);
+	// `selected` is the renderer's only selection input; a worker mirror's tags carry no `isSelected`.
+	const isSelected = node === selected;
+
+	context.fillStyle = colourFor(isSelected, K.colours.nodeSelected, K.colours.nodeDefault);
 
 	circlePath(context, x, y, radius);
 	context.fill();
 
-	if (node.isSelected)
+	if (isSelected)
 		strokeSelectionRing(context, x, y, radius);
 
 	// With many nodes only the selection and its neighbours are labelled.
@@ -491,7 +496,8 @@ function drawBatchedNodeFills(
 	itemCount: number,
 	focalLength: number,
 	hasRange: boolean,
-	alphaScale: number
+	alphaScale: number,
+	selected: Tag | null
 ): void {
 
 	// Collapsed to one bucket: the ramp midpoint, as a 1-bucket edge batch draws.
@@ -517,7 +523,7 @@ function drawBatchedNodeFills(
 
 			const node = vertices[itemIndex[item]];
 
-			if (node.isSelected !== wantSelected)
+			if ((node === selected) !== wantSelected)
 				continue;
 
 			context.arc(

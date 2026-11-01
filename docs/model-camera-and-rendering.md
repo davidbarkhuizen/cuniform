@@ -49,6 +49,12 @@ model space: the hit radius is a fixed number of screen pixels, so a click means
 the same target size at every canvas scale, camera distance and
 `devicePixelRatio`.
 
+The renderer's only selection input is its `selected` argument: it never reads
+`Tag.isSelected`, which is UI state for hit-testing and the drag. The render
+worker's mirror graph is rebuilt from wire data and carries no such flag, so a
+renderer that read it would draw the selection unhighlighted off the main
+thread.
+
 ## Depth cue
 
 A bare projection still reads flat without occlusion cues, so the renderer adds
