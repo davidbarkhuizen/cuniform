@@ -178,11 +178,15 @@ export class Camera implements CameraView {
      * the target plane is never culled, and at `maxDistance` so a far zoom cannot shrink every node away.
      */
     dolly(notches: number): void {
-        this.distance = clamp(
-            this.distance * Math.pow(K.camera.dollyPerWheelNotch, notches),
-            K.camera.minDistance,
-            K.camera.maxDistance
-        );
+        this.dollyBy(Math.pow(K.camera.dollyPerWheelNotch, notches));
+    }
+
+    /** Scale the distance by `factor` within the dolly clamp; the wheel and a pinch share this one path. */
+    dollyBy(factor: number): void {
+        if (!(factor > 0) || !Number.isFinite(factor))
+            return;
+
+        this.distance = clamp(this.distance * factor, K.camera.minDistance, K.camera.maxDistance);
     }
 
     /** Dolly one step; zooming in moves toward the target, i.e. a negative dolly. */

@@ -498,8 +498,8 @@ test("a second initialize disposes the previous worker rather than leaking it", 
         workers[1].becomeReady();
 
         assert.equal(fresh.transferCount, 1, "the new worker takes control of the fresh canvas");
-        assert.equal(fresh.listenerCount("mousedown"), 1, "the canvas listeners are bound once");
-        assert.equal(ui.canvas.listenerCount("mousedown"), 0);
+        assert.equal(fresh.listenerCount("pointerdown"), 1, "the canvas listeners are bound once");
+        assert.equal(ui.canvas.listenerCount("pointerdown"), 0);
 
         ui.controller.terminate();
     }, { graph: settledGraph(), workerFactory: factory });
@@ -527,8 +527,8 @@ function assertSwappedAndDrawing(ui: { canvas: FakeCanvas; controller: { canvas:
     assert.notEqual(fresh, ui.canvas, "the transferred canvas is replaced");
     assert.equal(ui.canvas.detached, true, "the old canvas leaves the page");
     assert.equal(fresh.id, ui.canvas.id, "the replacement keeps the id");
-    assert.equal(fresh.listenerCount("mousedown"), 1, "the canvas listeners move to the replacement");
-    assert.equal(ui.canvas.listenerCount("mousedown"), 0);
+    assert.equal(fresh.listenerCount("pointerdown"), 1, "the canvas listeners move to the replacement");
+    assert.equal(ui.canvas.listenerCount("pointerdown"), 0);
 
     ui.dom.runAnimationFrames(1000);
 

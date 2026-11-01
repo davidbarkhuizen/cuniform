@@ -25,10 +25,9 @@
   node to the model cube either, matching the reference. The wheel dolly fits the
   view; the scale is deliberately not auto-fitted, because that would make it
   breathe as the camera moves and would break the exact 2D reduction.
-- The canvas takes mouse input only: touch cannot select, drag, orbit or zoom
-  (the overlay panel itself supports touch). Pointer Events and a touch gesture
-  map are planned in [the audit remediation workplan](workplans/audit-remediation.md)
-  (PR 15).
+- Mouse buttons are not chorded: the canvas takes Pointer Events, which report a
+  second button pressed during a drag as a move rather than a new press, so a
+  middle-drag cannot start while the left button is held, and vice versa.
 - Near-plane culling is not edge clipping: an edge with a culled endpoint is
   dropped whole rather than clipped at the near plane.
 

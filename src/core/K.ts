@@ -62,6 +62,10 @@ export const K = {
     ui: {
         /** Click hit radius in CSS pixels, independent of canvas size and devicePixelRatio. */
         minimumNodeSelectionRadiusPx : 15.0,
+        // A touch that moves less than this is a tap or a long press, not a drag.
+        touchSlopPx : 10,
+        // A still one-finger press this long opens the actions menu, as a right-click does.
+        longPressMS : 500,
     },
 
     renderer: {

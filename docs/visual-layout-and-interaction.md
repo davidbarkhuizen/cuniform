@@ -64,6 +64,23 @@ panel's drag surface.
 - **Right-click** — opens a context menu with `export`, `reset` and
   `clear selection`. The native browser menu is suppressed. On macOS
   `Ctrl+click` is the same gesture.
+- **Touch** — the canvas listens to Pointer Events, so mouse and pen keep the
+  gestures above and touch maps to:
+
+  | Gesture | Action |
+  | --- | --- |
+  | one finger down on a node, then move | select and drag the node |
+  | one-finger tap on empty canvas | clear the selection |
+  | one-finger drag on empty canvas | orbit |
+  | two-finger pinch | dolly (the wheel's clamp, by the ratio of finger spread) |
+  | two-finger drag | pan (the fingers' centroid) |
+  | long press (`K.ui.longPressMS`, 500 ms) without moving | open the actions menu |
+
+  A touch that moves less than `K.ui.touchSlopPx` (10 px) is a tap or a long
+  press. A second finger cancels a one-finger gesture and starts a pinch, and
+  after a pinch the remaining finger does nothing until every finger lifts. The
+  canvas sets `touch-action: none`, so the page never scrolls or zooms under a
+  gesture; the panel keeps its own touch scrolling.
 - **Shift+F10** (or the context-menu key) — opens the same actions menu from
   the keyboard. Its entries are buttons: Tab or the arrow keys move between
   them, Enter or Space activates one, and Escape closes the menu.

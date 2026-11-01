@@ -4,18 +4,14 @@ import { Point2D } from "../core/Point2D";
 import { Projector } from "../view/Projector";
 import { Tag } from "../graph/Tag";
 
-/** Nearest node within the hit radius, toggled; a miss clears. Returns whether the selection changed. */
-export function handleNodeSelectionAttempt(
-    graph: Graph,
-    canvasPos: Point2D,
-    projector: Projector
-): boolean {
+/** The nearest unculled node within the hit radius of `canvasPos`, or null; a pure hit-test. */
+export function nodeAt(graph: Graph, canvasPos: Point2D, projector: Projector): Tag | null {
 
     const viewport = projector.viewport;
 
-    // A collapsed viewport maps every node to the centre; select nothing.
+    // A collapsed viewport maps every node to the centre; nothing is hit.
     if (viewport.w1 <= 0 || viewport.h1 <= 0)
-        return false;
+        return null;
 
     // Seeded with the squared hit radius; read from the live model position, which cannot lag a drag.
     let best = K.ui.minimumNodeSelectionRadiusPx * K.ui.minimumNodeSelectionRadiusPx;
@@ -42,6 +38,24 @@ export function handleNodeSelectionAttempt(
             closest = node;
         }
     }
+
+    return closest;
+}
+
+/** Nearest node within the hit radius, toggled; a miss clears. Returns whether the selection changed. */
+export function handleNodeSelectionAttempt(
+    graph: Graph,
+    canvasPos: Point2D,
+    projector: Projector
+): boolean {
+
+    const viewport = projector.viewport;
+
+    // A collapsed viewport maps every node to the centre; select nothing.
+    if (viewport.w1 <= 0 || viewport.h1 <= 0)
+        return false;
+
+    const closest = nodeAt(graph, canvasPos, projector);
 
     // Before the clear, so the toggle still flips the hit node.
     const hitWasSelected = closest !== null && closest.isSelected;

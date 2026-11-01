@@ -221,7 +221,7 @@ test("cancelling leaves the graph, timer, listeners and camera untouched", () =>
 
 test("openGraphWizard closes an open context menu", () => {
     withUIController(({ canvas, controller }) => {
-        canvas.dispatch('mousedown', mouseEvent({ button: 2, clientX: 250, clientY: 150 }));
+        canvas.dispatch('pointerdown', mouseEvent({ button: 2, clientX: 250, clientY: 150 }));
         canvas.dispatch('contextmenu', mouseEvent({ clientX: 250, clientY: 150 }));
 
         assert.equal(controller.contextMenu!.isOpen, true);
