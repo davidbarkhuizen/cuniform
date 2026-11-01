@@ -93,6 +93,12 @@ test("the renderer is the only module that draws", () => {
     assert.deepEqual(drawers, ["render/Renderer.ts"], "drawing must live behind the Renderer module");
 });
 
+// Labels are host data once cuniform is embedded, so nothing may be parsed as markup.
+test("no module writes markup through innerHTML", () => {
+    for (const [name, source] of Object.entries(sources))
+        assert.ok(!/\binnerHTML\b/.test(code(source)), `${name} must set text with textContent, not innerHTML`);
+});
+
 test("no module reaches for shared state through window", () => {
     for (const [name, source] of Object.entries(sources)) {
         assert.ok(!/window\.state\b/.test(source), `${name} still reads window.state`);

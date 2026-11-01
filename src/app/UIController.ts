@@ -679,7 +679,7 @@ export class UIController {
 	};
 
 	private updateCurrentGraphLabel = () => {
-		this.currentGraphLabel.innerHTML = specLabel(this.spec ?? defaultGraphSpec());
+		this.currentGraphLabel.textContent = specLabel(this.spec ?? defaultGraphSpec());
 	};
 
 	clearSelection = () => {
@@ -888,10 +888,10 @@ export class UIController {
 		}
 	
 		if (!selectedNode) {
-			selectedNodeInfoLabel.innerHTML = 'Click on a node to select...';
+			selectedNodeInfoLabel.textContent = 'Click on a node to select...';
 		}
 		else {
-			selectedNodeInfoLabel.innerHTML = selectedNode.label;
+			selectedNodeInfoLabel.textContent = selectedNode.label;
 	
 			this.solver.graph.neighbours(selectedNode)
 			.forEach(
@@ -899,7 +899,7 @@ export class UIController {
 					const neighbourString = neighbour.label;
 				
 					const item = document.createElement('li');
-					item.innerHTML = neighbourString;
+					item.textContent = neighbourString;
 					
 					list.appendChild(item);
 				}
