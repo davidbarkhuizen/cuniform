@@ -15,91 +15,91 @@
  */
 :root
 {
-	--accent		: #22d3ee;
-	--accent-hover		: #7dd3fc;
-	--accent-soft		: rgba(34, 211, 238, 0.35);
-	--accent-line		: rgba(34, 211, 238, 0.25);
-	--accent-deep		: #0f766e;
-	--accent-glow		: rgba(34, 211, 238, 0.7);
-	--accent-grip		: rgba(34, 211, 238, 0.5);
+    --accent		: #22d3ee;
+    --accent-hover		: #7dd3fc;
+    --accent-soft		: rgba(34, 211, 238, 0.35);
+    --accent-line		: rgba(34, 211, 238, 0.25);
+    --accent-deep		: #0f766e;
+    --accent-glow		: rgba(34, 211, 238, 0.7);
+    --accent-grip		: rgba(34, 211, 238, 0.5);
 
-	--fg			: #e8f4ff;
-	--fg-bright		: #ffffff;
-	--highlight		: #ffd400;
-	--muted			: #9fb3c8;
-	--success		: #a7f3d0;
-	--danger		: #fca5a5;
+    --fg			: #e8f4ff;
+    --fg-bright		: #ffffff;
+    --highlight		: #ffd400;
+    --muted			: #9fb3c8;
+    --success		: #a7f3d0;
+    --danger		: #fca5a5;
 
-	--canvas-bg		: #04070e;
-	--ink			: #04121c;
+    --canvas-bg		: #04070e;
+    --ink			: #04121c;
 
-	--panel-bg		: rgba(9, 15, 28, 0.94);
-	--panel-bg-solid	: rgba(9, 15, 28, 0.98);
-	--control-bg		: #1f2a3a;
-	--control-bg-danger	: #3a2330;
+    --panel-bg		: rgba(9, 15, 28, 0.94);
+    --panel-bg-solid	: rgba(9, 15, 28, 0.98);
+    --control-bg		: #1f2a3a;
+    --control-bg-danger	: #3a2330;
 
-	--font-mono		: "Courier", monospace;
+    --font-mono		: "Courier", monospace;
 }
 
 html,
 body
 {
-	height			: 100%;
-	margin			: 0;
-	padding			: 0;
-	overflow		: hidden;
+    height			: 100%;
+    margin			: 0;
+    padding			: 0;
+    overflow		: hidden;
 }
 
 .documentBody
 {
-	font-family		: var(--font-mono);
-	background-color	: var(--canvas-bg);
+    font-family		: var(--font-mono);
+    background-color	: var(--canvas-bg);
 }
 
 .canvas-container
 {
-	position		: fixed;
-	top			: 0;
-	right			: 0;
-	bottom			: 0;
-	left			: 0;
+    position		: fixed;
+    top			: 0;
+    right			: 0;
+    bottom			: 0;
+    left			: 0;
 }
 
 #canvas
 {
-	display			: block;
-	width			: 100%;
-	height			: 100%;
-	background-color	: var(--canvas-bg);
+    display			: block;
+    width			: 100%;
+    height			: 100%;
+    background-color	: var(--canvas-bg);
 }
 
 /* ---------------------------------------------------- floating overlay -- */
 
 .selectionInfoPanel
 {
-	position		: absolute;
-	top			: 16px;
-	left			: 16px;
-	z-index			: 2;
+    position		: absolute;
+    top			: 16px;
+    left			: 16px;
+    z-index			: 2;
 
-	box-sizing		: border-box;
-	width			: 300px;
-	max-height		: calc(100% - 32px);
-	overflow-y		: auto;
+    box-sizing		: border-box;
+    width			: 300px;
+    max-height		: calc(100% - 32px);
+    overflow-y		: auto;
 
-	padding			: 16px 18px;
+    padding			: 16px 18px;
 
-	font-family		: var(--font-mono);
-	color			: var(--fg);
+    font-family		: var(--font-mono);
+    color			: var(--fg);
 
-	background-color	: var(--panel-bg);
-	border			: 2px solid var(--accent);
-	border-radius		: 10px;
+    background-color	: var(--panel-bg);
+    border			: 2px solid var(--accent);
+    border-radius		: 10px;
 
-	box-shadow		: 0 0 0 1px var(--accent-line),
-				  0 14px 34px rgba(0, 0, 0, 0.8);
+    box-shadow		: 0 0 0 1px var(--accent-line),
+                  0 14px 34px rgba(0, 0, 0, 0.8);
 
-	cursor			: move;
+    cursor			: move;
 }
 
 /*
@@ -108,41 +108,41 @@ body
  */
 .panelDragHandle
 {
-	display			: flex;
-	justify-content		: center;
-	align-items		: center;
+    display			: flex;
+    justify-content		: center;
+    align-items		: center;
 
-	margin			: -6px 0 10px;
-	padding			: 6px 0;
+    margin			: -6px 0 10px;
+    padding			: 6px 0;
 
-	cursor			: move;
+    cursor			: move;
 }
 
 .panelDragGrip
 {
-	width			: 46px;
-	height			: 4px;
+    width			: 46px;
+    height			: 4px;
 
-	background-color	: var(--accent-grip);
-	border-radius		: 999px;
+    background-color	: var(--accent-grip);
+    border-radius		: 999px;
 }
 
 /* the fixed menu: the title and the current graph, always present */
 .overlayMenu
 {
-	padding-bottom		: 12px;
-	margin-bottom		: 12px;
-	border-bottom		: 1px solid var(--accent-soft);
+    padding-bottom		: 12px;
+    margin-bottom		: 12px;
+    border-bottom		: 1px solid var(--accent-soft);
 }
 
 .mainLabel
 {
-	font-size		: xx-large;
-	font-weight		: bold;
-	letter-spacing		: 0.06em;
-	text-align		: center;
-	color			: var(--fg-bright);
-	text-shadow		: 0 0 14px var(--accent-glow);
+    font-size		: xx-large;
+    font-weight		: bold;
+    letter-spacing		: 0.06em;
+    text-align		: center;
+    color			: var(--fg-bright);
+    text-shadow		: 0 0 14px var(--accent-glow);
 }
 
 /*
@@ -151,13 +151,13 @@ body
  */
 .graphLabel
 {
-	margin-top		: 6px;
+    margin-top		: 6px;
 
-	font-size		: small;
-	line-height		: 1.35;
+    font-size		: small;
+    line-height		: 1.35;
 
-	color			: var(--muted);
-	overflow-wrap		: anywhere;
+    color			: var(--muted);
+    overflow-wrap		: anywhere;
 }
 
 /*
@@ -167,88 +167,88 @@ body
  */
 .menuOptions
 {
-	display			: flex;
-	gap			: 8px;
+    display			: flex;
+    gap			: 8px;
 
-	padding-top		: 12px;
-	margin-top		: 12px;
-	border-top		: 1px solid var(--accent-soft);
+    padding-top		: 12px;
+    margin-top		: 12px;
+    border-top		: 1px solid var(--accent-soft);
 }
 
 .main_menu_option
 {
-	flex			: 1;
-	margin			: 0;
-	padding			: 6px 10px;
+    flex			: 1;
+    margin			: 0;
+    padding			: 6px 10px;
 
-	text-align		: center;
-	text-decoration		: none;
-	font-weight		: bold;
+    text-align		: center;
+    text-decoration		: none;
+    font-weight		: bold;
 
-	color			: var(--ink);
-	background-color	: var(--accent);
-	border-radius		: 6px;
+    color			: var(--ink);
+    background-color	: var(--accent);
+    border-radius		: 6px;
 
-	/* the panel is a drag handle; its links are not */
-	cursor			: pointer;
+    /* the panel is a drag handle; its links are not */
+    cursor			: pointer;
 }
 
 .main_menu_option:hover
 {
-	background-color	: var(--accent-hover);
+    background-color	: var(--accent-hover);
 }
 
 /* the currently selected node */
 .selectionSection
 {
-	min-height		: 120px;
+    min-height		: 120px;
 }
 
 .sectionHeading
 {
-	margin-bottom		: 8px;
+    margin-bottom		: 8px;
 
-	font-size		: small;
-	text-transform		: uppercase;
-	letter-spacing		: 0.14em;
-	color			: var(--accent);
+    font-size		: small;
+    text-transform		: uppercase;
+    letter-spacing		: 0.14em;
+    color			: var(--accent);
 }
 
 #selectedNodeInfoLabel
 {
-	display			: block;
-	margin-bottom		: 8px;
+    display			: block;
+    margin-bottom		: 8px;
 
-	font-size		: large;
-	font-weight		: bold;
-	color			: var(--highlight);
+    font-size		: large;
+    font-weight		: bold;
+    color			: var(--highlight);
 }
 
 #selectedNodeInfoList
 {
-	margin			: 0;
-	padding-left		: 18px;
+    margin			: 0;
+    padding-left		: 18px;
 
-	color			: var(--success);
+    color			: var(--success);
 }
 
 /* the camera console: three axis rotate rows and a zoom row */
 .cameraSection
 {
-	padding-top		: 12px;
-	margin-top		: 12px;
-	border-top		: 1px solid var(--accent-soft);
+    padding-top		: 12px;
+    margin-top		: 12px;
+    border-top		: 1px solid var(--accent-soft);
 
-	/* the panel itself is a drag handle; the console is not */
-	cursor			: default;
+    /* the panel itself is a drag handle; the console is not */
+    cursor			: default;
 }
 
 .cameraRow
 {
-	display			: flex;
-	align-items		: center;
-	gap			: 8px;
-	margin-top		: 8px;
+    display			: flex;
+    align-items		: center;
+    gap			: 8px;
+    margin-top		: 8px;
 }
 
 /*
@@ -257,37 +257,37 @@ body
  */
 .cameraAxisLabel
 {
-	width			: 5.5ch;
+    width			: 5.5ch;
 
-	font-weight		: bold;
-	text-transform		: uppercase;
+    font-weight		: bold;
+    text-transform		: uppercase;
 
-	color			: var(--accent);
+    color			: var(--accent);
 }
 
 .cameraButton
 {
-	flex			: 1;
-	box-sizing		: border-box;
-	min-height		: 32px;
+    flex			: 1;
+    box-sizing		: border-box;
+    min-height		: 32px;
 
-	/* The rotate icons are SVG; centring keeps them and the zoom signs aligned. */
-	display			: flex;
-	align-items		: center;
-	justify-content		: center;
+    /* The rotate icons are SVG; centring keeps them and the zoom signs aligned. */
+    display			: flex;
+    align-items		: center;
+    justify-content		: center;
 
-	padding			: 6px 10px;
+    padding			: 6px 10px;
 
-	font			: inherit;
-	font-weight		: bold;
-	line-height		: 1;
+    font			: inherit;
+    font-weight		: bold;
+    line-height		: 1;
 
-	color			: var(--ink);
-	background-color	: var(--accent);
-	border			: none;
-	border-radius		: 6px;
+    color			: var(--ink);
+    background-color	: var(--accent);
+    border			: none;
+    border-radius		: 6px;
 
-	cursor			: pointer;
+    cursor			: pointer;
 }
 
 /*
@@ -297,85 +297,85 @@ body
  */
 .cameraIcon
 {
-	width			: 20px;
-	height			: 20px;
+    width			: 20px;
+    height			: 20px;
 
-	fill			: none;
-	stroke			: currentColor;
-	stroke-width		: 2.2;
-	stroke-linecap		: round;
-	stroke-linejoin		: round;
+    fill			: none;
+    stroke			: currentColor;
+    stroke-width		: 2.2;
+    stroke-linecap		: round;
+    stroke-linejoin		: round;
 }
 
 .cameraIconHead
 {
-	fill			: currentColor;
-	stroke			: none;
+    fill			: currentColor;
+    stroke			: none;
 }
 
 .cameraButton:hover
 {
-	background-color	: var(--accent-hover);
+    background-color	: var(--accent-hover);
 }
 
 .cameraButton:focus-visible
 {
-	outline			: 2px solid var(--fg-bright);
-	outline-offset		: 2px;
+    outline			: 2px solid var(--fg-bright);
+    outline-offset		: 2px;
 }
 
 /* the display emphasis: two named configurations, one pressed */
 .emphasisSection
 {
-	padding-top		: 12px;
-	margin-top		: 12px;
-	border-top		: 1px solid var(--accent-soft);
+    padding-top		: 12px;
+    margin-top		: 12px;
+    border-top		: 1px solid var(--accent-soft);
 
-	/* the panel itself is a drag handle; the section is not */
-	cursor			: default;
+    /* the panel itself is a drag handle; the section is not */
+    cursor			: default;
 }
 
 .emphasisRow
 {
-	display			: flex;
-	align-items		: center;
-	gap			: 8px;
-	margin-top		: 8px;
+    display			: flex;
+    align-items		: center;
+    gap			: 8px;
+    margin-top		: 8px;
 }
 
 .emphasisButton
 {
-	flex			: 1;
-	box-sizing		: border-box;
-	min-height		: 32px;
+    flex			: 1;
+    box-sizing		: border-box;
+    min-height		: 32px;
 
-	display			: flex;
-	align-items		: center;
-	justify-content		: center;
+    display			: flex;
+    align-items		: center;
+    justify-content		: center;
 
-	padding			: 6px 10px;
+    padding			: 6px 10px;
 
-	font			: inherit;
-	font-weight		: bold;
-	line-height		: 1;
+    font			: inherit;
+    font-weight		: bold;
+    line-height		: 1;
 
-	color			: var(--ink);
-	background-color	: var(--accent);
-	border			: none;
-	border-radius		: 6px;
+    color			: var(--ink);
+    background-color	: var(--accent);
+    border			: none;
+    border-radius		: 6px;
 
-	cursor			: pointer;
+    cursor			: pointer;
 }
 
 .emphasisButton:hover
 {
-	background-color	: var(--accent-hover);
+    background-color	: var(--accent-hover);
 }
 
 .emphasisButton:focus-visible
 {
-	outline			: 2px solid var(--fg-bright);
-	outline-offset		: 2px;
+    outline			: 2px solid var(--fg-bright);
+    outline-offset		: 2px;
 }
 
 /*
@@ -384,8 +384,8 @@ body
  */
 .emphasisButton[aria-pressed="true"]
 {
-	background-color	: var(--fg-bright);
-	color			: var(--accent);
+    background-color	: var(--fg-bright);
+    color			: var(--accent);
 }
 
 /* ---------------------------------------------------------- graph wizard -- */
@@ -397,174 +397,174 @@ body
  */
 .graphWizard
 {
-	position		: fixed;
-	inset			: 0;
-	z-index			: 100;
+    position		: fixed;
+    inset			: 0;
+    z-index			: 100;
 
-	display			: flex;
-	align-items		: center;
-	justify-content		: center;
-	padding			: 24px;
+    display			: flex;
+    align-items		: center;
+    justify-content		: center;
+    padding			: 24px;
 
-	background-color	: rgba(2, 6, 14, 0.72);
+    background-color	: rgba(2, 6, 14, 0.72);
 }
 
 .wizardPanel
 {
-	box-sizing		: border-box;
-	width			: 100%;
-	max-width		: 560px;
-	max-height		: calc(100% - 48px);
-	overflow-y		: auto;
+    box-sizing		: border-box;
+    width			: 100%;
+    max-width		: 560px;
+    max-height		: calc(100% - 48px);
+    overflow-y		: auto;
 
-	padding			: 18px 20px;
+    padding			: 18px 20px;
 
-	font-family		: var(--font-mono);
-	color			: var(--fg);
+    font-family		: var(--font-mono);
+    color			: var(--fg);
 
-	background-color	: var(--panel-bg-solid);
-	border			: 2px solid var(--accent);
-	border-radius		: 10px;
+    background-color	: var(--panel-bg-solid);
+    border			: 2px solid var(--accent);
+    border-radius		: 10px;
 
-	box-shadow		: 0 0 0 1px var(--accent-line),
-				  0 20px 48px rgba(0, 0, 0, 0.85);
+    box-shadow		: 0 0 0 1px var(--accent-line),
+                  0 20px 48px rgba(0, 0, 0, 0.85);
 }
 
 .wizardTitle
 {
-	margin-bottom		: 14px;
+    margin-bottom		: 14px;
 
-	font-size		: large;
-	font-weight		: bold;
-	color			: var(--fg-bright);
+    font-size		: large;
+    font-weight		: bold;
+    color			: var(--fg-bright);
 }
 
 /* the three steps are toggled by inline display, not stacked */
 .wizardStep
 {
-	display			: none;
+    display			: none;
 }
 
 .wizardChoice
 {
-	display			: block;
-	width			: 100%;
-	margin			: 8px 0;
-	padding			: 14px;
+    display			: block;
+    width			: 100%;
+    margin			: 8px 0;
+    padding			: 14px;
 
-	font			: inherit;
-	font-size		: large;
-	font-weight		: bold;
+    font			: inherit;
+    font-size		: large;
+    font-weight		: bold;
 
-	color			: var(--ink);
-	background-color	: var(--accent);
-	border			: none;
-	border-radius		: 8px;
+    color			: var(--ink);
+    background-color	: var(--accent);
+    border			: none;
+    border-radius		: 8px;
 
-	cursor			: pointer;
+    cursor			: pointer;
 }
 
 .wizardChoice:hover
 {
-	background-color	: var(--accent-hover);
+    background-color	: var(--accent-hover);
 }
 
 .wizardField
 {
-	display			: flex;
-	align-items		: center;
-	gap			: 10px;
-	margin-top		: 10px;
+    display			: flex;
+    align-items		: center;
+    gap			: 10px;
+    margin-top		: 10px;
 }
 
 .wizardInput
 {
-	flex			: 1;
-	min-width		: 0;
-	padding			: 8px 10px;
+    flex			: 1;
+    min-width		: 0;
+    padding			: 8px 10px;
 
-	font			: inherit;
-	color			: var(--fg);
-	background-color	: var(--ink);
-	border			: 1px solid var(--accent);
-	border-radius		: 6px;
+    font			: inherit;
+    color			: var(--fg);
+    background-color	: var(--ink);
+    border			: 1px solid var(--accent);
+    border-radius		: 6px;
 }
 
 /* the word cloud */
 .wizardTags
 {
-	display			: flex;
-	flex-wrap		: wrap;
-	gap			: 8px;
-	margin-top		: 12px;
+    display			: flex;
+    flex-wrap		: wrap;
+    gap			: 8px;
+    margin-top		: 12px;
 }
 
 .wizardTag
 {
-	padding			: 6px 12px;
+    padding			: 6px 12px;
 
-	font			: inherit;
-	line-height		: 1.2;
+    font			: inherit;
+    line-height		: 1.2;
 
-	color			: var(--ink);
-	background-color	: var(--success);
-	border			: none;
-	border-radius		: 999px;
+    color			: var(--ink);
+    background-color	: var(--success);
+    border			: none;
+    border-radius		: 999px;
 
-	cursor			: pointer;
+    cursor			: pointer;
 }
 
 .wizardTagFamily
 {
-	display			: block;
-	font-size		: 0.7em;
-	color			: var(--accent-deep);
+    display			: block;
+    font-size		: 0.7em;
+    color			: var(--accent-deep);
 }
 
 .wizardFooter
 {
-	display			: flex;
-	gap			: 8px;
-	margin-top		: 16px;
+    display			: flex;
+    gap			: 8px;
+    margin-top		: 16px;
 }
 
 .wizardPrimary,
 .wizardBack,
 .wizardCancel
 {
-	flex			: 1;
-	padding			: 8px 10px;
+    flex			: 1;
+    padding			: 8px 10px;
 
-	font			: inherit;
-	font-weight		: bold;
+    font			: inherit;
+    font-weight		: bold;
 
-	border			: none;
-	border-radius		: 6px;
-	cursor			: pointer;
+    border			: none;
+    border-radius		: 6px;
+    cursor			: pointer;
 }
 
 .wizardPrimary
 {
-	color			: var(--ink);
-	background-color	: var(--accent);
+    color			: var(--ink);
+    background-color	: var(--accent);
 }
 
 .wizardPrimary:disabled
 {
-	opacity			: 0.45;
-	cursor			: not-allowed;
+    opacity			: 0.45;
+    cursor			: not-allowed;
 }
 
 .wizardBack
 {
-	color			: var(--fg);
-	background-color	: var(--control-bg);
+    color			: var(--fg);
+    background-color	: var(--control-bg);
 }
 
 .wizardCancel
 {
-	color			: var(--fg);
-	background-color	: var(--control-bg-danger);
+    color			: var(--fg);
+    background-color	: var(--control-bg-danger);
 }
 
 .wizardValidation,
@@ -572,18 +572,18 @@ body
 .wizardEmpty,
 .wizardCount
 {
-	margin			: 8px 0 0;
+    margin			: 8px 0 0;
 
-	font-size		: small;
-	color			: var(--muted);
+    font-size		: small;
+    color			: var(--muted);
 }
 
 .wizardValidation
 {
-	color			: var(--danger);
+    color			: var(--danger);
 }
 
 .wizardHint
 {
-	color			: var(--highlight);
+    color			: var(--highlight);
 }
