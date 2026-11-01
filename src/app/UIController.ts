@@ -1,13 +1,13 @@
 import {
-	CameraAxis,
-	CameraDirection,
-	CameraZoom,
-	cameraScratch,
-	copyCameraView,
-	isCameraAxis,
-	isCameraDirection,
-	isCameraZoom,
-	sameCameraView,
+    CameraAxis,
+    CameraDirection,
+    CameraZoom,
+    cameraScratch,
+    copyCameraView,
+    isCameraAxis,
+    isCameraDirection,
+    isCameraZoom,
+    sameCameraView,
 } from "../view/Camera";
 import { ContextMenu } from "../ui/ContextMenu";
 import { AncestorNode, attributeOf, firstAncestor } from "../ui/Dom";
@@ -34,11 +34,11 @@ const defaultGraphSource: GraphSource = spec => new GraphFactory().build(spec);
 
 /** The two keys a focused button activates on; browsers synthesise a click for both. */
 const isButtonActivationKey = (event: KeyboardEvent): boolean =>
-	event.key === 'Enter' || event.key === ' ';
+    event.key === 'Enter' || event.key === ' ';
 
 type CameraButton =
-	| { kind: 'rotate'; axis: CameraAxis; direction: CameraDirection }
-	| { kind: 'zoom'; zoom: CameraZoom };
+    | { kind: 'rotate'; axis: CameraAxis; direction: CameraDirection }
+    | { kind: 'zoom'; zoom: CameraZoom };
 
 export class UIController {
 
@@ -117,13 +117,13 @@ export class UIController {
     width: number = 0;
     height: number = 0;
 
-	constructor(
+    constructor(
         body: HTMLElement,
-        canvas: HTMLCanvasElement, 
-		exportElement: HTMLElement, 
-		resetElement: HTMLElement,
-		selectionInfoLabel: HTMLElement,
-		selectionInfoList: HTMLElement,
+        canvas: HTMLCanvasElement,
+        exportElement: HTMLElement,
+        resetElement: HTMLElement,
+        selectionInfoLabel: HTMLElement,
+        selectionInfoList: HTMLElement,
         currentGraphLabel: HTMLElement,
         cameraConsole: HTMLElement | null,
         private readonly makeGraph: GraphSource = defaultGraphSource,
@@ -132,17 +132,17 @@ export class UIController {
         // Test seam: the worker the runner probes instead of the bundled one.
         private readonly renderWorkerFactory: RenderWorkerFactory | undefined = undefined,
         emphasisConsole: HTMLElement | null = null
-	) {
+    ) {
         this.body = body;
         this.canvas = canvas;
-		this.exportElement = exportElement;
-		this.resetElement = resetElement;
-		this.selectionInfoLabel = selectionInfoLabel;
-		this.selectionInfoList = selectionInfoList;
+        this.exportElement = exportElement;
+        this.resetElement = resetElement;
+        this.selectionInfoLabel = selectionInfoLabel;
+        this.selectionInfoList = selectionInfoList;
         this.currentGraphLabel = currentGraphLabel;
         this.cameraConsole = cameraConsole;
         this.emphasisConsole = emphasisConsole;
-	}
+    }
 
     private initialGraph(): Graph {
         return this.makeGraph(this.spec ?? defaultGraphSpec());
@@ -190,878 +190,878 @@ export class UIController {
         return runner;
     }
 
-	onMouseOut = () => {
-		this.state.reset();
-	};
+    onMouseOut = () => {
+        this.state.reset();
+    };
 
-	onMouseMove = (event: MouseEvent) => {
+    onMouseMove = (event: MouseEvent) => {
 
-		if (this.state.b0Down || this.state.b1Down)
-			this.wake();
+        if (this.state.b0Down || this.state.b1Down)
+            this.wake();
 
-		if (this.state.b0Down) {
+        if (this.state.b0Down) {
 
-			// A culled node has no usable depth, so it drags on the near plane.
-			const mxy = this.getMousePos(this.canvas, event);
-			const projector = this.projector();
+            // A culled node has no usable depth, so it drags on the near plane.
+            const mxy = this.getMousePos(this.canvas, event);
+            const projector = this.projector();
 
-			for (const vertex of this.solver.graph.vertices) {
+            for (const vertex of this.solver.graph.vertices) {
 
-				if (!vertex.isSelected)
-					continue;
+                if (!vertex.isSelected)
+                    continue;
 
-				const depth = projector.isCulled(vertex.depth)
-					? projector.camera.nearPlane
-					: vertex.depth;
+                const depth = projector.isCulled(vertex.depth)
+                    ? projector.camera.nearPlane
+                    : vertex.depth;
 
-				vertex.position = projector.unproject(mxy, depth);
-			}
+                vertex.position = projector.unproject(mxy, depth);
+            }
 
-			// No step or camera move here, so the idle-frame skip would freeze the drag.
-			this.requestRedraw();
-		}
-		else if (this.state.b1Down) {
+            // No step or camera move here, so the idle-frame skip would freeze the drag.
+            this.requestRedraw();
+        }
+        else if (this.state.b1Down) {
 
-			const mxy = this.getMousePos(this.canvas, event);
+            const mxy = this.getMousePos(this.canvas, event);
 
-			if (event.shiftKey)
-				this.panCameraTo(mxy);
-			else
-				this.orbitTo(mxy);
-		}
-	};
+            if (event.shiftKey)
+                this.panCameraTo(mxy);
+            else
+                this.orbitTo(mxy);
+        }
+    };
 
-	/** Previous middle-drag anchor, or null after seeding it from the gesture's first move. */
-	private takeDragAnchor(mxy: Point2D): Point2D | null {
+    /** Previous middle-drag anchor, or null after seeding it from the gesture's first move. */
+    private takeDragAnchor(mxy: Point2D): Point2D | null {
 
-		const last = this.state.lastMiddleDragPos;
+        const last = this.state.lastMiddleDragPos;
 
-		if (last == null) {
-			this.state.lastMiddleDragPos = mxy;
-			return null;
-		}
+        if (last == null) {
+            this.state.lastMiddleDragPos = mxy;
+            return null;
+        }
 
-		this.state.lastMiddleDragPos = mxy;
-		return last;
-	};
+        this.state.lastMiddleDragPos = mxy;
+        return last;
+    };
 
-	orbitTo = (mxy: Point2D) => {
+    orbitTo = (mxy: Point2D) => {
 
-		const last = this.takeDragAnchor(mxy);
+        const last = this.takeDragAnchor(mxy);
 
-		if (last === null)
-			return;
+        if (last === null)
+            return;
 
-		this.state.camera.orbit(mxy.x - last.x, mxy.y - last.y);
-	};
+        this.state.camera.orbit(mxy.x - last.x, mxy.y - last.y);
+    };
 
-	panCameraTo = (mxy: Point2D) => {
+    panCameraTo = (mxy: Point2D) => {
 
-		const last = this.takeDragAnchor(mxy);
+        const last = this.takeDragAnchor(mxy);
 
-		if (last === null)
-			return;
+        if (last === null)
+            return;
 
-		const projector = this.projector();
+        const projector = this.projector();
 
-		// Unprojecting at `distance` slides the plane through the camera target.
-		const depth = this.state.camera.distance;
+        // Unprojecting at `distance` slides the plane through the camera target.
+        const depth = this.state.camera.distance;
 
-		const now = projector.unproject(mxy, depth);
-		const before = projector.unproject(last, depth);
+        const now = projector.unproject(mxy, depth);
+        const before = projector.unproject(last, depth);
 
-		this.state.camera.panBy(
-			point3(now.x - before.x, now.y - before.y, now.z - before.z)
-		);
-	};
+        this.state.camera.panBy(
+            point3(now.x - before.x, now.y - before.y, now.z - before.z)
+        );
+    };
 
-	// Wheel dollies; `focalLength` is constant by design, so only the distance changes.
-	onWheel = (event: WheelEvent) => {
+    // Wheel dollies; `focalLength` is constant by design, so only the distance changes.
+    onWheel = (event: WheelEvent) => {
 
-		const notches = event.deltaY > 0 ? 1 : event.deltaY < 0 ? -1 : 0;
+        const notches = event.deltaY > 0 ? 1 : event.deltaY < 0 ? -1 : 0;
 
-		if (notches !== 0) {
-			this.state.camera.dolly(notches);
+        if (notches !== 0) {
+            this.state.camera.dolly(notches);
 
-			this.wake();
-		}
+            this.wake();
+        }
 
-		event.preventDefault();
-	};
+        event.preventDefault();
+    };
 
-	// Parse a console button out of an event target.
-	private cameraButton(target: EventTarget | null): CameraButton | null {
+    // Parse a console button out of an event target.
+    private cameraButton(target: EventTarget | null): CameraButton | null {
 
-		const element = this.consoleButton(target);
+        const element = this.consoleButton(target);
 
-		if (!element)
-			return null;
+        if (!element)
+            return null;
 
-		// Guards are the runtime half of the Camera* vocabularies; zoom is tried first.
-		const zoom = element.getAttribute('data-zoom');
+        // Guards are the runtime half of the Camera* vocabularies; zoom is tried first.
+        const zoom = element.getAttribute('data-zoom');
 
-		if (isCameraZoom(zoom))
-			return { kind: 'zoom', zoom };
+        if (isCameraZoom(zoom))
+            return { kind: 'zoom', zoom };
 
-		const axis = element.getAttribute('data-axis');
-		const direction = element.getAttribute('data-direction');
+        const axis = element.getAttribute('data-axis');
+        const direction = element.getAttribute('data-direction');
 
-		if (!isCameraAxis(axis))
-			return null;
+        if (!isCameraAxis(axis))
+            return null;
 
-		if (!isCameraDirection(direction))
-			return null;
+        if (!isCameraDirection(direction))
+            return null;
 
-		return { kind: 'rotate', axis, direction };
-	}
+        return { kind: 'rotate', axis, direction };
+    }
 
-	// Walks up because a press can land on a button's SVG icon; the walk stops at the console.
-	private consoleButton(target: EventTarget | null): HTMLElement | null {
+    // Walks up because a press can land on a button's SVG icon; the walk stops at the console.
+    private consoleButton(target: EventTarget | null): HTMLElement | null {
 
-		const element = firstAncestor<AncestorNode>(
-			target,
-			node => attributeOf(node, 'data-axis') !== null ||
-				attributeOf(node, 'data-zoom') !== null,
-			this.cameraConsole
-		);
+        const element = firstAncestor<AncestorNode>(
+            target,
+            node => attributeOf(node, 'data-axis') !== null ||
+                attributeOf(node, 'data-zoom') !== null,
+            this.cameraConsole
+        );
 
-		return element as HTMLElement | null;
-	}
+        return element as HTMLElement | null;
+    }
 
-	// Anticlockwise is the right-hand positive sense about the axis, hence the positive step.
-	private applyCameraButton(button: CameraButton): void {
+    // Anticlockwise is the right-hand positive sense about the axis, hence the positive step.
+    private applyCameraButton(button: CameraButton): void {
 
-		if (button.kind === 'zoom') {
-			this.state.camera.zoom(button.zoom);
-			return;
-		}
+        if (button.kind === 'zoom') {
+            this.state.camera.zoom(button.zoom);
+            return;
+        }
 
-		const step = button.direction === 'acw'
-			? UIController.ROTATION_PER_TICK
-			: -UIController.ROTATION_PER_TICK;
+        const step = button.direction === 'acw'
+            ? UIController.ROTATION_PER_TICK
+            : -UIController.ROTATION_PER_TICK;
 
-		this.state.camera.rotateLocal(button.axis, step);
-	}
+        this.state.camera.rotateLocal(button.axis, step);
+    }
 
-	onCameraHoldTick = () => {
+    onCameraHoldTick = () => {
 
-		if (this.heldButton)
-			this.applyCameraButton(this.heldButton);
-	};
+        if (this.heldButton)
+            this.applyCameraButton(this.heldButton);
+    };
 
-	// One step at once so a tap still moves, then one per tick.
-	private startCameraHold(button: CameraButton): void {
+    // One step at once so a tap still moves, then one per tick.
+    private startCameraHold(button: CameraButton): void {
 
-		this.heldButton = button;
-		this.applyCameraButton(button);
+        this.heldButton = button;
+        this.applyCameraButton(button);
 
-		this.wake();
-	}
+        this.wake();
+    }
 
-	stopCameraHold = () => {
-		this.heldButton = null;
-	};
+    stopCameraHold = () => {
+        this.heldButton = null;
+    };
 
-	// The release half is watched on the window; see toggleEventListeners.
-	onCameraPointerDown = (event: PointerEvent) => {
+    // The release half is watched on the window; see toggleEventListeners.
+    onCameraPointerDown = (event: PointerEvent) => {
 
-		// DragController captures the pointer on pointerdown, so a console press must not reach it.
-		event.stopPropagation();
+        // DragController captures the pointer on pointerdown, so a console press must not reach it.
+        event.stopPropagation();
 
-		const button = this.cameraButton(event.target);
+        const button = this.cameraButton(event.target);
 
-		if (button)
-			this.startCameraHold(button);
-	};
+        if (button)
+            this.startCameraHold(button);
+    };
 
-	onCameraPointerUp = () => {
-		this.stopCameraHold();
-	};
+    onCameraPointerUp = () => {
+        this.stopCameraHold();
+    };
 
-	/** Cancels the default so the browser does not also synthesise a click for the same press. */
-	onCameraKeyDown = (event: KeyboardEvent) => {
+    /** Cancels the default so the browser does not also synthesise a click for the same press. */
+    onCameraKeyDown = (event: KeyboardEvent) => {
 
-		if (!isButtonActivationKey(event))
-			return;
+        if (!isButtonActivationKey(event))
+            return;
 
-		// Auto-repeat would restart the step; the tick handler advances a hold.
-		if (event.repeat)
-			return;
+        // Auto-repeat would restart the step; the tick handler advances a hold.
+        if (event.repeat)
+            return;
 
-		const button = this.cameraButton(event.target);
+        const button = this.cameraButton(event.target);
 
-		if (!button)
-			return;
+        if (!button)
+            return;
 
-		event.preventDefault();
-		this.startCameraHold(button);
-	};
+        event.preventDefault();
+        this.startCameraHold(button);
+    };
 
-	onCameraKeyUp = (event: KeyboardEvent) => {
+    onCameraKeyUp = (event: KeyboardEvent) => {
 
-		if (!isButtonActivationKey(event))
-			return;
+        if (!isButtonActivationKey(event))
+            return;
 
-		event.preventDefault();
-		this.stopCameraHold();
-	};
+        event.preventDefault();
+        this.stopCameraHold();
+    };
 
-	// Pointer and key activation both produce a click, which the hold paths cover; only `detail === 0` steps.
-	onCameraButtonClick = (event: MouseEvent) => {
+    // Pointer and key activation both produce a click, which the hold paths cover; only `detail === 0` steps.
+    onCameraButtonClick = (event: MouseEvent) => {
 
-		if (event.detail !== 0)
-			return;
+        if (event.detail !== 0)
+            return;
 
-		const button = this.cameraButton(event.target);
+        const button = this.cameraButton(event.target);
 
-		if (button)
-			this.applyCameraButton(button);
-	};
+        if (button)
+            this.applyCameraButton(button);
+    };
 
-	// Walks up from `target`; `isEmphasisName` is the runtime half of the vocabulary.
-	private emphasisButton(target: EventTarget | null): Emphasis | null {
+    // Walks up from `target`; `isEmphasisName` is the runtime half of the vocabulary.
+    private emphasisButton(target: EventTarget | null): Emphasis | null {
 
-		const element = firstAncestor<AncestorNode>(
-			target,
-			node => isEmphasisName(attributeOf(node, 'data-emphasis')),
-			this.emphasisConsole
-		);
+        const element = firstAncestor<AncestorNode>(
+            target,
+            node => isEmphasisName(attributeOf(node, 'data-emphasis')),
+            this.emphasisConsole
+        );
 
-		if (element === null)
-			return null;
+        if (element === null)
+            return null;
 
-		const name = attributeOf(element, 'data-emphasis');
+        const name = attributeOf(element, 'data-emphasis');
 
-		return isEmphasisName(name) ? emphasisValue(name) : null;
-	}
+        return isEmphasisName(name) ? emphasisValue(name) : null;
+    }
 
-	/** DragController already excludes BUTTON presses, so no pointerdown guard; redraws without waking. */
-	onEmphasisClick = (event: MouseEvent) => {
+    /** DragController already excludes BUTTON presses, so no pointerdown guard; redraws without waking. */
+    onEmphasisClick = (event: MouseEvent) => {
 
-		const emphasis = this.emphasisButton(event.target);
+        const emphasis = this.emphasisButton(event.target);
 
-		if (emphasis !== null)
-			this.setEmphasis(emphasis);
-	};
+        if (emphasis !== null)
+            this.setEmphasis(emphasis);
+    };
 
-	/** The one writer of the display emphasis. */
-	setEmphasis = (emphasis: Emphasis) => {
+    /** The one writer of the display emphasis. */
+    setEmphasis = (emphasis: Emphasis) => {
 
-		if (this.state.emphasis === emphasis)
-			return;
+        if (this.state.emphasis === emphasis)
+            return;
 
-		this.state.emphasis = emphasis;
-		this.updateEmphasisButtons();
-		this.requestRedraw();
-	};
+        this.state.emphasis = emphasis;
+        this.updateEmphasisButtons();
+        this.requestRedraw();
+    };
 
-	/** Keeps the buttons' `aria-pressed` in sync after a toggle; the markup ships with `nodes` pressed. */
-	private updateEmphasisButtons = () => {
+    /** Keeps the buttons' `aria-pressed` in sync after a toggle; the markup ships with `nodes` pressed. */
+    private updateEmphasisButtons = () => {
 
-		if (this.emphasisConsole === null)
-			return;
+        if (this.emphasisConsole === null)
+            return;
 
-		for (const button of Array.from(
-			this.emphasisConsole.querySelectorAll('[data-emphasis]')
-		)) {
-			const name = button.getAttribute('data-emphasis');
+        for (const button of Array.from(
+            this.emphasisConsole.querySelectorAll('[data-emphasis]')
+        )) {
+            const name = button.getAttribute('data-emphasis');
 
-			if (!isEmphasisName(name))
-				continue;
+            if (!isEmphasisName(name))
+                continue;
 
-			button.setAttribute(
-				'aria-pressed',
-				emphasisValue(name) === this.state.emphasis ? 'true' : 'false'
-			);
-		}
-	};
+            button.setAttribute(
+                'aria-pressed',
+                emphasisValue(name) === this.state.emphasis ? 'true' : 'false'
+            );
+        }
+    };
 
-	projector(): Projector {
-		return Projector.forCanvas(this.width, this.height, this.state.camera);
-	}
+    projector(): Projector {
+        return Projector.forCanvas(this.width, this.height, this.state.camera);
+    }
 
-	onMouseDown = (event: MouseEvent) => {
+    onMouseDown = (event: MouseEvent) => {
 
-		this.hideContextMenu();
+        this.hideContextMenu();
 
-		this.wake();
+        this.wake();
 
-		var mxy = this.getMousePos(
-			this.canvas, 
-			event
-		);
-		
-		if (event.button === 0) {
+        let mxy = this.getMousePos(
+            this.canvas,
+            event
+        );
 
-			// macOS Ctrl+click arrives as a primary press with ctrlKey; flag it for the contextmenu event.
-			if (event.ctrlKey) {
-				this.state.b2Down = true;
-				return;
-			}
+        if (event.button === 0) {
 
-			this.state.b0Down = true;		
-				
-			const selectionChanged = handleNodeSelectionAttempt(
-				this.solver.graph,
-				mxy,
-				this.projector()
-			);
-			if (selectionChanged)
-				this.updateSelectionInfo();
-		}
-		else if (event.button === 1) {
-			this.state.b1Down = true;
-			this.state.lastMiddleDragPos = mxy;
-			event.preventDefault();
-		}
-		else if (event.button === 2) {
-			this.state.b2Down = true;
-		}
-	}
+            // macOS Ctrl+click arrives as a primary press with ctrlKey; flag it for the contextmenu event.
+            if (event.ctrlKey) {
+                this.state.b2Down = true;
+                return;
+            }
 
-	// The native menu is always suppressed; ours opens only for a real right-click or Ctrl+click.
-	onContextMenu = (event: MouseEvent) => {
+            this.state.b0Down = true;
 
-		event.preventDefault();
+            const selectionChanged = handleNodeSelectionAttempt(
+                this.solver.graph,
+                mxy,
+                this.projector()
+            );
+            if (selectionChanged)
+                this.updateSelectionInfo();
+        }
+        else if (event.button === 1) {
+            this.state.b1Down = true;
+            this.state.lastMiddleDragPos = mxy;
+            event.preventDefault();
+        }
+        else if (event.button === 2) {
+            this.state.b2Down = true;
+        }
+    }
 
-		if (!this.state.b2Down && !event.ctrlKey)
-			return;
+    // The native menu is always suppressed; ours opens only for a real right-click or Ctrl+click.
+    onContextMenu = (event: MouseEvent) => {
 
-		this.openContextMenu(event.clientX, event.clientY);
-	};
+        event.preventDefault();
 
-	openContextMenu = (x: number, y: number) => {
-		if (this.contextMenu)
-			this.contextMenu.open(x, y);
-	};
+        if (!this.state.b2Down && !event.ctrlKey)
+            return;
 
-	// Keyboard path to the menu; Escape here covers canvas focus, the menu handles its own.
-	onKeyDown = (event: KeyboardEvent) => {
+        this.openContextMenu(event.clientX, event.clientY);
+    };
 
-		const opensMenu =
-			event.key === 'ContextMenu' ||
-			(event.shiftKey && event.key === 'F10');
+    openContextMenu = (x: number, y: number) => {
+        if (this.contextMenu)
+            this.contextMenu.open(x, y);
+    };
 
-		if (opensMenu) {
-			event.preventDefault();
+    // Keyboard path to the menu; Escape here covers canvas focus, the menu handles its own.
+    onKeyDown = (event: KeyboardEvent) => {
 
-			const rect = this.canvas.getBoundingClientRect();
-			this.openContextMenu(
-				rect.left + rect.width / 2,
-				rect.top + rect.height / 2
-			);
-			return;
-		}
+        const opensMenu =
+            event.key === 'ContextMenu' ||
+            (event.shiftKey && event.key === 'F10');
 
-		if (event.key === 'Escape')
-			this.hideContextMenu();
-	};
+        if (opensMenu) {
+            event.preventDefault();
 
-	hideContextMenu = () => {
-		if (this.contextMenu)
-			this.contextMenu.hide();
-	};
-	
-	getMousePos = (cnvs: HTMLCanvasElement, evt: MouseEvent) => {
+            const rect = this.canvas.getBoundingClientRect();
+            this.openContextMenu(
+                rect.left + rect.width / 2,
+                rect.top + rect.height / 2
+            );
+            return;
+        }
 
-		// Both share the viewport frame, so the subtraction survives scrolling, transforms and DPR.
-		const rect = cnvs.getBoundingClientRect();
+        if (event.key === 'Escape')
+            this.hideContextMenu();
+    };
 
-		return point(
-			evt.clientX - rect.left,
-			evt.clientY - rect.top
-		)
-	};
+    hideContextMenu = () => {
+        if (this.contextMenu)
+            this.contextMenu.hide();
+    };
 
-	onMouseUp = (event: MouseEvent) => {
-	
-		if (event.button === 0) {
-			this.state.b0Down = false;
+    getMousePos = (cnvs: HTMLCanvasElement, evt: MouseEvent) => {
 
-			// A Ctrl+click set b2Down too, so release it as well.
-			this.state.b2Down = false;
+        // Both share the viewport frame, so the subtraction survives scrolling, transforms and DPR.
+        const rect = cnvs.getBoundingClientRect();
 
-			this.updateSelectionInfo();
-		}
-		else if (event.button === 1) {
-			this.state.b1Down = false;
-			this.state.lastMiddleDragPos = null;
-		}
-		else if (event.button === 2)
-			this.state.b2Down = false;
-	}
+        return point(
+            evt.clientX - rect.left,
+            evt.clientY - rect.top
+        )
+    };
 
-	onExport = (event?: MouseEvent) => {
+    onMouseUp = (event: MouseEvent) => {
 
-		event?.preventDefault();
+        if (event.button === 0) {
+            this.state.b0Down = false;
 
-		// A `data:` URL cannot be opened by top-frame navigation, so the download rides an object URL.
-		void this.renderRunner.exportPng().then(blob => {
+            // A Ctrl+click set b2Down too, so release it as well.
+            this.state.b2Down = false;
 
-			const url = URL.createObjectURL(blob);
+            this.updateSelectionInfo();
+        }
+        else if (event.button === 1) {
+            this.state.b1Down = false;
+            this.state.lastMiddleDragPos = null;
+        }
+        else if (event.button === 2)
+            this.state.b2Down = false;
+    }
 
-			const link = document.createElement('a');
-			link.href = url;
-			link.download = 'cuniform.png';
-			link.click();
+    onExport = (event?: MouseEvent) => {
 
-			// Revoking synchronously can cancel the download in some browsers.
-			setTimeout(() => URL.revokeObjectURL(url), 0);
-		}).catch(error => {
-			// An export before the worker is ready must not surface an unhandled rejection.
-			console.error("export failed", error);
-		});
-	};
+        event?.preventDefault();
 
-	// Cancelling the chooser changes nothing.
-	onReset = (event?: MouseEvent) => {
+        // A `data:` URL cannot be opened by top-frame navigation, so the download rides an object URL.
+        void this.renderRunner.exportPng().then(blob => {
 
-		event?.preventDefault();
+            const url = URL.createObjectURL(blob);
 
-		this.openGraphWizard();
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'cuniform.png';
+            link.click();
 
-		return false;
-	};
+            // Revoking synchronously can cancel the download in some browsers.
+            setTimeout(() => URL.revokeObjectURL(url), 0);
+        }).catch(error => {
+            // An export before the worker is ready must not surface an unhandled rejection.
+            console.error("export failed", error);
+        });
+    };
 
-	loadGraph = (graph: Graph) => {
+    // Cancelling the chooser changes nothing.
+    onReset = (event?: MouseEvent) => {
 
-		this.solverRef = new ForceDirectedGraph(graph);
+        event?.preventDefault();
 
-		// Re-initialise the physics owner, dropping in-flight messages from the replaced graph.
-		if (this.runnerRef !== null)
-			this.runnerRef.setGraph(this.solverRef);
+        this.openGraphWizard();
 
-		// The render worker's graph mirror must be re-initialised too.
-		if (this.renderRunnerRef !== null)
-			this.renderRunnerRef.setGraph(this.solverRef.graph);
+        return false;
+    };
 
-		// A swap happens between gestures, so no button may still be held.
-		this.state.reset();
+    loadGraph = (graph: Graph) => {
 
-		// A fresh graph must never inherit the previous layout's settled state.
-		this.wake();
+        this.solverRef = new ForceDirectedGraph(graph);
 
-		this.updateSelectionInfo();
-	};
+        // Re-initialise the physics owner, dropping in-flight messages from the replaced graph.
+        if (this.runnerRef !== null)
+            this.runnerRef.setGraph(this.solverRef);
 
-	private applyGraphSpec = (spec: GraphSpec) => {
+        // The render worker's graph mirror must be re-initialised too.
+        if (this.renderRunnerRef !== null)
+            this.renderRunnerRef.setGraph(this.solverRef.graph);
 
-		this.spec = spec;
-		this.loadGraph(this.makeGraph(spec));
-		this.updateCurrentGraphLabel();
-		this.closeGraphWizard();
-	};
+        // A swap happens between gestures, so no button may still be held.
+        this.state.reset();
 
-	// Hides the context menu first so the overlays cannot coexist; stores the wizard before opening it.
-	openGraphWizard = () => {
+        // A fresh graph must never inherit the previous layout's settled state.
+        this.wake();
 
-		this.closeGraphWizard();
-		this.hideContextMenu();
+        this.updateSelectionInfo();
+    };
 
-		this.wizard = new GraphWizard(this.body, {
-			onComplete: this.applyGraphSpec,
-			onCancel: this.closeGraphWizard,
-			onDismiss: () => this.canvas.focus(),
-			// initialize() always seeds a spec, so this is only false for a chooser opened before any graph.
-			dismissible: this.spec !== null,
-			initialSpec: this.spec,
-		});
+    private applyGraphSpec = (spec: GraphSpec) => {
 
-		this.wizard.open();
-	};
+        this.spec = spec;
+        this.loadGraph(this.makeGraph(spec));
+        this.updateCurrentGraphLabel();
+        this.closeGraphWizard();
+    };
 
-	closeGraphWizard = () => {
+    // Hides the context menu first so the overlays cannot coexist; stores the wizard before opening it.
+    openGraphWizard = () => {
 
-		if (this.wizard) {
-			this.wizard.close();
-			this.wizard = null;
-		}
-	};
+        this.closeGraphWizard();
+        this.hideContextMenu();
 
-	private updateCurrentGraphLabel = () => {
-		this.currentGraphLabel.textContent = specLabel(this.spec ?? defaultGraphSpec());
-	};
+        this.wizard = new GraphWizard(this.body, {
+            onComplete: this.applyGraphSpec,
+            onCancel: this.closeGraphWizard,
+            onDismiss: () => this.canvas.focus(),
+            // initialize() always seeds a spec, so this is only false for a chooser opened before any graph.
+            dismissible: this.spec !== null,
+            initialSpec: this.spec,
+        });
 
-	clearSelection = () => {
-		this.solver.graph.clearSelection();
-		this.updateSelectionInfo();
-	};
+        this.wizard.open();
+    };
 
-	// Deliberately bypasses the idle-frame skip: this path never settles, so a skipped draw would freeze the
-	// picture.
-	onTimerTick = () => {
-		this.renderFrame(this.advanceOneTick());
-	};
+    closeGraphWizard = () => {
 
-	// Returns the live camera so the draw projects under the same view this step ran with.
-	private advanceOneTick(): CameraView {
+        if (this.wizard) {
+            this.wizard.close();
+            this.wizard = null;
+        }
+    };
 
-		this.onCameraHoldTick();
+    private updateCurrentGraphLabel = () => {
+        this.currentGraphLabel.textContent = specLabel(this.spec ?? defaultGraphSpec());
+    };
 
-		const graph = this.solver.graph;
+    clearSelection = () => {
+        this.solver.graph.clearSelection();
+        this.updateSelectionInfo();
+    };
 
-		// The pin crosses to a worker as index and position, so the solver never reads browser state.
-		const selected = this.state.b0Down ? this.selected : null;
-		const pinnedIndex = selected === null ? -1 : graph.vertices.indexOf(selected);
-		const pinnedPosition = pinnedIndex >= 0 ? graph.vertices[pinnedIndex].position : null;
+    // Deliberately bypasses the idle-frame skip: this path never settles, so a skipped draw would freeze the
+    // picture.
+    onTimerTick = () => {
+        this.renderFrame(this.advanceOneTick());
+    };
 
-		this.runner.step(
-			pinnedIndex,
-			pinnedPosition?.x ?? 0,
-			pinnedPosition?.y ?? 0,
-			pinnedPosition?.z ?? 0
-		);
+    // Returns the live camera so the draw projects under the same view this step ran with.
+    private advanceOneTick(): CameraView {
 
-		// A worker answers asynchronously, so this copies its last report onto the tags before projection.
-		this.runner.sync(graph);
+        this.onCameraHoldTick();
 
-		this.trackSettle();
+        const graph = this.solver.graph;
 
-		return this.state.camera;
-	}
+        // The pin crosses to a worker as index and position, so the solver never reads browser state.
+        const selected = this.state.b0Down ? this.selected : null;
+        const pinnedIndex = selected === null ? -1 : graph.vertices.indexOf(selected);
+        const pinnedPosition = pinnedIndex >= 0 ? graph.vertices[pinnedIndex].position : null;
 
-	private renderFrame(camera: CameraView = this.state.camera): void {
+        this.runner.step(
+            pinnedIndex,
+            pinnedPosition?.x ?? 0,
+            pinnedPosition?.y ?? 0,
+            pinnedPosition?.z ?? 0
+        );
 
-		const drawn = this.renderRunner.draw(
-			this.solver.graph,
-			camera,
-			this.selected,
-			this.width,
-			this.height,
-			this.state.emphasis
-		);
+        // A worker answers asynchronously, so this copies its last report onto the tags before projection.
+        this.runner.sync(graph);
 
-		// Consuming the request while the backend is not ready would leave the canvas blank.
-		if (!drawn)
-			return;
+        this.trackSettle();
 
-		this.recordDrawnCamera(camera);
-		this.needsRedraw = false;
-	}
+        return this.state.camera;
+    }
 
-	private requestRedraw(): void {
-		this.needsRedraw = true;
-	}
+    private renderFrame(camera: CameraView = this.state.camera): void {
 
-	// Allocation free: the orientation array is reused and the target Point3D mutated.
-	private recordDrawnCamera(view: CameraView): void {
-		copyCameraView(view, this.lastDrawnCamera);
-	}
+        const drawn = this.renderRunner.draw(
+            this.solver.graph,
+            camera,
+            this.selected,
+            this.width,
+            this.height,
+            this.state.emphasis
+        );
 
-	// Stepping stops after K.physics.settleFrames quiet steps; wake() resumes it.
-	private trackSettle(): void {
+        // Consuming the request while the backend is not ready would leave the canvas blank.
+        if (!drawn)
+            return;
 
-		if (this.runner.maxDisplacement < K.physics.settleEpsilon) {
-			this.quietSteps++;
+        this.recordDrawnCamera(camera);
+        this.needsRedraw = false;
+    }
 
-			if (this.quietSteps >= K.physics.settleFrames)
-				this.settled = true;
-		}
-		else {
-			this.quietSteps = 0;
-			this.settled = false;
-		}
-	}
+    private requestRedraw(): void {
+        this.needsRedraw = true;
+    }
 
-	/** Resume stepping after a settle. */
-	private wake(): void {
-		this.settled = false;
-		this.quietSteps = 0;
-	}
-	
-	// Whether initialize() has bound the listeners, so a canvas swap rebinds only what is live.
-	private listenersAttached = false;
+    // Allocation free: the orientation array is reused and the target Point3D mutated.
+    private recordDrawnCamera(view: CameraView): void {
+        copyCameraView(view, this.lastDrawnCamera);
+    }
 
-	/**
-	 * Swap in a fresh, untransferred copy of the canvas: a canvas whose control went to a worker can never
-	 * draw on this thread again. The copy keeps the id, attributes, inline size and fallback text.
-	 */
-	replaceCanvas = (): HTMLCanvasElement => {
+    // Stepping stops after K.physics.settleFrames quiet steps; wake() resumes it.
+    private trackSettle(): void {
 
-		const fresh = this.canvas.cloneNode(true) as HTMLCanvasElement;
+        if (this.runner.maxDisplacement < K.physics.settleEpsilon) {
+            this.quietSteps++;
 
-		if (this.listenersAttached)
-			this.toggleCanvasListeners(false);
+            if (this.quietSteps >= K.physics.settleFrames)
+                this.settled = true;
+        }
+        else {
+            this.quietSteps = 0;
+            this.settled = false;
+        }
+    }
 
-		this.canvas.replaceWith(fresh);
-		this.canvas = fresh;
+    /** Resume stepping after a settle. */
+    private wake(): void {
+        this.settled = false;
+        this.quietSteps = 0;
+    }
 
-		if (this.listenersAttached)
-			this.toggleCanvasListeners(true);
+    // Whether initialize() has bound the listeners, so a canvas swap rebinds only what is live.
+    private listenersAttached = false;
 
-		this.requestRedraw();
+    /**
+     * Swap in a fresh, untransferred copy of the canvas: a canvas whose control went to a worker can never
+     * draw on this thread again. The copy keeps the id, attributes, inline size and fallback text.
+     */
+    replaceCanvas = (): HTMLCanvasElement => {
 
-		return fresh;
-	};
+        const fresh = this.canvas.cloneNode(true) as HTMLCanvasElement;
 
-	private static bind(attach: boolean, target: EventTarget, type: string, fn: (event: any) => void): void {
-		if (attach)
-			target.addEventListener(type, fn);
-		else
-			target.removeEventListener(type, fn);
-	}
-
-	// Split from the rest so a canvas swap can move exactly these to the new element.
-	private toggleCanvasListeners(attach: boolean) {
-
-		const bind = (type: string, fn: (event: any) => void) => UIController.bind(attach, this.canvas, type, fn);
-
-		bind("mousemove", this.onMouseMove);
-		bind("mousedown", this.onMouseDown);
-		bind("mouseup", this.onMouseUp);
-		bind("mouseout", this.onMouseOut);
-		bind("contextmenu", this.onContextMenu);
-		bind("keydown", this.onKeyDown);
-		bind("wheel", this.onWheel);
-	}
-
-	// One list for both directions, so attach and detach cannot drift apart.
-	private toggleEventListeners(attach: boolean) {
-
-		this.listenersAttached = attach;
-
-		// The handlers mix MouseEvent and no-argument callbacks, hence the open parameter.
-		const bind = (
-			target: EventTarget,
-			type: string,
-			fn: (event: any) => void
-		) => UIController.bind(attach, target, type, fn);
-
-		this.toggleCanvasListeners(attach);
-
-		bind(this.exportElement, "click", this.onExport);
+        if (this.listenersAttached)
+            this.toggleCanvasListeners(false);
 
-		bind(this.resetElement, "click", this.onReset);
-
-		// A held button is released wherever the pointer is, so release is watched on the window; blur covers lost
-		// focus.
-		if (this.cameraConsole) {
-			bind(this.cameraConsole, "pointerdown", this.onCameraPointerDown);
-			bind(this.cameraConsole, "keydown", this.onCameraKeyDown);
-			bind(this.cameraConsole, "keyup", this.onCameraKeyUp);
-			bind(this.cameraConsole, "click", this.onCameraButtonClick);
-
-			bind(window, "pointerup", this.onCameraPointerUp);
-			bind(window, "pointercancel", this.onCameraPointerUp);
-			bind(window, "blur", this.onCameraPointerUp);
-		}
-
-		if (this.emphasisConsole)
-			bind(this.emphasisConsole, "click", this.onEmphasisClick);
-
-		bind(window, "resize", this.onResize);
-	}
+        this.canvas.replaceWith(fresh);
+        this.canvas = fresh;
 
-	buildContextMenu = () => {
-		const menu = new ContextMenu([
-			{ label: 'export', onSelect: this.onExport },
-			{ label: 'reset', onSelect: () => this.onReset() },
-			{ label: 'clear selection', onSelect: this.clearSelection },
-		], () => this.canvas.focus());
+        if (this.listenersAttached)
+            this.toggleCanvasListeners(true);
 
-		this.body.appendChild(menu.element);
-		this.contextMenu = menu;
-	};
+        this.requestRedraw();
 
-	/** Re-reads the graph's selection into the cache. */
-	private refreshSelection = () => {
-		this.selected = this.solver.graph.selectedVertex();
-	};
+        return fresh;
+    };
 
-	updateSelectionInfo = () => {
-	
-		this.refreshSelection();
+    private static bind(attach: boolean, target: EventTarget, type: string, fn: (event: any) => void): void {
+        if (attach)
+            target.addEventListener(type, fn);
+        else
+            target.removeEventListener(type, fn);
+    }
 
-		// Every selection-changing path funnels through here, and none is a step or camera move.
-		this.requestRedraw();
+    // Split from the rest so a canvas swap can move exactly these to the new element.
+    private toggleCanvasListeners(attach: boolean) {
 
-		const selectedNode = this.selected;
-		
-		const selectedNodeInfoLabel = this.selectionInfoLabel;
-		const list = this.selectionInfoList;
-		
-		while (list.children.length > 0) {
-			const first = list.firstChild;
-			if (!first)
-				break;
-			list.removeChild(first);
-		}
-	
-		if (!selectedNode) {
-			selectedNodeInfoLabel.textContent = 'Click on a node to select...';
-		}
-		else {
-			selectedNodeInfoLabel.textContent = selectedNode.label;
-	
-			this.solver.graph.neighbours(selectedNode)
-			.forEach(
-				neighbour => {
-					const neighbourString = neighbour.label;
-				
-					const item = document.createElement('li');
-					item.textContent = neighbourString;
-					
-					list.appendChild(item);
-				}
-			)
-		}
-	};
+        const bind = (type: string, fn: (event: any) => void) => UIController.bind(attach, this.canvas, type, fn);
 
-	// The backend sizes the backing store in device pixels; the element keeps the logical CSS size.
-	resizeCanvas = () => {
+        bind("mousemove", this.onMouseMove);
+        bind("mousedown", this.onMouseDown);
+        bind("mouseup", this.onMouseUp);
+        bind("mouseout", this.onMouseOut);
+        bind("contextmenu", this.onContextMenu);
+        bind("keydown", this.onKeyDown);
+        bind("wheel", this.onWheel);
+    }
 
-		const width = this.body.clientWidth;
-		const height = this.body.clientHeight;
+    // One list for both directions, so attach and detach cannot drift apart.
+    private toggleEventListeners(attach: boolean) {
 
-		const dpr = window.devicePixelRatio || 1;
+        this.listenersAttached = attach;
 
-		this.width = width;
-		this.height = height;
+        // The handlers mix MouseEvent and no-argument callbacks, hence the open parameter.
+        const bind = (
+            target: EventTarget,
+            type: string,
+            fn: (event: any) => void
+        ) => UIController.bind(attach, target, type, fn);
 
-		this.canvas.style.width = `${width}px`;
-		this.canvas.style.height = `${height}px`;
+        this.toggleCanvasListeners(attach);
 
-		// The backend owns the backing store; with a worker the element's width/height govern nothing.
-		this.renderRunner.resize(width, height, dpr);
-	};
+        bind(this.exportElement, "click", this.onExport);
 
-	onResize = () => {
-		this.resizeCanvas();
+        bind(this.resetElement, "click", this.onReset);
 
-		this.wake();
+        // A held button is released wherever the pointer is, so release is watched on the window; blur covers lost
+        // focus.
+        if (this.cameraConsole) {
+            bind(this.cameraConsole, "pointerdown", this.onCameraPointerDown);
+            bind(this.cameraConsole, "keydown", this.onCameraKeyDown);
+            bind(this.cameraConsole, "keyup", this.onCameraKeyUp);
+            bind(this.cameraConsole, "click", this.onCameraButtonClick);
 
-		// The backing store was just re-created, so a redraw is mandatory.
-		this.requestRedraw();
-	};
+            bind(window, "pointerup", this.onCameraPointerUp);
+            bind(window, "pointercancel", this.onCameraPointerUp);
+            bind(window, "blur", this.onCameraPointerUp);
+        }
 
-	private startSimulationLoop(): void {
+        if (this.emphasisConsole)
+            bind(this.emphasisConsole, "click", this.onEmphasisClick);
 
-		if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-			this.lastFrameTime = null;
-			this.accumulator = 0;
-			this.wake();
-			this.frameHandle = window.requestAnimationFrame(this.onAnimationFrame);
-			return;
-		}
+        bind(window, "resize", this.onResize);
+    }
 
-		this.timer = setInterval(this.onTimerTick, K.physics.timerTickPeriodMS);
-	}
+    buildContextMenu = () => {
+        const menu = new ContextMenu([
+            { label: 'export', onSelect: this.onExport },
+            { label: 'reset', onSelect: () => this.onReset() },
+            { label: 'clear selection', onSelect: this.clearSelection },
+        ], () => this.canvas.focus());
 
-	onAnimationFrame = (timestamp: number): void => {
+        this.body.appendChild(menu.element);
+        this.contextMenu = menu;
+    };
 
-		this.frameHandle = null;
+    /** Re-reads the graph's selection into the cache. */
+    private refreshSelection = () => {
+        this.selected = this.solver.graph.selectedVertex();
+    };
 
-		const elapsed = this.lastFrameTime === null ? 0 : timestamp - this.lastFrameTime;
-		this.lastFrameTime = timestamp;
+    updateSelectionInfo = () => {
 
-		// A backwards or non-numeric clock must not run the simulation.
-		this.accumulator += elapsed > 0 ? elapsed : 0;
+        this.refreshSelection();
 
-		const period = K.physics.timerTickPeriodMS;
-		let steps = 0;
+        // Every selection-changing path funnels through here, and none is a step or camera move.
+        this.requestRedraw();
 
-		while (this.accumulator >= period && steps < K.physics.maxStepsPerFrame) {
+        const selectedNode = this.selected;
 
-			// Drop the backlog once settled, unless a console button is held on this clock.
-			if (this.settled && this.heldButton === null) {
-				this.accumulator = 0;
-				break;
-			}
+        const selectedNodeInfoLabel = this.selectionInfoLabel;
+        const list = this.selectionInfoList;
 
-			this.accumulator -= period;
-			steps++;
+        while (list.children.length > 0) {
+            const first = list.firstChild;
+            if (!first)
+                break;
+            list.removeChild(first);
+        }
 
-			// Once settled only the camera moves; re-stepping the solved layout would waste physics.
-			if (this.settled)
-				this.onCameraHoldTick();
-			else
-				this.advanceOneTick();
-		}
+        if (!selectedNode) {
+            selectedNodeInfoLabel.textContent = 'Click on a node to select...';
+        }
+        else {
+            selectedNodeInfoLabel.textContent = selectedNode.label;
 
-		// A slow frame must not leave a backlog that turns into a death spiral.
-		if (this.accumulator >= period)
-			this.accumulator = 0;
+            this.solver.graph.neighbours(selectedNode)
+            .forEach(
+                neighbour => {
+                    const neighbourString = neighbour.label;
 
-		if (steps > 0 || this.needsRedraw || !sameCameraView(this.lastDrawnCamera, this.state.camera))
-			this.renderFrame();
+                    const item = document.createElement('li');
+                    item.textContent = neighbourString;
 
-		this.frameHandle = window.requestAnimationFrame(this.onAnimationFrame);
-	}
+                    list.appendChild(item);
+                }
+            )
+        }
+    };
 
-	initialize = () => {
+    // The backend sizes the backing store in device pixels; the element keeps the logical CSS size.
+    resizeCanvas = () => {
 
-		// Idempotent: tearing down first stops a second initialize() doubling the listeners.
-		this.terminate();
+        const width = this.body.clientWidth;
+        const height = this.body.clientHeight;
 
-		// The same State object is reused so handlers see the cleared flags; camera and emphasis survive reset().
-		this.state.reset();
+        const dpr = window.devicePixelRatio || 1;
 
-		// A controller reused after a toggle must not keep a stale pressed button.
-		this.state.emphasis = Emphasis.nodes;
-		this.updateEmphasisButtons();
+        this.width = width;
+        this.height = height;
 
-		// The last chooser choice survives re-initialization; only a controller that never chose falls back.
-		this.spec ??= defaultGraphSpec();
+        this.canvas.style.width = `${width}px`;
+        this.canvas.style.height = `${height}px`;
 
-		// initialize() always seeds a spec, so no render path needs a "no graph" case.
-		this.solverRef = new ForceDirectedGraph(this.initialGraph());
+        // The backend owns the backing store; with a worker the element's width/height govern nothing.
+        this.renderRunner.resize(width, height, dpr);
+    };
 
-		// Built before resizeCanvas() draws through it; handed the graph so a worker mirror starts first.
-		this.renderRunnerRef = this.createRenderRunner(this.solverRef.graph);
+    onResize = () => {
+        this.resizeCanvas();
 
-		this.resizeCanvas();
+        this.wake();
 
-		this.needsRedraw = true;
+        // The backing store was just re-created, so a redraw is mandatory.
+        this.requestRedraw();
+    };
 
-		this.runnerRef = new PhysicsRunner(this.solverRef);
+    private startSimulationLoop(): void {
 
-		this.updateCurrentGraphLabel();
+        if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+            this.lastFrameTime = null;
+            this.accumulator = 0;
+            this.wake();
+            this.frameHandle = window.requestAnimationFrame(this.onAnimationFrame);
+            return;
+        }
 
-		this.buildContextMenu();
+        this.timer = setInterval(this.onTimerTick, K.physics.timerTickPeriodMS);
+    }
 
-		this.toggleEventListeners(true);
-	
-		this.startSimulationLoop();
-	
-		this.updateSelectionInfo();
-	}
-	
-	terminate = () => {
-		if (this.timer != null) {
-			clearInterval(this.timer);
-			this.timer = null;
-		}
+    onAnimationFrame = (timestamp: number): void => {
 
-		if (this.frameHandle !== null) {
-			if (typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function")
-				window.cancelAnimationFrame(this.frameHandle);
+        this.frameHandle = null;
 
-			this.frameHandle = null;
-		}
+        const elapsed = this.lastFrameTime === null ? 0 : timestamp - this.lastFrameTime;
+        this.lastFrameTime = timestamp;
 
-		// A worker must not outlive the controller.
-		if (this.runnerRef !== null) {
-			this.runnerRef.terminate();
-			this.runnerRef = null;
-		}
+        // A backwards or non-numeric clock must not run the simulation.
+        this.accumulator += elapsed > 0 ? elapsed : 0;
 
-		// The drawing owner holds the canvas, so it must not outlive the controller either.
-		if (this.renderRunnerRef !== null) {
-			this.renderRunnerRef.terminate();
-			this.renderRunnerRef = null;
-		}
+        const period = K.physics.timerTickPeriodMS;
+        let steps = 0;
 
-		// A button held across a reset must not keep turning the new graph.
-		this.stopCameraHold();
+        while (this.accumulator >= period && steps < K.physics.maxStepsPerFrame) {
 
-		// A chooser must not outlive the controller that owns it.
-		this.closeGraphWizard();
+            // Drop the backlog once settled, unless a console button is held on this clock.
+            if (this.settled && this.heldButton === null) {
+                this.accumulator = 0;
+                break;
+            }
 
-		if (this.contextMenu) {
-			this.body.removeChild(this.contextMenu.element);
-			this.contextMenu = null;
-		}
+            this.accumulator -= period;
+            steps++;
 
-		this.toggleEventListeners(false)
-	}	
+            // Once settled only the camera moves; re-stepping the solved layout would waste physics.
+            if (this.settled)
+                this.onCameraHoldTick();
+            else
+                this.advanceOneTick();
+        }
+
+        // A slow frame must not leave a backlog that turns into a death spiral.
+        if (this.accumulator >= period)
+            this.accumulator = 0;
+
+        if (steps > 0 || this.needsRedraw || !sameCameraView(this.lastDrawnCamera, this.state.camera))
+            this.renderFrame();
+
+        this.frameHandle = window.requestAnimationFrame(this.onAnimationFrame);
+    }
+
+    initialize = () => {
+
+        // Idempotent: tearing down first stops a second initialize() doubling the listeners.
+        this.terminate();
+
+        // The same State object is reused so handlers see the cleared flags; camera and emphasis survive reset().
+        this.state.reset();
+
+        // A controller reused after a toggle must not keep a stale pressed button.
+        this.state.emphasis = Emphasis.nodes;
+        this.updateEmphasisButtons();
+
+        // The last chooser choice survives re-initialization; only a controller that never chose falls back.
+        this.spec ??= defaultGraphSpec();
+
+        // initialize() always seeds a spec, so no render path needs a "no graph" case.
+        this.solverRef = new ForceDirectedGraph(this.initialGraph());
+
+        // Built before resizeCanvas() draws through it; handed the graph so a worker mirror starts first.
+        this.renderRunnerRef = this.createRenderRunner(this.solverRef.graph);
+
+        this.resizeCanvas();
+
+        this.needsRedraw = true;
+
+        this.runnerRef = new PhysicsRunner(this.solverRef);
+
+        this.updateCurrentGraphLabel();
+
+        this.buildContextMenu();
+
+        this.toggleEventListeners(true);
+
+        this.startSimulationLoop();
+
+        this.updateSelectionInfo();
+    }
+
+    terminate = () => {
+        if (this.timer != null) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+
+        if (this.frameHandle !== null) {
+            if (typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function")
+                window.cancelAnimationFrame(this.frameHandle);
+
+            this.frameHandle = null;
+        }
+
+        // A worker must not outlive the controller.
+        if (this.runnerRef !== null) {
+            this.runnerRef.terminate();
+            this.runnerRef = null;
+        }
+
+        // The drawing owner holds the canvas, so it must not outlive the controller either.
+        if (this.renderRunnerRef !== null) {
+            this.renderRunnerRef.terminate();
+            this.renderRunnerRef = null;
+        }
+
+        // A button held across a reset must not keep turning the new graph.
+        this.stopCameraHold();
+
+        // A chooser must not outlive the controller that owns it.
+        this.closeGraphWizard();
+
+        if (this.contextMenu) {
+            this.body.removeChild(this.contextMenu.element);
+            this.contextMenu = null;
+        }
+
+        this.toggleEventListeners(false)
+    }
 }

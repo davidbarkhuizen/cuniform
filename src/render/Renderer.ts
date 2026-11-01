@@ -27,43 +27,43 @@ const EDGE_ITEM = 0;
 const NODE_ITEM = 1;
 
 function colourFor(active: boolean, highlight: string, base: string): string {
-	return active ? highlight : base;
+    return active ? highlight : base;
 }
 
 function circlePath(context: RenderSurface, x: number, y: number, radius: number): void {
-	context.beginPath();
-	context.arc(x, y, radius, CIRCLE_START_ANGLE, CIRCLE_END_ANGLE, CIRCLE_CLOCKWISE);
+    context.beginPath();
+    context.arc(x, y, radius, CIRCLE_START_ANGLE, CIRCLE_END_ANGLE, CIRCLE_CLOCKWISE);
 }
 
 // maxAlpha near, minAlpha far; a flat scene draws at full opacity.
 function alphaAt(depth: number, minDepth: number, maxDepth: number, hasRange: boolean): number {
-	if (!hasRange)
-		return K.depthCue.maxAlpha;
+    if (!hasRange)
+        return K.depthCue.maxAlpha;
 
-	const t = (depth - minDepth) / (maxDepth - minDepth);
-	return K.depthCue.maxAlpha + (K.depthCue.minAlpha - K.depthCue.maxAlpha) * t;
+    const t = (depth - minDepth) / (maxDepth - minDepth);
+    return K.depthCue.maxAlpha + (K.depthCue.minAlpha - K.depthCue.maxAlpha) * t;
 }
 
 // Clamped so a retuned preset cannot push an alpha outside [0, 1].
 function scaledAlpha(base: number, scale: number): number {
-	return clamp(base * scale, 0, 1);
+    return clamp(base * scale, 0, 1);
 }
 
 // Whichever class draws first ends up underneath, so the other lands on top.
 function rank(kind: number, emphasis: Emphasis): number {
-	if (emphasis === Emphasis.nodes)
-		return kind;
+    if (emphasis === Emphasis.nodes)
+        return kind;
 
-	return 1 - kind;
+    return 1 - kind;
 }
 
 function radiusAt(depth: number, focalLength: number): number {
-	const raw = (NODE_RADIUS * focalLength) / depth;
-	return clamp(raw, K.depthCue.minNodeRadiusPx, K.depthCue.maxNodeRadiusPx);
+    const raw = (NODE_RADIUS * focalLength) / depth;
+    return clamp(raw, K.depthCue.minNodeRadiusPx, K.depthCue.maxNodeRadiusPx);
 }
 
 function ringRadiusFor(radius: number): number {
-	return (SELECTION_RADIUS * radius) / NODE_RADIUS;
+    return (SELECTION_RADIUS * radius) / NODE_RADIUS;
 }
 
 // Reused across frames, so a steady-state draw allocates nothing.
@@ -81,35 +81,35 @@ let groupWrite = new Int32Array(0);
 const itemOrder: number[] = [];
 
 function ensureItemCapacity(n: number): void {
-	if (n <= itemKind.length)
-		return;
+    if (n <= itemKind.length)
+        return;
 
-	const capacity = doublingCapacity(itemKind.length, n);
+    const capacity = doublingCapacity(itemKind.length, n);
 
-	itemKind = new Uint8Array(capacity);
-	itemIndex = new Int32Array(capacity);
-	itemDepth = new Float64Array(capacity);
+    itemKind = new Uint8Array(capacity);
+    itemIndex = new Int32Array(capacity);
+    itemDepth = new Float64Array(capacity);
 }
 
 function ensureBatchCapacity(n: number): void {
-	if (n <= batchOrder.length)
-		return;
+    if (n <= batchOrder.length)
+        return;
 
-	const capacity = doublingCapacity(batchOrder.length, n);
+    const capacity = doublingCapacity(batchOrder.length, n);
 
-	batchOrder = new Int32Array(capacity);
-	batchGroup = new Int32Array(capacity);
+    batchOrder = new Int32Array(capacity);
+    batchGroup = new Int32Array(capacity);
 }
 
 function ensureGroupCapacity(n: number): void {
-	if (n <= groupCount.length)
-		return;
+    if (n <= groupCount.length)
+        return;
 
-	const capacity = doublingCapacity(groupCount.length, n);
+    const capacity = doublingCapacity(groupCount.length, n);
 
-	groupCount = new Int32Array(capacity);
-	groupStart = new Int32Array(capacity);
-	groupWrite = new Int32Array(capacity);
+    groupCount = new Int32Array(capacity);
+    groupStart = new Int32Array(capacity);
+    groupWrite = new Int32Array(capacity);
 }
 
 /**
@@ -117,369 +117,369 @@ function ensureGroupCapacity(n: number): void {
  * the caller's cached selection, not a scan. See docs/model-camera-and-rendering.md.
  */
 export function render(
-	context: RenderSurface,
-	graph: Graph,
-	camera: CameraView,
-	selected: Tag | null,
-	emphasis: Emphasis
+    context: RenderSurface,
+    graph: Graph,
+    camera: CameraView,
+    selected: Tag | null,
+    emphasis: Emphasis
 ): void {
 
-	// Cleared in device space, independent of the caller's devicePixelRatio transform.
-	context.save();
-	context.setTransform(1, 0, 0, 1, 0, 0);
-	context.clearRect(0, 0, context.canvas.width, context.canvas.height);
-	context.restore();
+    // Cleared in device space, independent of the caller's devicePixelRatio transform.
+    context.save();
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+    context.restore();
 
-	const { nearPlane, focalLength } = camera;
+    const { nearPlane, focalLength } = camera;
 
-	const vertices = graph.vertices;
-	const edges = graph.edges;
+    const vertices = graph.vertices;
+    const edges = graph.edges;
 
-	ensureItemCapacity(vertices.length + edges.length);
+    ensureItemCapacity(vertices.length + edges.length);
 
-	let itemCount = 0;
-	let edgeCount = 0;
-	let nodeCount = 0;
+    let itemCount = 0;
+    let edgeCount = 0;
+    let nodeCount = 0;
 
-	let minDepth = Infinity;
-	let maxDepth = -Infinity;
+    let minDepth = Infinity;
+    let maxDepth = -Infinity;
 
-	for (let j = 0; j < edges.length; j++) {
+    for (let j = 0; j < edges.length; j++) {
 
-		const edge = edges[j];
+        const edge = edges[j];
 
-		// No near-plane clipping: an edge is skipped if either endpoint is culled.
-		if (isDepthCulled(edge.v1.depth, nearPlane) || isDepthCulled(edge.v2.depth, nearPlane))
-			continue;
+        // No near-plane clipping: an edge is skipped if either endpoint is culled.
+        if (isDepthCulled(edge.v1.depth, nearPlane) || isDepthCulled(edge.v2.depth, nearPlane))
+            continue;
 
-		// An edge sorts at its endpoints' mean depth, so it can interleave with them.
-		const depth = (edge.v1.depth + edge.v2.depth) / 2;
+        // An edge sorts at its endpoints' mean depth, so it can interleave with them.
+        const depth = (edge.v1.depth + edge.v2.depth) / 2;
 
-		itemKind[itemCount] = EDGE_ITEM;
-		itemIndex[itemCount] = j;
-		itemDepth[itemCount] = depth;
-		itemCount++;
-		edgeCount++;
+        itemKind[itemCount] = EDGE_ITEM;
+        itemIndex[itemCount] = j;
+        itemDepth[itemCount] = depth;
+        itemCount++;
+        edgeCount++;
 
-		if (depth < minDepth) minDepth = depth;
-		if (depth > maxDepth) maxDepth = depth;
-	}
+        if (depth < minDepth) minDepth = depth;
+        if (depth > maxDepth) maxDepth = depth;
+    }
 
-	for (let i = 0; i < vertices.length; i++) {
+    for (let i = 0; i < vertices.length; i++) {
 
-		const node = vertices[i];
+        const node = vertices[i];
 
-		if (isDepthCulled(node.depth, nearPlane))
-			continue;
+        if (isDepthCulled(node.depth, nearPlane))
+            continue;
 
-		itemKind[itemCount] = NODE_ITEM;
-		itemIndex[itemCount] = i;
-		itemDepth[itemCount] = node.depth;
-		itemCount++;
-		nodeCount++;
+        itemKind[itemCount] = NODE_ITEM;
+        itemIndex[itemCount] = i;
+        itemDepth[itemCount] = node.depth;
+        itemCount++;
+        nodeCount++;
 
-		if (node.depth < minDepth) minDepth = node.depth;
-		if (node.depth > maxDepth) maxDepth = node.depth;
-	}
+        if (node.depth < minDepth) minDepth = node.depth;
+        if (node.depth > maxDepth) maxDepth = node.depth;
+    }
 
-	// The range spans everything actually drawn; a flat scene draws at full opacity.
-	const hasRange = nodeCount > 0 && maxDepth > minDepth;
+    // The range spans everything actually drawn; a flat scene draws at full opacity.
+    const hasRange = nodeCount > 0 && maxDepth > minDepth;
 
-	// Resolved once per frame into locals, not a config object per draw (invariant 8).
-	const preset = K.renderer.emphasis[emphasis];
-	const edgeAlphaScale = preset.edgeAlphaScale;
-	const nodeAlphaScale = preset.nodeAlphaScale;
+    // Resolved once per frame into locals, not a config object per draw (invariant 8).
+    const preset = K.renderer.emphasis[emphasis];
+    const edgeAlphaScale = preset.edgeAlphaScale;
+    const nodeAlphaScale = preset.nodeAlphaScale;
 
-	// An explicit `if` rather than one `||` chain: chained, items of different
-	// ranks fall through to the depth term, which is non-transitive.
-	itemOrder.length = 0;
+    // An explicit `if` rather than one `||` chain: chained, items of different
+    // ranks fall through to the depth term, which is non-transitive.
+    itemOrder.length = 0;
 
-	for (let k = 0; k < itemCount; k++)
-		itemOrder.push(k);
+    for (let k = 0; k < itemCount; k++)
+        itemOrder.push(k);
 
-	itemOrder.sort((a, b) => {
+    itemOrder.sort((a, b) => {
 
-		const byRank = rank(itemKind[a], emphasis) - rank(itemKind[b], emphasis);
+        const byRank = rank(itemKind[a], emphasis) - rank(itemKind[b], emphasis);
 
-		if (byRank !== 0)
-			return byRank;
+        if (byRank !== 0)
+            return byRank;
 
-		return (itemDepth[b] - itemDepth[a]) || (a - b);
-	});
+        return (itemDepth[b] - itemDepth[a]) || (a - b);
+    });
 
-	context.font = K.label.fontFamily;
+    context.font = K.label.fontFamily;
 
-	// Off below the threshold, so a small-graph frame is byte-for-byte unchanged.
-	const coarse =
-		K.renderer.performance.batchNodeFills &&
-		vertices.length >= K.renderer.performance.minNodes;
+    // Off below the threshold, so a small-graph frame is byte-for-byte unchanged.
+    const coarse =
+        K.renderer.performance.batchNodeFills &&
+        vertices.length >= K.renderer.performance.minNodes;
 
-	// A coarse frame always batches edges: its per-item edge pass is skipped.
-	const batchEdges = coarse || edges.length >= K.renderer.batchEdgesMinEdges;
-	const labelAll = vertices.length < K.renderer.labelMaxNodes;
+    // A coarse frame always batches edges: its per-item edge pass is skipped.
+    const batchEdges = coarse || edges.length >= K.renderer.batchEdgesMinEdges;
+    const labelAll = vertices.length < K.renderer.labelMaxNodes;
 
-	const buckets = coarse
-		? K.renderer.performance.edgeAlphaBuckets
-		: K.renderer.edgeAlphaBuckets;
+    const buckets = coarse
+        ? K.renderer.performance.edgeAlphaBuckets
+        : K.renderer.edgeAlphaBuckets;
 
-	// The batched pass is a call the emphasis places, not a fixed prefix.
-	if (coarse) {
+    // The batched pass is a call the emphasis places, not a fixed prefix.
+    if (coarse) {
 
-		if (preset.edgesOnTop) {
+        if (preset.edgesOnTop) {
 
-			drawBatchedNodeFills(
-				context,
-				vertices,
-				itemKind,
-				itemIndex,
-				itemDepth,
-				itemOrder,
-				itemCount,
-				focalLength,
-				hasRange,
-				nodeAlphaScale,
-				selected
-			);
+            drawBatchedNodeFills(
+                context,
+                vertices,
+                itemKind,
+                itemIndex,
+                itemDepth,
+                itemOrder,
+                itemCount,
+                focalLength,
+                hasRange,
+                nodeAlphaScale,
+                selected
+            );
 
-			drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
+            drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
 
-			drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
+            drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
 
-			// Re-drawn after the mesh so the selected label is not buried by it.
-			drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
+            // Re-drawn after the mesh so the selected label is not buried by it.
+            drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
 
-			return;
-		}
+            return;
+        }
 
-		if (batchEdges)
-			drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
+        if (batchEdges)
+            drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
 
-		drawBatchedNodeFills(
-			context,
-			vertices,
-			itemKind,
-			itemIndex,
-			itemDepth,
-			itemOrder,
-			itemCount,
-			focalLength,
-			hasRange,
-			nodeAlphaScale,
-			selected
-		);
+        drawBatchedNodeFills(
+            context,
+            vertices,
+            itemKind,
+            itemIndex,
+            itemDepth,
+            itemOrder,
+            itemCount,
+            focalLength,
+            hasRange,
+            nodeAlphaScale,
+            selected
+        );
 
-		drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
+        drawCoarseNodeWork(context, graph, focalLength, nearPlane, minDepth, maxDepth, hasRange, selected);
 
-		return;
-	}
+        return;
+    }
 
-	if (batchEdges && !preset.edgesOnTop)
-		drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
+    if (batchEdges && !preset.edgesOnTop)
+        drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
 
-	for (let k = 0; k < itemCount; k++) {
+    for (let k = 0; k < itemCount; k++) {
 
-		const item = itemOrder[k];
+        const item = itemOrder[k];
 
-		if (itemKind[item] === EDGE_ITEM) {
+        if (itemKind[item] === EDGE_ITEM) {
 
-			if (batchEdges)
-				continue;
+            if (batchEdges)
+                continue;
 
-			drawEdge(context, edges[itemIndex[item]], itemDepth[item], minDepth, maxDepth, hasRange, selected, edgeAlphaScale, preset.edgeWidthPx);
-		}
-		else {
-			drawNode(
-				context,
-				vertices[itemIndex[item]],
-				itemDepth[item],
-				focalLength,
-				minDepth,
-				maxDepth,
-				hasRange,
-				graph,
-				selected,
-				labelAll,
-				nodeAlphaScale
-			);
-		}
-	}
+            drawEdge(context, edges[itemIndex[item]], itemDepth[item], minDepth, maxDepth, hasRange, selected, edgeAlphaScale, preset.edgeWidthPx);
+        }
+        else {
+            drawNode(
+                context,
+                vertices[itemIndex[item]],
+                itemDepth[item],
+                focalLength,
+                minDepth,
+                maxDepth,
+                hasRange,
+                graph,
+                selected,
+                labelAll,
+                nodeAlphaScale
+            );
+        }
+    }
 
-	if (batchEdges && preset.edgesOnTop)
-		drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
+    if (batchEdges && preset.edgesOnTop)
+        drawBatchedEdges(context, edges, itemIndex, itemDepth, edgeCount, minDepth, maxDepth, hasRange, selected, buckets, edgeAlphaScale, preset.edgeWidthPx);
 }
 
 // Shared leaf marks, so a size-gated path cannot drift from the per-item one.
 
 function edgeSegment(context: RenderSurface, edge: { v1: Tag; v2: Tag }): void {
-	context.moveTo(edge.v1.translatedPosition.x, edge.v1.translatedPosition.y);
-	context.lineTo(edge.v2.translatedPosition.x, edge.v2.translatedPosition.y);
+    context.moveTo(edge.v1.translatedPosition.x, edge.v1.translatedPosition.y);
+    context.lineTo(edge.v2.translatedPosition.x, edge.v2.translatedPosition.y);
 }
 
 function edgeIncidentTo(edge: { v1: Tag; v2: Tag }, tag: Tag | null): boolean {
-	return tag !== null && (tag === edge.v1 || tag === edge.v2);
+    return tag !== null && (tag === edge.v1 || tag === edge.v2);
 }
 
 /** The selection ring, scaled to the node's depth-cued radius. */
 function strokeSelectionRing(context: RenderSurface, x: number, y: number, radius: number): void {
-	circlePath(context, x, y, ringRadiusFor(radius));
-	context.strokeStyle = K.colours.nodeSelected;
-	context.lineWidth = NODE_RING_WIDTH;
-	context.stroke();
+    circlePath(context, x, y, ringRadiusFor(radius));
+    context.strokeStyle = K.colours.nodeSelected;
+    context.lineWidth = NODE_RING_WIDTH;
+    context.stroke();
 }
 
 /** The label at the full depth ramp the fill's alpha scale never dims. */
 function drawNodeLabel(
-	context: RenderSurface,
-	node: Tag,
-	depth: number,
-	minDepth: number,
-	maxDepth: number,
-	hasRange: boolean
+    context: RenderSurface,
+    node: Tag,
+    depth: number,
+    minDepth: number,
+    maxDepth: number,
+    hasRange: boolean
 ): void {
 
-	context.globalAlpha = alphaAt(depth, minDepth, maxDepth, hasRange);
-	context.fillStyle = K.colours.label;
-	context.fillText(
-		node.label,
-		node.translatedPosition.x + K.label.horizontalSpacing,
-		node.translatedPosition.y - K.label.verticalSpacing
-	);
+    context.globalAlpha = alphaAt(depth, minDepth, maxDepth, hasRange);
+    context.fillStyle = K.colours.label;
+    context.fillText(
+        node.label,
+        node.translatedPosition.x + K.label.horizontalSpacing,
+        node.translatedPosition.y - K.label.verticalSpacing
+    );
 }
 
 function drawEdge(
-	context: RenderSurface,
-	edge: { v1: Tag; v2: Tag },
-	depth: number,
-	minDepth: number,
-	maxDepth: number,
-	hasRange: boolean,
-	selected: Tag | null,
-	alphaScale: number,
-	width: number
+    context: RenderSurface,
+    edge: { v1: Tag; v2: Tag },
+    depth: number,
+    minDepth: number,
+    maxDepth: number,
+    hasRange: boolean,
+    selected: Tag | null,
+    alphaScale: number,
+    width: number
 ): void {
 
-	context.globalAlpha = scaledAlpha(alphaAt(depth, minDepth, maxDepth, hasRange), alphaScale);
-	context.strokeStyle = colourFor(
-		edgeIncidentTo(edge, selected),
-		K.colours.edgeIncident,
-		K.colours.edgeDefault
-	);
-	context.lineWidth = width;
+    context.globalAlpha = scaledAlpha(alphaAt(depth, minDepth, maxDepth, hasRange), alphaScale);
+    context.strokeStyle = colourFor(
+        edgeIncidentTo(edge, selected),
+        K.colours.edgeIncident,
+        K.colours.edgeDefault
+    );
+    context.lineWidth = width;
 
-	context.beginPath();
-	edgeSegment(context, edge);
-	context.stroke();
+    context.beginPath();
+    edgeSegment(context, edge);
+    context.stroke();
 }
 
 function drawNode(
-	context: RenderSurface,
-	node: Tag,
-	depth: number,
-	focalLength: number,
-	minDepth: number,
-	maxDepth: number,
-	hasRange: boolean,
-	graph: Graph,
-	selected: Tag | null,
-	labelAll: boolean,
-	alphaScale: number
+    context: RenderSurface,
+    node: Tag,
+    depth: number,
+    focalLength: number,
+    minDepth: number,
+    maxDepth: number,
+    hasRange: boolean,
+    graph: Graph,
+    selected: Tag | null,
+    labelAll: boolean,
+    alphaScale: number
 ): void {
 
-	const x = node.translatedPosition.x;
-	const y = node.translatedPosition.y;
-	const radius = radiusAt(depth, focalLength);
+    const x = node.translatedPosition.x;
+    const y = node.translatedPosition.y;
+    const radius = radiusAt(depth, focalLength);
 
-	// The scale applies to the fill only: a label at 0.19 alpha is unreadable.
-	context.globalAlpha = scaledAlpha(alphaAt(depth, minDepth, maxDepth, hasRange), alphaScale);
+    // The scale applies to the fill only: a label at 0.19 alpha is unreadable.
+    context.globalAlpha = scaledAlpha(alphaAt(depth, minDepth, maxDepth, hasRange), alphaScale);
 
-	// `selected` is the renderer's only selection input; a worker mirror's tags carry no `isSelected`.
-	const isSelected = node === selected;
+    // `selected` is the renderer's only selection input; a worker mirror's tags carry no `isSelected`.
+    const isSelected = node === selected;
 
-	context.fillStyle = colourFor(isSelected, K.colours.nodeSelected, K.colours.nodeDefault);
+    context.fillStyle = colourFor(isSelected, K.colours.nodeSelected, K.colours.nodeDefault);
 
-	circlePath(context, x, y, radius);
-	context.fill();
+    circlePath(context, x, y, radius);
+    context.fill();
 
-	if (isSelected)
-		strokeSelectionRing(context, x, y, radius);
+    if (isSelected)
+        strokeSelectionRing(context, x, y, radius);
 
-	// With many nodes only the selection and its neighbours are labelled.
-	const labelled =
-		labelAll ||
-		node === selected ||
-		(selected !== null && graph.hasEdge(selected, node));
+    // With many nodes only the selection and its neighbours are labelled.
+    const labelled =
+        labelAll ||
+        node === selected ||
+        (selected !== null && graph.hasEdge(selected, node));
 
-	if (labelled)
-		drawNodeLabel(context, node, depth, minDepth, maxDepth, hasRange);
+    if (labelled)
+        drawNodeLabel(context, node, depth, minDepth, maxDepth, hasRange);
 }
 
 /** One path and one stroke per (style x alpha bucket) group, not per edge. */
 function drawBatchedEdges(
-	context: RenderSurface,
-	edges: Array<{ v1: Tag; v2: Tag }>,
-	itemIndex: Int32Array,
-	itemDepth: Float64Array,
-	edgeCount: number,
-	minDepth: number,
-	maxDepth: number,
-	hasRange: boolean,
-	selected: Tag | null,
-	configuredBuckets: number,
-	alphaScale: number,
-	width: number
+    context: RenderSurface,
+    edges: Array<{ v1: Tag; v2: Tag }>,
+    itemIndex: Int32Array,
+    itemDepth: Float64Array,
+    edgeCount: number,
+    minDepth: number,
+    maxDepth: number,
+    hasRange: boolean,
+    selected: Tag | null,
+    configuredBuckets: number,
+    alphaScale: number,
+    width: number
 ): void {
 
-	const buckets = Math.max(1, Math.floor(configuredBuckets));
-	const groups = 2 * buckets;
-	const span = DEPTH_ALPHA_SPAN;
+    const buckets = Math.max(1, Math.floor(configuredBuckets));
+    const groups = 2 * buckets;
+    const span = DEPTH_ALPHA_SPAN;
 
-	ensureGroupCapacity(groups);
-	ensureBatchCapacity(edgeCount);
+    ensureGroupCapacity(groups);
+    ensureBatchCapacity(edgeCount);
 
-	for (let g = 0; g < groups; g++)
-		groupCount[g] = 0;
+    for (let g = 0; g < groups; g++)
+        groupCount[g] = 0;
 
-	for (let k = 0; k < edgeCount; k++) {
+    for (let k = 0; k < edgeCount; k++) {
 
-		const bucket = alphaBucket(itemDepth[k], minDepth, maxDepth, hasRange, buckets, span);
-		const group = (edgeIncidentTo(edges[itemIndex[k]], selected) ? buckets : 0) + bucket;
+        const bucket = alphaBucket(itemDepth[k], minDepth, maxDepth, hasRange, buckets, span);
+        const group = (edgeIncidentTo(edges[itemIndex[k]], selected) ? buckets : 0) + bucket;
 
-		batchGroup[k] = group;
-		groupCount[group]++;
-	}
+        batchGroup[k] = group;
+        groupCount[group]++;
+    }
 
-	let offset = 0;
+    let offset = 0;
 
-	for (let g = 0; g < groups; g++) {
-		groupStart[g] = offset;
-		groupWrite[g] = offset;
-		offset += groupCount[g];
-	}
+    for (let g = 0; g < groups; g++) {
+        groupStart[g] = offset;
+        groupWrite[g] = offset;
+        offset += groupCount[g];
+    }
 
-	for (let k = 0; k < edgeCount; k++)
-		batchOrder[groupWrite[batchGroup[k]]++] = itemIndex[k];
+    for (let k = 0; k < edgeCount; k++)
+        batchOrder[groupWrite[batchGroup[k]]++] = itemIndex[k];
 
-	for (let g = 0; g < groups; g++) {
+    for (let g = 0; g < groups; g++) {
 
-		const count = groupCount[g];
+        const count = groupCount[g];
 
-		if (count === 0)
-			continue;
+        if (count === 0)
+            continue;
 
-		const incident = g >= buckets;
-		const bucket = g - (incident ? buckets : 0);
+        const incident = g >= buckets;
+        const bucket = g - (incident ? buckets : 0);
 
-		context.globalAlpha = scaledAlpha(bucketAlpha(bucket, buckets, hasRange, span), alphaScale);
-		context.strokeStyle = colourFor(incident, K.colours.edgeIncident, K.colours.edgeDefault);
-		context.lineWidth = width;
+        context.globalAlpha = scaledAlpha(bucketAlpha(bucket, buckets, hasRange, span), alphaScale);
+        context.strokeStyle = colourFor(incident, K.colours.edgeIncident, K.colours.edgeDefault);
+        context.lineWidth = width;
 
-		context.beginPath();
+        context.beginPath();
 
-		for (let t = groupStart[g]; t < groupStart[g] + count; t++)
-			edgeSegment(context, edges[batchOrder[t]]);
+        for (let t = groupStart[g]; t < groupStart[g] + count; t++)
+            edgeSegment(context, edges[batchOrder[t]]);
 
-		context.stroke();
-	}
+        context.stroke();
+    }
 }
 
 /**
@@ -487,60 +487,60 @@ function drawBatchedEdges(
  * than composite, a size-gated divergence.
  */
 function drawBatchedNodeFills(
-	context: RenderSurface,
-	vertices: Array<Tag>,
-	itemKind: Uint8Array,
-	itemIndex: Int32Array,
-	itemDepth: Float64Array,
-	itemOrder: number[],
-	itemCount: number,
-	focalLength: number,
-	hasRange: boolean,
-	alphaScale: number,
-	selected: Tag | null
+    context: RenderSurface,
+    vertices: Array<Tag>,
+    itemKind: Uint8Array,
+    itemIndex: Int32Array,
+    itemDepth: Float64Array,
+    itemOrder: number[],
+    itemCount: number,
+    focalLength: number,
+    hasRange: boolean,
+    alphaScale: number,
+    selected: Tag | null
 ): void {
 
-	// Collapsed to one bucket: the ramp midpoint, as a 1-bucket edge batch draws.
-	const span = DEPTH_ALPHA_SPAN;
-	const alpha = scaledAlpha(bucketAlpha(0, 1, hasRange, span), alphaScale);
+    // Collapsed to one bucket: the ramp midpoint, as a 1-bucket edge batch draws.
+    const span = DEPTH_ALPHA_SPAN;
+    const alpha = scaledAlpha(bucketAlpha(0, 1, hasRange, span), alphaScale);
 
-	for (let pass = 0; pass < 2; pass++) {
+    for (let pass = 0; pass < 2; pass++) {
 
-		const wantSelected = pass === 1;
+        const wantSelected = pass === 1;
 
-		context.globalAlpha = alpha;
-		context.fillStyle = colourFor(wantSelected, K.colours.nodeSelected, K.colours.nodeDefault);
-		context.beginPath();
+        context.globalAlpha = alpha;
+        context.fillStyle = colourFor(wantSelected, K.colours.nodeSelected, K.colours.nodeDefault);
+        context.beginPath();
 
-		let any = false;
+        let any = false;
 
-		for (let k = 0; k < itemCount; k++) {
+        for (let k = 0; k < itemCount; k++) {
 
-			const item = itemOrder[k];
+            const item = itemOrder[k];
 
-			if (itemKind[item] !== NODE_ITEM)
-				continue;
+            if (itemKind[item] !== NODE_ITEM)
+                continue;
 
-			const node = vertices[itemIndex[item]];
+            const node = vertices[itemIndex[item]];
 
-			if ((node === selected) !== wantSelected)
-				continue;
+            if ((node === selected) !== wantSelected)
+                continue;
 
-			context.arc(
-				node.translatedPosition.x,
-				node.translatedPosition.y,
-				radiusAt(itemDepth[item], focalLength),
-				CIRCLE_START_ANGLE,
-				CIRCLE_END_ANGLE,
-				CIRCLE_CLOCKWISE
-			);
+            context.arc(
+                node.translatedPosition.x,
+                node.translatedPosition.y,
+                radiusAt(itemDepth[item], focalLength),
+                CIRCLE_START_ANGLE,
+                CIRCLE_END_ANGLE,
+                CIRCLE_CLOCKWISE
+            );
 
-			any = true;
-		}
+            any = true;
+        }
 
-		if (any)
-			context.fill();
-	}
+        if (any)
+            context.fill();
+    }
 }
 
 /**
@@ -548,82 +548,82 @@ function drawBatchedNodeFills(
  * than by N.
  */
 function drawCoarseNodeWork(
-	context: RenderSurface,
-	graph: Graph,
-	focalLength: number,
-	nearPlane: number,
-	minDepth: number,
-	maxDepth: number,
-	hasRange: boolean,
-	selected: Tag | null
+    context: RenderSurface,
+    graph: Graph,
+    focalLength: number,
+    nearPlane: number,
+    minDepth: number,
+    maxDepth: number,
+    hasRange: boolean,
+    selected: Tag | null
 ): void {
 
-	if (selected === null)
-		return;
+    if (selected === null)
+        return;
 
-	drawCoarseNode(context, selected, true, focalLength, nearPlane, minDepth, maxDepth, hasRange);
+    drawCoarseNode(context, selected, true, focalLength, nearPlane, minDepth, maxDepth, hasRange);
 
-	for (const edge of graph.incidentEdges(selected)) {
+    for (const edge of graph.incidentEdges(selected)) {
 
-		const neighbour = otherEndpoint(edge, selected);
+        const neighbour = otherEndpoint(edge, selected);
 
-		if (neighbour !== null)
-			drawCoarseNode(context, neighbour, false, focalLength, nearPlane, minDepth, maxDepth, hasRange);
-	}
+        if (neighbour !== null)
+            drawCoarseNode(context, neighbour, false, focalLength, nearPlane, minDepth, maxDepth, hasRange);
+    }
 }
 
 function drawCoarseNode(
-	context: RenderSurface,
-	node: Tag,
-	ring: boolean,
-	focalLength: number,
-	nearPlane: number,
-	minDepth: number,
-	maxDepth: number,
-	hasRange: boolean
+    context: RenderSurface,
+    node: Tag,
+    ring: boolean,
+    focalLength: number,
+    nearPlane: number,
+    minDepth: number,
+    maxDepth: number,
+    hasRange: boolean
 ): void {
 
-	// The batched fill already skipped culled nodes; the ring and label must too.
-	if (isDepthCulled(node.depth, nearPlane))
-		return;
+    // The batched fill already skipped culled nodes; the ring and label must too.
+    if (isDepthCulled(node.depth, nearPlane))
+        return;
 
-	context.globalAlpha = alphaAt(node.depth, minDepth, maxDepth, hasRange);
+    context.globalAlpha = alphaAt(node.depth, minDepth, maxDepth, hasRange);
 
-	if (ring && K.renderer.performance.selectionRing) {
-		strokeSelectionRing(
-			context,
-			node.translatedPosition.x,
-			node.translatedPosition.y,
-			radiusAt(node.depth, focalLength)
-		);
-	}
+    if (ring && K.renderer.performance.selectionRing) {
+        strokeSelectionRing(
+            context,
+            node.translatedPosition.x,
+            node.translatedPosition.y,
+            radiusAt(node.depth, focalLength)
+        );
+    }
 
-	drawNodeLabel(context, node, node.depth, minDepth, maxDepth, hasRange);
+    drawNodeLabel(context, node, node.depth, minDepth, maxDepth, hasRange);
 }
 
 /** Quantized bucket for a depth's fade alpha: 0 is nearest, buckets-1 farthest. */
 function alphaBucket(
-	depth: number,
-	minDepth: number,
-	maxDepth: number,
-	hasRange: boolean,
-	buckets: number,
-	span: number
+    depth: number,
+    minDepth: number,
+    maxDepth: number,
+    hasRange: boolean,
+    buckets: number,
+    span: number
 ): number {
 
-	if (!hasRange || span <= 0)
-		return 0;
+    if (!hasRange || span <= 0)
+        return 0;
 
-	const alpha = alphaAt(depth, minDepth, maxDepth, hasRange);
-	const farness = (K.depthCue.maxAlpha - alpha) / span;
+    const alpha = alphaAt(depth, minDepth, maxDepth, hasRange);
+    const farness = (K.depthCue.maxAlpha - alpha) / span;
 
-	return clamp(Math.floor(farness * buckets), 0, buckets - 1);
+    return clamp(Math.floor(farness * buckets), 0, buckets - 1);
 }
 
 /** The alpha a whole bucket draws at: the midpoint of its slice of the ramp. */
 function bucketAlpha(bucket: number, buckets: number, hasRange: boolean, span: number): number {
-	if (!hasRange || span <= 0)
-		return K.depthCue.maxAlpha;
+    if (!hasRange || span <= 0)
+        return K.depthCue.maxAlpha;
 
-	return K.depthCue.maxAlpha - span * ((bucket + 0.5) / buckets);
+    return K.depthCue.maxAlpha - span * ((bucket + 0.5) / buckets);
 }

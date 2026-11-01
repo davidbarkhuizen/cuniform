@@ -3,104 +3,104 @@ import { Tag } from "./Tag";
 
 export class Graph {
 
-	vertices: Array<Tag> = [];
-	edges: Array<Edge> = [];
+    vertices: Array<Tag> = [];
+    edges: Array<Edge> = [];
 
-	/** Incident edges per vertex, kept in sync with `edges`. */
-	adjacency: Map<Tag, Array<Edge>> = new Map();
+    /** Incident edges per vertex, kept in sync with `edges`. */
+    adjacency: Map<Tag, Array<Edge>> = new Map();
 
-	/** Undirected membership index, kept in sync with `edges`. */
-	private readonly neighbourSets: Map<Tag, Set<Tag>> = new Map();
+    /** Undirected membership index, kept in sync with `edges`. */
+    private readonly neighbourSets: Map<Tag, Set<Tag>> = new Map();
 
-	addNode(tag: Tag) {
-		// A repeated vertex would double-count in the O(N^2) pass and make every
-		// index-based tie-break ambiguous, so it is rejected.
-		if (this.adjacency.has(tag))
-			throw new Error("Graph.addNode: vertex is already in the graph");
+    addNode(tag: Tag) {
+        // A repeated vertex would double-count in the O(N^2) pass and make every
+        // index-based tie-break ambiguous, so it is rejected.
+        if (this.adjacency.has(tag))
+            throw new Error("Graph.addNode: vertex is already in the graph");
 
-		this.vertices.push(tag);
-		this.adjacency.set(tag, []);
-		this.neighbourSets.set(tag, new Set());
-	};
+        this.vertices.push(tag);
+        this.adjacency.set(tag, []);
+        this.neighbourSets.set(tag, new Set());
+    };
 
-	addEdge(v1: Tag, v2: Tag) {
-		const incidentToV1 = this.adjacency.get(v1);
-		const incidentToV2 = this.adjacency.get(v2);
-		const neighboursOfV1 = this.neighbourSets.get(v1);
-		const neighboursOfV2 = this.neighbourSets.get(v2);
+    addEdge(v1: Tag, v2: Tag) {
+        const incidentToV1 = this.adjacency.get(v1);
+        const incidentToV2 = this.adjacency.get(v2);
+        const neighboursOfV1 = this.neighbourSets.get(v1);
+        const neighboursOfV2 = this.neighbourSets.get(v2);
 
-		if (!incidentToV1 || !incidentToV2 || !neighboursOfV1 || !neighboursOfV2)
-			throw new Error("Graph.addEdge: both vertices must already be in the graph");
+        if (!incidentToV1 || !incidentToV2 || !neighboursOfV1 || !neighboursOfV2)
+            throw new Error("Graph.addEdge: both vertices must already be in the graph");
 
-		var edge = { v1, v2 };
+        let edge = { v1, v2 };
 
-		this.edges.push(edge);
-		incidentToV1.push(edge);
+        this.edges.push(edge);
+        incidentToV1.push(edge);
 
-		// A self-loop is incident to its vertex once, not twice.
-		if (v2 !== v1)
-			incidentToV2.push(edge);
+        // A self-loop is incident to its vertex once, not twice.
+        if (v2 !== v1)
+            incidentToV2.push(edge);
 
-		// A self-loop still records the pair here; `hasEdge` applies the not-own-neighbour rule on read.
-		neighboursOfV1.add(v2);
-		neighboursOfV2.add(v1);
-	};
+        // A self-loop still records the pair here; `hasEdge` applies the not-own-neighbour rule on read.
+        neighboursOfV1.add(v2);
+        neighboursOfV2.add(v1);
+    };
 
-	incidentEdges(v: Tag): Array<Edge> {
-		return this.adjacency.get(v) ?? [];
-	};
+    incidentEdges(v: Tag): Array<Edge> {
+        return this.adjacency.get(v) ?? [];
+    };
 
-	hasEdge(v1: Tag, v2: Tag) {
-		// A vertex is not its own neighbour, even though a self-loop is indexed.
-		if (v1 === v2)
-			return false;
+    hasEdge(v1: Tag, v2: Tag) {
+        // A vertex is not its own neighbour, even though a self-loop is indexed.
+        if (v1 === v2)
+            return false;
 
-		return this.neighbourSets.get(v1)?.has(v2) ?? false;
-	};
+        return this.neighbourSets.get(v1)?.has(v2) ?? false;
+    };
 
-	/** The distinct neighbours of `v`, in insertion order. */
-	neighbours(v: Tag) {
-		var out: Array<Tag> = [];
-		var seen = new Set<Tag>();
+    /** The distinct neighbours of `v`, in insertion order. */
+    neighbours(v: Tag) {
+        let out: Array<Tag> = [];
+        let seen = new Set<Tag>();
 
-		for (const edge of this.incidentEdges(v)) {
+        for (const edge of this.incidentEdges(v)) {
 
-			var other = otherEndpoint(edge, v);
+            let other = otherEndpoint(edge, v);
 
-			if (other === null)
-				continue;
+            if (other === null)
+                continue;
 
-			if (seen.has(other))
-				continue;
+            if (seen.has(other))
+                continue;
 
-			seen.add(other);
-			out.push(other);
-		}
+            seen.add(other);
+            out.push(other);
+        }
 
-		return out;
-	};
+        return out;
+    };
 
-	selectedVertex(): Tag | null {
-		return this.vertices.find(v => v.isSelected) ?? null;
-	};
+    selectedVertex(): Tag | null {
+        return this.vertices.find(v => v.isSelected) ?? null;
+    };
 
-	clearSelection() {
-		for (const v of this.vertices)
-			v.isSelected = false;
-	};
+    clearSelection() {
+        for (const v of this.vertices)
+            v.isSelected = false;
+    };
 
 };
 
 /** A graph's size as the worker mirrors see it; `Graph` is append-only, so any change is growth. */
 export interface GraphShape {
-	vertices: number;
-	edges: number;
+    vertices: number;
+    edges: number;
 }
 
 export function graphShape(graph: Graph): GraphShape {
-	return { vertices: graph.vertices.length, edges: graph.edges.length };
+    return { vertices: graph.vertices.length, edges: graph.edges.length };
 }
 
 export function sameShape(graph: Graph, shape: GraphShape): boolean {
-	return graph.vertices.length === shape.vertices && graph.edges.length === shape.edges;
+    return graph.vertices.length === shape.vertices && graph.edges.length === shape.edges;
 }

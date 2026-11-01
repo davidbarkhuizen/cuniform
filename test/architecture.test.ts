@@ -93,6 +93,19 @@ test("the renderer is the only module that draws", () => {
     assert.deepEqual(drawers, ["render/Renderer.ts"], "drawing must live behind the Renderer module");
 });
 
+// One indentation style (see .editorconfig), enforced here rather than by a formatter dependency.
+test("source, tests and benches indent with spaces and declare no var", () => {
+    for (const root of ["src", "test", "bench"]) {
+        for (const [name, source] of Object.entries(readAllSources(root))) {
+            const lines = source.split("\n");
+            const tabbed = lines.findIndex(line => /^\s*\t/.test(line));
+
+            assert.equal(tabbed, -1, `${root}/${name}:${tabbed + 1} is indented with a tab`);
+            assert.ok(!/(^|[\s(;])var\s/m.test(code(source)), `${root}/${name} declares a var; use let or const`);
+        }
+    }
+});
+
 // Labels are host data once cuniform is embedded, so nothing may be parsed as markup.
 test("no module writes markup through innerHTML", () => {
     for (const [name, source] of Object.entries(sources))

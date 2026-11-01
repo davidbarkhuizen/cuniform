@@ -22,7 +22,7 @@ export const K = {
         // Keep timeStep / (1 - friction) ~= 1, or the layout oscillates instead of settling.
         timeStep: 0.1,
         friction: 0.9,
-	    timerTickPeriodMS : 50,
+        timerTickPeriodMS : 50,
         // Guard, not in the reference model: bounds the r -> 0 repulsion blow-up.
         minimumInteractionRadius : 10.0,
 
@@ -152,7 +152,7 @@ export const K = {
     label: {
         verticalSpacing : 5,
         horizontalSpacing : 5,
-        fontFamily : '10pt Arial',    
+        fontFamily : '10pt Arial',
     },
 
     colours: {

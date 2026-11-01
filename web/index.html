@@ -1,212 +1,212 @@
 <!doctype html>
 <html lang="en">
-	<head>
+    <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="stylesheet"  type="text/css" href="stylez.css"/>	
-        		
-		<title>
-			cuniform
-		</title>	
-		
+
+        <title>
+            cuniform
+        </title>	
+
         <script src="../dist/main.js"></script>
-	</head>		
-	
-	<body id="body" class="documentBody">
-		
-		<div class="canvas-container">
+    </head>		
 
-			<!--
-				The canvas is focusable so Shift+F10 can open the actions menu
-				from the keyboard, and the text inside it is the fallback for a
-				browser that cannot render canvas at all. The label names the 3D
-				view and the orbit/pan/zoom gestures, which are otherwise mouse
-				only.
-			-->
-			<canvas id="canvas" tabindex="0" role="img"
-				aria-label="Force-directed graph in 3D. Left-drag to select and drag a node, middle-drag to orbit, Shift+middle-drag to pan, wheel to zoom. Press Shift+F10 for actions.">
-				Your browser does not support the canvas element, so the graph cannot be drawn.
-			</canvas>
+    <body id="body" class="documentBody">
 
-			<!--
-				The single piece of chrome: a floating panel holding the fixed
-				menu (the title and the current graph), the currently selected
-				node, the camera console, and the export/reset actions.
-			-->
-			<div id="selectionInfoPanel" class="selectionInfoPanel">
+        <div class="canvas-container">
 
-				<!--
-					The panel's touch grip. A touch drag must start here, so the
-					panel body stays scrollable; mouse and pen drag anywhere.
-				-->
-				<div id="panelDragHandle" class="panelDragHandle" title="drag to move the panel">
-					<span class="panelDragGrip" aria-hidden="true"></span>
-				</div>
+            <!--
+                The canvas is focusable so Shift+F10 can open the actions menu
+                from the keyboard, and the text inside it is the fallback for a
+                browser that cannot render canvas at all. The label names the 3D
+                view and the orbit/pan/zoom gestures, which are otherwise mouse
+                only.
+            -->
+            <canvas id="canvas" tabindex="0" role="img"
+                aria-label="Force-directed graph in 3D. Left-drag to select and drag a node, middle-drag to orbit, Shift+middle-drag to pan, wheel to zoom. Press Shift+F10 for actions.">
+                Your browser does not support the canvas element, so the graph cannot be drawn.
+            </canvas>
 
-				<div class="overlayMenu">
-					<div class="mainLabel">
-						cuniform
-					</div>
-					<!--
-						Which graph is loaded: the systematic name of a molecule,
-						or the node and edge counts of a random graph. Kept
-						technical on purpose, so the chooser's short chips never
-						lose the identity of the graph on screen.
-					-->
-					<div id="currentGraphLabel" class="graphLabel"></div>
-				</div>
+            <!--
+                The single piece of chrome: a floating panel holding the fixed
+                menu (the title and the current graph), the currently selected
+                node, the camera console, and the export/reset actions.
+            -->
+            <div id="selectionInfoPanel" class="selectionInfoPanel">
 
-				<div class="selectionSection">
-					<div class="sectionHeading">
-						currently selected node
-					</div>
-					<label id="selectedNodeInfoLabel"></label>
-					<br/>
-					<ul id="selectedNodeInfoList"></ul>
-				</div>
+                <!--
+                    The panel's touch grip. A touch drag must start here, so the
+                    panel body stays scrollable; mouse and pen drag anywhere.
+                -->
+                <div id="panelDragHandle" class="panelDragHandle" title="drag to move the panel">
+                    <span class="panelDragGrip" aria-hidden="true"></span>
+                </div>
 
-				<!--
-					The camera console: one row per camera axis, each with a
-					clockwise and an anticlockwise button, then a zoom row that
-					dollies in and out. They are real buttons, so Enter and Space
-					activate them, and each carries its axis, direction or zoom
-					as a data attribute for the delegated handler.
+                <div class="overlayMenu">
+                    <div class="mainLabel">
+                        cuniform
+                    </div>
+                    <!--
+                        Which graph is loaded: the systematic name of a molecule,
+                        or the node and edge counts of a random graph. Kept
+                        technical on purpose, so the chooser's short chips never
+                        lose the identity of the graph on screen.
+                    -->
+                    <div id="currentGraphLabel" class="graphLabel"></div>
+                </div>
 
-					The rotate icons are inline SVG rather than one shared glyph.
-					Each ring lies in the plane its axis turns in - tall for x,
-					wide for y, round for z - and the arrowhead points the way
-					the view turns, so the icons differ by axis and direction.
-					The accessible name stays on the button, so the icon is
-					decorative.
-				-->
-				<div id="cameraConsole" class="cameraSection">
-					<div class="sectionHeading">
-						camera
-					</div>
+                <div class="selectionSection">
+                    <div class="sectionHeading">
+                        currently selected node
+                    </div>
+                    <label id="selectedNodeInfoLabel"></label>
+                    <br/>
+                    <ul id="selectedNodeInfoList"></ul>
+                </div>
 
-					<div class="cameraRow">
-						<span class="cameraAxisLabel">x</span>
-						<button type="button" class="cameraButton"
-							data-axis="x" data-direction="cw"
-							aria-label="rotate clockwise about the x axis"
-							title="rotate clockwise about the x axis">
-							<svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-								<path d="M16.44 9.83A4.6 8.4 0 1 1 12 3.6"/>
-								<path class="cameraIconHead" d="M12 3.6L7.6 6.2L7.6 1Z"/>
-							</svg>
-						</button>
-						<button type="button" class="cameraButton"
-							data-axis="x" data-direction="acw"
-							aria-label="rotate anticlockwise about the x axis"
-							title="rotate anticlockwise about the x axis">
-							<svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-								<path d="M7.56 9.83A4.6 8.4 0 1 0 12 3.6"/>
-								<path class="cameraIconHead" d="M12 3.6L16.4 1L16.4 6.2Z"/>
-							</svg>
-						</button>
-					</div>
+                <!--
+                    The camera console: one row per camera axis, each with a
+                    clockwise and an anticlockwise button, then a zoom row that
+                    dollies in and out. They are real buttons, so Enter and Space
+                    activate them, and each carries its axis, direction or zoom
+                    as a data attribute for the delegated handler.
 
-					<div class="cameraRow">
-						<span class="cameraAxisLabel">y</span>
-						<button type="button" class="cameraButton"
-							data-axis="y" data-direction="cw"
-							aria-label="rotate clockwise about the y axis"
-							title="rotate clockwise about the y axis">
-							<svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-								<path d="M20.11 10.81A8.4 4.6 0 1 1 12 7.4"/>
-								<path class="cameraIconHead" d="M12 7.4L7.6 10L7.6 4.8Z"/>
-							</svg>
-						</button>
-						<button type="button" class="cameraButton"
-							data-axis="y" data-direction="acw"
-							aria-label="rotate anticlockwise about the y axis"
-							title="rotate anticlockwise about the y axis">
-							<svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-								<path d="M3.89 10.81A8.4 4.6 0 1 0 12 7.4"/>
-								<path class="cameraIconHead" d="M12 7.4L16.4 4.8L16.4 10Z"/>
-							</svg>
-						</button>
-					</div>
+                    The rotate icons are inline SVG rather than one shared glyph.
+                    Each ring lies in the plane its axis turns in - tall for x,
+                    wide for y, round for z - and the arrowhead points the way
+                    the view turns, so the icons differ by axis and direction.
+                    The accessible name stays on the button, so the icon is
+                    decorative.
+                -->
+                <div id="cameraConsole" class="cameraSection">
+                    <div class="sectionHeading">
+                        camera
+                    </div>
 
-					<div class="cameraRow">
-						<span class="cameraAxisLabel">z</span>
-						<button type="button" class="cameraButton"
-							data-axis="z" data-direction="cw"
-							aria-label="rotate clockwise about the z axis"
-							title="rotate clockwise about the z axis">
-							<svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-								<path d="M19.73 9.93A8 8 0 1 1 12 4"/>
-								<path class="cameraIconHead" d="M12 4L7.6 6.6L7.6 1.4Z"/>
-							</svg>
-						</button>
-						<button type="button" class="cameraButton"
-							data-axis="z" data-direction="acw"
-							aria-label="rotate anticlockwise about the z axis"
-							title="rotate anticlockwise about the z axis">
-							<svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-								<path d="M4.27 9.93A8 8 0 1 0 12 4"/>
-								<path class="cameraIconHead" d="M12 4L16.4 1.4L16.4 6.6Z"/>
-							</svg>
-						</button>
-					</div>
+                    <div class="cameraRow">
+                        <span class="cameraAxisLabel">x</span>
+                        <button type="button" class="cameraButton"
+                            data-axis="x" data-direction="cw"
+                            aria-label="rotate clockwise about the x axis"
+                            title="rotate clockwise about the x axis">
+                            <svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M16.44 9.83A4.6 8.4 0 1 1 12 3.6"/>
+                                <path class="cameraIconHead" d="M12 3.6L7.6 6.2L7.6 1Z"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="cameraButton"
+                            data-axis="x" data-direction="acw"
+                            aria-label="rotate anticlockwise about the x axis"
+                            title="rotate anticlockwise about the x axis">
+                            <svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M7.56 9.83A4.6 8.4 0 1 0 12 3.6"/>
+                                <path class="cameraIconHead" d="M12 3.6L16.4 1L16.4 6.2Z"/>
+                            </svg>
+                        </button>
+                    </div>
 
-					<!--
-						The zoom row: the same two-ends shape as a rotate row,
-						but it dollies instead of turning. The minus is on the
-						left so the pair reads like a number line; `data-zoom`
-						names the direction.
-					-->
-					<div class="cameraRow">
-						<span class="cameraAxisLabel">zoom</span>
-						<button type="button" class="cameraButton"
-							data-zoom="out"
-							aria-label="zoom out"
-							title="zoom out">&#8722;</button>
-						<button type="button" class="cameraButton"
-							data-zoom="in"
-							aria-label="zoom in"
-							title="zoom in">+</button>
-					</div>
-				</div>
+                    <div class="cameraRow">
+                        <span class="cameraAxisLabel">y</span>
+                        <button type="button" class="cameraButton"
+                            data-axis="y" data-direction="cw"
+                            aria-label="rotate clockwise about the y axis"
+                            title="rotate clockwise about the y axis">
+                            <svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M20.11 10.81A8.4 4.6 0 1 1 12 7.4"/>
+                                <path class="cameraIconHead" d="M12 7.4L7.6 10L7.6 4.8Z"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="cameraButton"
+                            data-axis="y" data-direction="acw"
+                            aria-label="rotate anticlockwise about the y axis"
+                            title="rotate anticlockwise about the y axis">
+                            <svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M3.89 10.81A8.4 4.6 0 1 0 12 7.4"/>
+                                <path class="cameraIconHead" d="M12 7.4L16.4 4.8L16.4 10Z"/>
+                            </svg>
+                        </button>
+                    </div>
 
-				<!--
-					The display emphasis: which of the graph's two elements is
-					the subject of the frame. Two named configurations rather
-					than a checkbox, so a screen reader can say which is
-					pressed; `data-emphasis` names one for the delegated
-					handler and `aria-pressed` tracks the live choice.
+                    <div class="cameraRow">
+                        <span class="cameraAxisLabel">z</span>
+                        <button type="button" class="cameraButton"
+                            data-axis="z" data-direction="cw"
+                            aria-label="rotate clockwise about the z axis"
+                            title="rotate clockwise about the z axis">
+                            <svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M19.73 9.93A8 8 0 1 1 12 4"/>
+                                <path class="cameraIconHead" d="M12 4L7.6 6.6L7.6 1.4Z"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="cameraButton"
+                            data-axis="z" data-direction="acw"
+                            aria-label="rotate anticlockwise about the z axis"
+                            title="rotate anticlockwise about the z axis">
+                            <svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M4.27 9.93A8 8 0 1 0 12 4"/>
+                                <path class="cameraIconHead" d="M12 4L16.4 1.4L16.4 6.6Z"/>
+                            </svg>
+                        </button>
+                    </div>
 
-					They are real buttons, so Enter and Space activate them and
-					DragController ignores a press inside one, which is why -
-					unlike the camera console's hold - no pointerdown guard is
-					needed.
-				-->
-				<div id="emphasisConsole" class="emphasisSection" role="group"
-					aria-label="display emphasis">
-					<div class="sectionHeading">
-						display
-					</div>
-					<div class="emphasisRow">
-						<button type="button" class="emphasisButton"
-							data-emphasis="nodes" aria-pressed="true"
-							title="draw the nodes over the edges">nodes</button>
-						<button type="button" class="emphasisButton"
-							data-emphasis="edges" aria-pressed="false"
-							title="draw the edges over the nodes">edges</button>
-					</div>
-				</div>
+                    <!--
+                        The zoom row: the same two-ends shape as a rotate row,
+                        but it dollies instead of turning. The minus is on the
+                        left so the pair reads like a number line; `data-zoom`
+                        names the direction.
+                    -->
+                    <div class="cameraRow">
+                        <span class="cameraAxisLabel">zoom</span>
+                        <button type="button" class="cameraButton"
+                            data-zoom="out"
+                            aria-label="zoom out"
+                            title="zoom out">&#8722;</button>
+                        <button type="button" class="cameraButton"
+                            data-zoom="in"
+                            aria-label="zoom in"
+                            title="zoom in">+</button>
+                    </div>
+                </div>
 
-				<!--
-					The actions, at the foot of the panel: export saves the
-					current view as a PNG, reset reopens the graph chooser.
-					They sit below the camera console, after the identity line
-					and the readings.
-				-->
-				<div class="menuOptions">
-					<a id="export_canvas_link" class="main_menu_option" href="">export</a>
-					<a id="reset_link" class="main_menu_option" href="">reset</a>
-				</div>
-			</div>
-		</div>
-	</body>
+                <!--
+                    The display emphasis: which of the graph's two elements is
+                    the subject of the frame. Two named configurations rather
+                    than a checkbox, so a screen reader can say which is
+                    pressed; `data-emphasis` names one for the delegated
+                    handler and `aria-pressed` tracks the live choice.
+
+                    They are real buttons, so Enter and Space activate them and
+                    DragController ignores a press inside one, which is why -
+                    unlike the camera console's hold - no pointerdown guard is
+                    needed.
+                -->
+                <div id="emphasisConsole" class="emphasisSection" role="group"
+                    aria-label="display emphasis">
+                    <div class="sectionHeading">
+                        display
+                    </div>
+                    <div class="emphasisRow">
+                        <button type="button" class="emphasisButton"
+                            data-emphasis="nodes" aria-pressed="true"
+                            title="draw the nodes over the edges">nodes</button>
+                        <button type="button" class="emphasisButton"
+                            data-emphasis="edges" aria-pressed="false"
+                            title="draw the edges over the nodes">edges</button>
+                    </div>
+                </div>
+
+                <!--
+                    The actions, at the foot of the panel: export saves the
+                    current view as a PNG, reset reopens the graph chooser.
+                    They sit below the camera console, after the identity line
+                    and the readings.
+                -->
+                <div class="menuOptions">
+                    <a id="export_canvas_link" class="main_menu_option" href="">export</a>
+                    <a id="reset_link" class="main_menu_option" href="">reset</a>
+                </div>
+            </div>
+        </div>
+    </body>
 </html>

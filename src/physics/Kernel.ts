@@ -14,7 +14,7 @@ export function radius(dx: number, dy: number, dz: number): number {
 
 /** The repulsion law and its r -> 0 clamp; the single home for all three passes. */
 export function repulsionMagnitude(r: number): number {
-    var r_law = Math.max(r, K.physics.minimumInteractionRadius);
+    let r_law = Math.max(r, K.physics.minimumInteractionRadius);
 
     return CHARGE_PRODUCT / Math.pow(r_law, K.physics.repulsionExponent);
 }

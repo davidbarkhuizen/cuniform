@@ -3,8 +3,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
-export function readAllSources(): Record<string, string> {
-    const dir = join(__dirname, "..", "..", "..", "src");
+export function readAllSources(root: string = "src"): Record<string, string> {
+    const dir = join(__dirname, "..", "..", "..", root);
     const out: Record<string, string> = {};
 
     for (const path of sourceFilesIn(dir))
