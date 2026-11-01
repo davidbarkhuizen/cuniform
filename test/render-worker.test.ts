@@ -75,19 +75,26 @@ function directDraw(
     emphasis: Emphasis = Emphasis.nodes
 ): FakeContext2D {
 
-    const data = initRequest(graph, 0);
-    const mirror = buildMirrorGraph(graph.vertices.map(tag => tag.label), data.edges, data.positions);
-
+    // The reference is the main thread's own draw of the source graph, with the
+    // selection flagged as the UI flags it: rendering a mirror here would share
+    // any state the mirror lacks, as `isSelected` once did.
     const context = new FakeContext2D();
     context.canvas = { width, height };
 
     const projector = Projector.forCanvas(width, height, camera);
 
-    projectGraph(mirror, projector);
+    projectGraph(graph, projector);
 
-    const selectedTag = selected >= 0 ? mirror.vertices[selected] ?? null : null;
+    graph.clearSelection();
 
-    render(context, mirror, projector.camera, selectedTag, emphasis);
+    const selectedTag = selected >= 0 ? graph.vertices[selected] ?? null : null;
+
+    if (selectedTag !== null)
+        selectedTag.isSelected = true;
+
+    render(context, graph, projector.camera, selectedTag, emphasis);
+
+    graph.clearSelection();
 
     return context;
 }
@@ -186,6 +193,28 @@ test("the engine's draw calls are identical to the direct renderer at every thre
             assert.deepEqual(ops.engine, ops.direct, `${label}: draw sequence`);
             assert.equal(ops.engineTexts, ops.directTexts, `${label}: fillText count`);
         }
+    }
+});
+
+// Regression: the worker's mirror tags never carry `isSelected`, so a renderer
+// that read the flag drew the selection green and ringless off the main thread.
+test("a worker frame fills the selected node with the selection colour", () => {
+
+    for (const settings of [{}, { batchEdgesMinEdges: 0 }, { minNodes: 0 }] as RendererSettings[]) {
+
+        withRendererSettings(settings, () => {
+
+            const graph = thresholdGraph();
+            const { engine, context } = attached(graph);
+
+            engine.handle(frameFor(graph, 0, 1, 1));
+
+            const selectedFills = context.ops.filter(op => op.kind === "fill" && op.style === K.colours.nodeSelected);
+
+            assert.equal(selectedFills.length, 1, `${JSON.stringify(settings)}: one selected fill`);
+
+            // The ring is covered op-for-op by the parity test, whose reference is now the source graph.
+        });
     }
 });
 
