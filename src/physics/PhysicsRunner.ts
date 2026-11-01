@@ -79,6 +79,13 @@ class WorkerBackend implements PhysicsBackend {
     private inFlight = false;
     private disposed = false;
 
+    // The latest pin, overlaid on every reply: a reply was computed with an older pin,
+    // so without the overlay sync() would drag the pinned node back a round trip.
+    private pinIndex = -1;
+    private pinX = 0;
+    private pinY = 0;
+    private pinZ = 0;
+
     constructor(
         private readonly worker: PhysicsWorkerPort,
         graph: Graph,
@@ -103,6 +110,9 @@ class WorkerBackend implements PhysicsBackend {
     }
 
     step(pinnedIndex: number, x: number, y: number, z: number): void {
+
+        // Recorded even when no step is posted, so a pin moved while a step is in flight is not lost.
+        this.recordPin(pinnedIndex, x, y, z);
 
         // One step in flight at a time: a slow worker must not queue a backlog.
         if (this.inFlight || this.disposed)
@@ -136,6 +146,7 @@ class WorkerBackend implements PhysicsBackend {
         this.inFlight = false;
         this.latest = new Float64Array(graph.vertices.length * 3);
         this.latestMaxDisplacement = 0;
+        this.pinIndex = -1;
 
         readPositions(graph, this.latest);
         this.worker.postMessage(initRequest(graph, this.generation));
@@ -153,8 +164,30 @@ class WorkerBackend implements PhysicsBackend {
             return;
 
         this.latest = message.positions;
+        this.applyPin(this.latest);
         this.latestMaxDisplacement = message.maxDisplacement;
         this.inFlight = false;
+    }
+
+    private recordPin(index: number, x: number, y: number, z: number): void {
+        this.pinIndex = index;
+        this.pinX = x;
+        this.pinY = y;
+        this.pinZ = z;
+
+        this.applyPin(this.latest);
+    }
+
+    // The same range rule as pinnedTagOf(): -1 or out of range pins nothing.
+    private applyPin(buffer: Float64Array): void {
+        const i = this.pinIndex;
+
+        if (i < 0 || 3 * i + 2 >= buffer.length)
+            return;
+
+        buffer[3 * i] = this.pinX;
+        buffer[3 * i + 1] = this.pinY;
+        buffer[3 * i + 2] = this.pinZ;
     }
 }
 
