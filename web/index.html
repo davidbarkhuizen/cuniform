@@ -24,7 +24,7 @@
                 only.
             -->
             <canvas id="canvas" tabindex="0" role="img"
-                aria-label="Force-directed graph in 3D. Left-drag to select and drag a node, middle-drag to orbit, Shift+middle-drag to pan, wheel to zoom. By touch: drag a node to move it, drag empty space to orbit, pinch to zoom, two-finger drag to pan, long-press for actions. Press Shift+F10 for actions.">
+                aria-label="Neural network in 3D. Left-drag to select and drag a node, middle-drag to orbit, Shift+middle-drag to pan, wheel to zoom. By touch: drag a node to move it, drag empty space to orbit, pinch to zoom, two-finger drag to pan, long-press for actions. Press Shift+F10 for actions.">
                 Your browser does not support the canvas element, so the graph cannot be drawn.
             </canvas>
 
@@ -47,12 +47,7 @@
                     <div class="mainLabel">
                         cuniform
                     </div>
-                    <!--
-                        Which graph is loaded: the systematic name of a molecule,
-                        or the node and edge counts of a random graph. Kept
-                        technical on purpose, so the chooser's short chips never
-                        lose the identity of the graph on screen.
-                    -->
+                    <!-- Which model is loaded, or that none is. -->
                     <div id="currentGraphLabel" class="graphLabel"></div>
                 </div>
 
@@ -198,7 +193,8 @@
 
                 <!--
                     The actions, at the foot of the panel: export saves the
-                    current view as a PNG, reset reopens the graph chooser.
+                    current view as a PNG, reset rebuilds the graph and
+                    re-seeds its layout.
                     They sit below the camera console, after the identity line
                     and the readings.
                 -->

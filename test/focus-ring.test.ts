@@ -3,10 +3,7 @@ import assert from "node:assert/strict";
 
 import { advanceIndex } from "../src/ui/FocusRing";
 
-/**
- * Roving-focus ring shared by the context menu (src/ui/ContextMenu.ts) and the graph wizard
- * (src/ui/GraphWizard.ts).
- */
+/** Roving-focus ring used by the context menu (src/ui/ContextMenu.ts). */
 
 test("advanceIndex steps within the ring and wraps at both ends", () => {
     assert.equal(advanceIndex(0, 1, 3), 1);

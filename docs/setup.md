@@ -54,9 +54,9 @@ rather than eroding the layering.
   (`K`), the geometry primitives (`Point2D`, `Point3D`), `Numeric`, the
   buffer-growth policy (`Growth`) and the worker-port types. It imports no other
   project package.
-- `graph/` — the graph data model and its builders: `Tag`, `Edge`, `Graph`,
-  `GraphSpec`, `GraphFactory`, the worker mirror (`MirrorGraph`), and the SMILES
-  reader (`Smiles`) with the molecule catalog (`Molecules`).
+- `graph/` — the graph data model: `Tag`, `Edge`, `Graph`, the component
+  labelling (`Components`) and the worker mirror (`MirrorGraph`). The seeded
+  random-graph generator is a test fixture in `test/support/GraphFactory.ts`.
 - `view/` — the model-to-canvas transform: `Mat3`, `Viewport`, the perspective
   `Projector`, the `Projection` pass and the orbit `Camera`. Pure math, so the
   solver can project without naming a canvas type.

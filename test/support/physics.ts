@@ -1,6 +1,6 @@
 import { ForceDirectedGraph } from "../../src/physics/ForceDirectedGraph";
 import { Graph } from "../../src/graph/Graph";
-import { GraphFactory } from "../../src/graph/GraphFactory";
+import { GraphFactory } from "./GraphFactory";
 import { K } from "../../src/core/K";
 import { Point3D } from "../../src/core/Point3D";
 import { Tag } from "../../src/graph/Tag";

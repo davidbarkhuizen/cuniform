@@ -1,6 +1,8 @@
 # cuniform
 
-3D force-directed graphs in TypeScript, projected onto a canvas in perspective.
+A 3D viewer for saved neural networks (indrajala-ml format 2), in TypeScript:
+each layer lies in its own band, components get their own glyphs, and the
+layout is force-directed and projected onto a canvas in perspective.
 
 The simulation is deliberately decoupled from the browser:
 `ForceDirectedGraph.stepPhysics()` is pure physics and touches neither `window`
@@ -21,9 +23,9 @@ whoever embeds the component.
 - [Setup](docs/setup.md) — install, run, build and test, and how the repository
   is laid out.
 - [Visual layout and interaction](docs/visual-layout-and-interaction.md) — the
-  canvas, the overlay panel, the chooser and every input gesture.
-- [Graphs](docs/graphs.md) — `GraphSpec`, random generation and the molecule
-  catalog.
+  canvas, the overlay panel and every input gesture.
+- [Networks](docs/networks.md) — what cuniform reads (format 2, array networks)
+  and the random-graph test fixture.
 - [Physics](docs/physics.md) — the force laws, the integrator, the step cadence
   and the physics worker.
 - [Model, camera and rendering](docs/model-camera-and-rendering.md) — the 3D

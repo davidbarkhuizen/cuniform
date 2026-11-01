@@ -16,7 +16,7 @@ function code(source: string): string {
         .replace(/\/\/[^\n]*/g, "");
 }
 
-/** The DOM-free half: the solver, the projection and the catalog data. */
+/** The DOM-free half: the solver, the projection and the data model. */
 const PURE_MODULES = [
     "core/Emphasis.ts",
     "core/Growth.ts",
@@ -29,11 +29,7 @@ const PURE_MODULES = [
     "graph/Components.ts",
     "graph/Edge.ts",
     "graph/Graph.ts",
-    "graph/GraphFactory.ts",
-    "graph/GraphSpec.ts",
     "graph/MirrorGraph.ts",
-    "graph/Molecules.ts",
-    "graph/Smiles.ts",
     "graph/Tag.ts",
     "view/Camera.ts",
     "view/Mat3.ts",
@@ -154,6 +150,20 @@ function resolveImport(from: string, specifier: string): string {
 
     return resolved.endsWith(".ts") ? resolved : `${resolved}.ts`;
 }
+
+// The random-graph generator is a test and benchmark fixture (workplan D1), never product code.
+test("no product module imports from outside src", () => {
+    const importStatement = /from\s+["']([^"']+)["']/g;
+
+    for (const [path, source] of Object.entries(sources)) {
+        for (const [, imported] of code(source).matchAll(importStatement)) {
+            if (!imported.startsWith("."))
+                continue;
+
+            assert.ok(!resolveImport(path, imported).startsWith(".."), `${path} imports ${imported}, outside src`);
+        }
+    }
+});
 
 test("packages depend only on the layers below them", () => {
     const importStatement = /from\s+["']([^"']+)["']/g;

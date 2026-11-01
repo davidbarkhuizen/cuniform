@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { entrypoint, SELECTION_INFO_PANEL_ID, CANVAS_ID, EXPORT_ELEMENT_ID, RESET_ELEMENT_ID } from "../src/app/entrypoint";
-import { defaultGraphSpec } from "../src/graph/GraphSpec";
 import { FakeCanvas, demoElements, newUIController, withFakeDom } from "./support/dom";
 
 const IDS: [string, string, string, string] = [
@@ -30,7 +29,6 @@ test("entrypoint initializes when window.Worker is undefined", () => {
 
         assert.ok(result, "entrypoint should hand back the controller");
         assert.equal(result.running, true, "the simulation loop should be running");
-        assert.ok(result.solver.graph.vertices.length > 0, "the controller should own a live graph");
         assert.equal(dom.animationFrames.length, 1, "the simulation timer should be running");
         // The fake body is 800x600, and the canvas fills it (dpr 1).
         assert.equal((dom.elements.canvas as FakeCanvas).width, 800);
@@ -38,21 +36,18 @@ test("entrypoint initializes when window.Worker is undefined", () => {
     });
 });
 
-test("entrypoint starts on a random graph without opening the chooser", () => {
+test("entrypoint starts with no model loaded and says so", () => {
     withFakeDom(demoElements(), dom => {
         const result = quietly(() => entrypoint(...IDS));
 
         assert.ok(result, "entrypoint should hand back the controller");
-        assert.ok(result.wizard === null, "startup must not trigger the reset wizard");
-        const { seed, ...shape } = result.spec as { seed?: number };
-        assert.deepEqual(shape, defaultGraphSpec(), "startup seeds the shipped random default");
-        assert.equal(typeof seed, "number", "the startup graph records the seed that rebuilds it");
-        assert.ok(result.solver.graph.vertices.length > 0, "a random graph is generated and simulated");
+        assert.equal(result.solver.graph.vertices.length, 0, "nothing is shown before a model is loaded");
+        assert.equal(dom.elements.currentGraphLabel.textContent, "no model loaded");
         assert.equal(dom.animationFrames.length, 1, "the simulation timer should be running");
     });
 });
 
-test("initialize() itself never opens the chooser", () => {
+test("initialize() runs the loop on the supplied graph source", () => {
     const elements = demoElements();
 
     withFakeDom(elements, dom => {
@@ -60,7 +55,7 @@ test("initialize() itself never opens the chooser", () => {
 
         controller.initialize();
 
-        assert.ok(controller.wizard === null, "the chooser is opened by reset, never by initialize");
+        assert.ok(controller.solver.graph.vertices.length > 0);
         assert.equal(controller.running, true);
         assert.equal(dom.animationFrames.length, 1);
     });

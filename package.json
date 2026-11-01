@@ -1,13 +1,13 @@
 {
   "name": "cuniform",
   "version": "0.0.1",
-  "description": "force directed graphs",
+  "description": "a 3D viewer for saved neural networks",
   "private": true,
   "scripts": {
     "start": "npm run typecheck && npx webpack --config webpack.config.js",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
-    "test": "tsc -p tsconfig.test.json && node --test .test-build/test/*.test.js",
-    "bench": "tsc -p tsconfig.test.json && node --expose-gc .test-build/bench/physics.bench.js",
+    "test": "rm -rf .test-build && tsc -p tsconfig.test.json && node --test .test-build/test/*.test.js",
+    "bench": "rm -rf .test-build && tsc -p tsconfig.test.json && node --expose-gc .test-build/bench/physics.bench.js",
     "ci": "npm run typecheck && npm test",
     "dev": "npx webpack --watch --config webpack.config.js"
   },

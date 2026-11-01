@@ -6,8 +6,7 @@ export type QualitySetting = "auto" | "accurate" | "fast";
 // web/stylez.css mirrors it as --highlight.
 const SELECTION_COLOUR = '#ffd400';
 
-// Spring rest length; molecule.seedSpacing derives from it so seeded neighbours
-// start outside the repulsion guard.
+// Spring rest length.
 const EQUILIBRIUM_DISPLACEMENT = 30;
 
 export const K = {
@@ -166,37 +165,5 @@ export const K = {
         label : '#e8f4ff',
         edgeDefault : '#4b5b70',
         edgeIncident : SELECTION_COLOUR,
-    },
-
-    initialConditions: {
-        // Reference demo: DEMO_GRAPH_SIZE = 11, DEMO_GRAPH_BRANCHING_CONST = 2.
-        order : 11,
-        branching : 2
-    },
-
-    chooser: {
-        // maxOrder is a measured usability cap; 8192 is deliberately not advertised.
-        // minOrder is 2 because a one-node graph has no edges.
-        minOrder : 2,
-        maxOrder : 4096,
-        // Largest size whose step still fits one 50 ms tick; above it the wizard hints
-        // but never disables generate.
-        interactiveOrder : 1024,
-        // maxBranching is the practical cap; the hard limit is order - 1, enforced in parseRandomSpec().
-        minBranching : 1,
-        maxBranching : 8,
-    },
-
-    molecule: {
-        // Must equal equilibriumDisplacement so seed neighbours start at the springs' rest length.
-        seedSpacing : EQUILIBRIUM_DISPLACEMENT,
-        // Enough that the seed spiral is not planar, small enough not to control the layout.
-        seedDepthJitter : 4.5,
-    },
-
-    wordCloud: {
-        // Chip font-size range in em; the catalog's heavy-atom counts are normalised onto it.
-        minTagScale : 0.85,
-        maxTagScale : 1.35,
     },
 };

@@ -16,13 +16,8 @@ readings → camera → display → actions:
   elements is the subject of the frame;
 - the **actions** — `export` and `reset`, at the foot of the panel.
 
-The panel's current-graph line names the loaded graph technically: the full
-systematic name for a molecule, the node and edge counts for a random graph. It
-is small and wraps, because a systematic name is long.
-
-The graph **chooser** is not part of the panel: it is a modal dialog built in
-`src/ui/GraphWizard.ts` and appended to the body, layered above both the floating
-panel and the context menu. The two overlays can never be open at once.
+The panel's current-graph line names the loaded model, or says
+`no model loaded`.
 
 The panel is opaque and high-contrast so it stays readable over the graph, and
 it can be dragged out of the way: with a mouse anywhere on the panel, or with a
@@ -97,28 +92,8 @@ panel's drag surface.
 - **Drag the overlay panel** — by mouse or pen, anywhere on the panel; by touch,
   by the grip at its top. The grip is the only touch drag surface, so the panel
   body stays scrollable.
-- **Graph chooser** — opens on every `reset`, and it is the only way a new graph
-  is created. Startup does not open it: the demo begins on the shipped random
-  graph (`K.initialConditions`). Step one picks a **random** graph or a
-  **molecule**:
-  - *random* — the node count, the maximum new edges per node and an optional
-    seed (blank draws a new graph; the seed shown on the panel rebuilds the
-    current one), validated as you type; `generate` is disabled while any field
-    is out of range, and an
-    order above `K.chooser.interactiveOrder` (1024) shows a non-blocking hint
-    that the layout may advance below 20 Hz;
-  - *molecules* — a searchable word cloud of twenty-three molecules: twenty indole
-    alkaloids, chlorophylls a and b, and heme b. The chip
-    is the common name; its tooltip and accessible name carry the full
-    systematic name, the family, the formula and the flagship note. Typing
-    filters by common name, systematic name, parent ring system, family, formula
-    or a synonym, and Enter takes the first visible chip.
-  - Escape (or `cancel`) dismisses the chooser and leaves the running graph, the
-    timer, the listeners and the camera exactly as they were, because a graph
-    always exists behind it. Tab is trapped inside the dialog.
-
-A completed chooser **swaps the graph in place**: the timer, the listeners, the
-context menu and the camera are all left alone, so the viewing angle and zoom
-survive a reset or a molecule load. `initialize()` keeps its lifecycle meaning
-(attach the listeners, build the menu, start the timer) and is not used to
-change content.
+- **Reset** — rebuilds the graph from its source and re-seeds the layout. The
+  graph is **swapped in place**: the timer, the listeners, the context menu and
+  the camera are all left alone, so the viewing angle and zoom survive a reset.
+  `initialize()` keeps its lifecycle meaning (attach the listeners, build the
+  menu, start the timer) and is not used to change content.

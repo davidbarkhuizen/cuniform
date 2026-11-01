@@ -1,4 +1,4 @@
-/** Roving-focus arithmetic shared by the context menu and the graph wizard. */
+/** Roving-focus arithmetic for the context menu. */
 
 /**
  * `index` moved by `delta` within a ring of `length`. An out-of-range index means

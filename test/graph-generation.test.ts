@@ -2,12 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { Graph } from "../src/graph/Graph";
-import { GraphFactory } from "../src/graph/GraphFactory";
-import { specLabel } from "../src/graph/GraphSpec";
+import { GraphFactory } from "./support/GraphFactory";
 import { K } from "../src/core/K";
-import { CATALOG } from "../src/graph/Molecules";
 import { Tag } from "../src/graph/Tag";
-import { catalogEntry } from "./support/catalog";
 import { newGraph } from "./support/physics";
 
 function assertNoSelfLoopsOrDuplicates(graph: Graph, context: string): void {
@@ -82,12 +79,6 @@ test("branching bounds a node's new edges, not its final degree", () => {
     }
 
     assert.ok(sawDegreeAboveBranching, "a node's degree can exceed `branching`");
-
-    // The user-facing spec wording says "new edges" for exactly this reason.
-    assert.match(
-        specLabel({ kind: "random", order: 3, branching: 1 }),
-        /up to 1 new edges per node/
-    );
 });
 
 test("generated graphs have no self-loops and no duplicate edges", () => {
@@ -174,11 +165,6 @@ test("labels restart for each graph instead of growing across graphs", () => {
     assert.deepEqual(second.vertices.map(v => v.label), ["Node 0", "Node 1", "Node 2"]);
 });
 
-test("the shipped initial conditions match the reference demo", () => {
-    assert.equal(K.initialConditions.order, 11);
-    assert.equal(K.initialConditions.branching, 2);
-});
-
 test("hasEdge is an O(1) membership test with the same rules", () => {
     const graph = new Graph();
     const a = new Tag({ x: 0, y: 0, z: 0 }, "a");
@@ -221,6 +207,11 @@ test("generation is deterministic for a fixed random stream", () => {
     const first = withSeededRandom(() => newGraph(30, 3));
     const second = withSeededRandom(() => newGraph(30, 3));
 
+    const shape = (graph: Graph) => ({
+        labels: graph.vertices.map(vertex => vertex.label),
+        edges: graph.edges.map(edge => [graph.vertices.indexOf(edge.v1), graph.vertices.indexOf(edge.v2)]),
+    });
+
     assert.deepEqual(shape(first), shape(second));
 });
 
@@ -255,103 +246,6 @@ function withSeededRandom<T>(fn: () => T, seed: number = 42): T {
     }
 }
 
-function shape(graph: Graph) {
-    return {
-        labels: graph.vertices.map(vertex => vertex.label),
-        edges: graph.edges.map(edge => [
-            graph.vertices.indexOf(edge.v1),
-            graph.vertices.indexOf(edge.v2),
-        ]),
-    };
-}
-
-test("build of a random spec is exactly generateGraph(order, branching)", () => {
-    const viaBuild = withSeededRandom(() => new GraphFactory().build({ kind: "random", order: 8, branching: 3 }));
-    const viaGenerate = withSeededRandom(() => new GraphFactory().generateGraph(8, 3));
-
-    assert.deepEqual(shape(viaBuild), shape(viaGenerate));
-});
-
-test("build of a molecule spec has one vertex per atom and one edge per bond", () => {
-    const entry = catalogEntry("ibogaine");
-
-    const graph = new GraphFactory().build({ kind: "molecule", id: "ibogaine" });
-
-    assert.equal(graph.vertices.length, entry.topology.atoms.length);
-    assert.equal(graph.edges.length, entry.topology.bonds.length);
-    assert.equal(graph.vertices.length, entry.heavyAtoms);
-});
-
-test("molecule vertices are labelled with element symbols, in SMILES order", () => {
-    const entry = catalogEntry("strychnine");
-
-    const graph = new GraphFactory().generateMolecule("strychnine");
-
-    assert.deepEqual(graph.vertices.map(vertex => vertex.label), entry.topology.atoms);
-    assert.ok(
-        graph.vertices.every(vertex => /^[A-Za-z]{1,2}$/.test(vertex.label)),
-        "a label must be an element symbol, not an atom index"
-    );
-    assert.ok(
-        !graph.vertices.some(vertex => /^Node /.test(vertex.label)),
-        "molecules must not reuse the random graph's Node i labels"
-    );
-});
-
-test("every molecule graph is connected and has no self-loops", () => {
-    for (const entry of CATALOG) {
-        const graph = new GraphFactory().generateMolecule(entry.id);
-
-        for (const edge of graph.edges)
-            assert.notEqual(edge.v1, edge.v2, `${entry.id}: a bond must join two distinct atoms`);
-
-        const seen = new Set<Tag>([graph.vertices[0]]);
-        const queue = [graph.vertices[0]];
-
-        while (queue.length > 0) {
-            const vertex = queue.shift()!;
-            for (const neighbour of graph.neighbours(vertex)) {
-                if (seen.has(neighbour))
-                    continue;
-                seen.add(neighbour);
-                queue.push(neighbour);
-            }
-        }
-
-        assert.equal(seen.size, graph.vertices.length, `${entry.id}: every atom should be reachable`);
-    }
-});
-
-test("molecule seeds are unique, deterministic and bounded by the jitter", () => {
-    const factory = new GraphFactory();
-    const first = factory.generateMolecule("vincristine");
-    const second = factory.generateMolecule("vincristine");
-
-    const positions = first.vertices.map(vertex => vertex.position);
-    const keys = new Set(positions.map(position => `${position.x},${position.y},${position.z}`));
-
-    assert.equal(keys.size, positions.length, "no two atoms may share a seed position");
-    assert.deepEqual(
-        positions,
-        second.vertices.map(vertex => vertex.position),
-        "the same molecule must seed identically"
-    );
-
-    for (const position of positions)
-        assert.ok(Math.abs(position.z) <= K.molecule.seedDepthJitter, "z exceeds the jitter");
-
-    // The spiral starts at the origin: the layout is not flung out to a corner.
-    assert.equal(positions[0].x, 0);
-    assert.equal(positions[0].y, 0);
-});
-
-test("an unknown molecule id throws", () => {
-    const factory = new GraphFactory();
-
-    assert.throws(() => factory.generateMolecule("unobtainium"), /unknown molecule id/);
-    assert.throws(() => factory.build({ kind: "molecule", id: "unobtainium" }), /unknown molecule id/);
-});
-
 // F12: generation used Math.random() with no seed, so a bad random layout could not be rebuilt.
 test("one seed rebuilds the same random graph, positions and edges", () => {
     const shape = (graph: Graph) => ({
@@ -362,10 +256,8 @@ test("one seed rebuilds the same random graph, positions and edges", () => {
     const a = new GraphFactory().generateGraph(64, 3, 12345);
     const b = new GraphFactory().generateGraph(64, 3, 12345);
     const c = new GraphFactory().generateGraph(64, 3, 12346);
-    const built = new GraphFactory().build({ kind: "random", order: 64, branching: 3, seed: 12345 });
 
     assert.deepEqual(shape(a), shape(b));
-    assert.deepEqual(shape(built), shape(a), "build() honours the spec's seed");
     assert.notDeepEqual(shape(c), shape(a), "a different seed gives a different graph");
 });
 
