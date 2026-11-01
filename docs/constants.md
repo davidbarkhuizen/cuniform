@@ -42,6 +42,10 @@ All tuning lives in [`src/core/K.ts`](../src/core/K.ts):
 | `network.bandGap` | `56` | the gap between bands; with the thickness it sets a model's height |
 | `network.minFootprint` / `unitSpacing` | `120` / `30` | a band's footprint side: at least the minimum, grown to fit its members at the spring rest length |
 | `network.laneGap` / `stackGap` | `40` / `400` | the gaps between branch or factor lanes (z) and between stacks (x) |
+| `network.residualBow` / `residualOffset` | `0.35` / `30` | a residual skip's control point: +x by this share of the height it spans, plus the offset |
+| `network.recurrentBow` / `recurrentOffset` | `0.25` / `60` | a recurrent loop's control point, along -x |
+| `colours.family` | 7 colours | a network node's colour by family; each ≥ 3:1 on the canvas and against the edges |
+| `colours.weightPositive` / `weightNegative` / `recurrentEdge` / `glyphInk` | | unit weight hues by sign, the recurrent loop's colour, and the ink for marks inside a glyph (the canvas colour) |
 
 Keep `timeStep / (1 - friction)` near `1`: that ratio is the terminal per-step
 displacement under a constant force, and it is a real stability constraint, not a
