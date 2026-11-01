@@ -50,6 +50,43 @@ model source feeds it the same way. It ignores `optimizer_state` and `rng`.
 the directories given after `--`) and reports what parsed, by implementation
 and shape, and every failure.
 
+## The render graph
+
+[`src/network/BuildGraph.ts`](../src/network/BuildGraph.ts) builds the render
+graph from a `NetworkModel` at the component level (L0): one node per component
+(an embedding, a layer norm, each attention head, an attention output
+projection, a dense layer, each recurrent part, and a `+` or `Σ` where a block
+or merged branches join), with the data flow between them as edges. It is pure
+and deterministic: nodes go in expanded-entry order, then component order.
+
+The graph's `attributes` ([`src/graph/Attributes.ts`](../src/graph/Attributes.ts))
+are struct-of-arrays indexed like `vertices` and `edges`:
+
+- per node: `kind` (the glyph), `band`, `group` (the component's index in the
+  builder's list) and `marks` (causal, rotary, dropout, segments, hatched,
+  hollow, and the activation);
+- per edge: `edgeKind` (flow, residual skip, recurrent loop, cross term, unit
+  weight; a `dotted` flag on the data leaving a dropout) and a signed `weight`
+  normalised to [-1, 1];
+- the band table: 7 values per band (y centre, half thickness, the x and z
+  footprint bounds, the family).
+
+**Bands** are keyed by stack, layer and lane. Layers run up model y from the
+input; every computing entry has its own layer, except that a block's `+` sits
+in the band of the body's last layer. Branches share layer bands, each in its
+own z-lane, and the layers after them start above the tallest branch. A
+window-recurrent network's parts sit above the window, one lane per factor:
+the pooling and initial state, then the cell, then the codes. Each factor's
+state (its codes, or its cell when continuous) has a recurrent loop edge to
+every state input, and with the cross term the cells are joined. Band sizes are
+`K.network`'s: fixed thickness and gap, and a footprint that grows with its
+members. Nodes are seeded on a grid inside their band.
+
+Both workers' init messages carry copies of the attributes, by transfer, and
+rebuild them on their mirrors (D10). Frame and step requests are unchanged, so
+nothing new crosses per frame; a rebuild sends a new init through the existing
+generation path.
+
 Until a model is loaded the canvas is empty and the panel says
 `no model loaded`; `reset` rebuilds the graph from its source, which re-seeds
 the layout.

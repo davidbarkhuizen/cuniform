@@ -1,9 +1,18 @@
+import { attributeBuffers, attributeMismatch, copyAttributes, GraphAttributes } from "./Attributes";
 import { Graph } from "./Graph";
 import { point3 } from "../core/Point3D";
 import { Tag } from "./Tag";
 
-/** Rebuild the `Tag` graph from a worker's flat data, in `packMirror`'s index space. */
-export function buildMirrorGraph(labels: string[], edges: Int32Array, positions: Float64Array): Graph {
+/**
+ * Rebuild the `Tag` graph from a worker's flat data, in `packMirror`'s index space. Attributes that do not
+ * fit the rebuilt graph are dropped, as a malformed edge is: the mirror then steps and draws as a plain graph.
+ */
+export function buildMirrorGraph(
+    labels: string[],
+    edges: Int32Array,
+    positions: Float64Array,
+    attributes: GraphAttributes | null = null
+): Graph {
 
     const graph = new Graph();
     const count = Math.floor(positions.length / 3);
@@ -26,6 +35,9 @@ export function buildMirrorGraph(labels: string[], edges: Int32Array, positions:
         if (a >= 0 && b >= 0)
             graph.addEdge(graph.vertices[a], graph.vertices[b]);
     }
+
+    if (attributes !== null && attributeMismatch(attributes, graph.vertices.length, graph.edges.length) === null)
+        graph.attributes = attributes;
 
     return graph;
 }
@@ -59,6 +71,15 @@ export function writePositions(graph: Graph, positions: Float64Array): void {
 export interface MirrorWire {
     positions: Float64Array;
     edges: Int32Array;
+    /** A copy of the graph's attributes (D10), so its buffers can be transferred; null for a plain graph. */
+    attributes: GraphAttributes | null;
+}
+
+/** The buffers an init message built from `wire` can transfer: all fresh copies. */
+export function mirrorBuffers(wire: MirrorWire): ArrayBuffer[] {
+    const buffers = [wire.positions.buffer as ArrayBuffer, wire.edges.buffer as ArrayBuffer];
+
+    return wire.attributes === null ? buffers : [...buffers, ...attributeBuffers(wire.attributes)];
 }
 
 /** Encode `graph` for the wire, in `buildMirrorGraph`'s index space. */
@@ -80,5 +101,5 @@ export function packMirror(graph: Graph): MirrorWire {
         edges[2 * e + 1] = index.get(graph.edges[e].v2) ?? -1;
     }
 
-    return { positions, edges };
+    return { positions, edges, attributes: graph.attributes === null ? null : copyAttributes(graph.attributes) };
 }

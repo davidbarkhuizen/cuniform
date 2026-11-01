@@ -1,3 +1,4 @@
+import { GraphAttributes } from "./Attributes";
 import { Edge, otherEndpoint } from "./Edge";
 import { Tag } from "./Tag";
 
@@ -8,6 +9,12 @@ export class Graph {
 
     /** Incident edges per vertex, kept in sync with `edges`. */
     adjacency: Map<Tag, Array<Edge>> = new Map();
+
+    /**
+     * Per-node and per-edge attributes and the band table (workplan D4), set once by the network builder
+     * after the last node and edge; null for a plain graph, which steps and draws without bands or kinds.
+     */
+    attributes: GraphAttributes | null = null;
 
     /** Undirected membership index, kept in sync with `edges`. */
     private readonly neighbourSets: Map<Tag, Set<Tag>> = new Map();

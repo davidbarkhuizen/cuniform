@@ -85,3 +85,51 @@ export function sequenceModel(): Record<string, unknown> {
         { shape: "sequence", input: { dimension: 5 } }
     );
 }
+
+/** A window-recurrent model with two coded factors over branches; `merge` recombines them. */
+export function branchedWindow(merge: boolean, reads: number[] | null = null): Record<string, unknown> {
+    const d = 4;
+    const branch = () => [{ kind: "state_input" }, { kind: "layer_norm", epsilon: 1e-5 }];
+    const branchCount = merge ? 2 : 3;
+
+    const layers: unknown[] = [
+        { kind: "embedding", vocabulary: 6, size: d },
+        {
+            kind: merge ? "merged_branches" : "branches",
+            branches: Array.from({ length: branchCount }, branch),
+            ...(reads ? { reads } : {}),
+        },
+        dense(5, { activation: "softmax", output: true, loss: "cross_entropy" }),
+    ];
+
+    const stateWidth = 2 + 3;
+    const branchWeights = () => [[array([d, stateWidth])], [array([d]), array([d])]];
+    const weights: unknown[] = [[array([6, d])], []];
+
+    for (let b = 0; b < branchCount; b++) {
+        weights.push(...branchWeights());
+
+        if (b + 1 < branchCount)
+            weights.push([]);
+    }
+
+    if (merge)
+        weights.push([]);
+
+    weights.push([array([5, d]), array([5])]);
+
+    // Factor 0: state 2, 3 codes; factor 1: state 3, continuous.
+    weights.push([array([d])], [array([6, d]), array([6, 2]), array([6])], [array([3, 2])], [array([2])]);
+    weights.push([array([d])], [array([9, d]), array([9, 3]), array([9])], [array([3])]);
+
+    return file(layers, weights, {
+        shape: "window_recurrent",
+        input: { dimension: 2 },
+        recurrence: {
+            factors: [{ state_size: 2, codes: { count: 3, commitment: 0.25 } }, { state_size: 3, codes: null }],
+            cross: false,
+            cell: { kind: "gru", update_bias: 1.0 },
+            pooling: { kind: "attention" },
+        },
+    });
+}

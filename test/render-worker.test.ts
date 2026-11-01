@@ -311,10 +311,10 @@ test("init reproduces the physics mirror for self-loops and duplicate edges", ()
     const context = new FakeContext2D();
     const renderEngine = new RenderWorkerEngine();
     renderEngine.attach(context, context.canvas);
-    renderEngine.handle({ type: "init", generation: 0, labels, edges, positions });
+    renderEngine.handle({ type: "init", generation: 0, labels, edges, positions, attributes: null });
 
     const physicsEngine = new PhysicsWorkerEngine();
-    physicsEngine.handle({ type: "init", generation: 0, positions, edges });
+    physicsEngine.handle({ type: "init", generation: 0, positions, edges, attributes: null });
 
     assert.ok(renderEngine.graph);
     assert.ok(physicsEngine.graph);
