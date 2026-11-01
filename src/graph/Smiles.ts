@@ -133,7 +133,10 @@ export function parseSmiles(smiles: string): MoleculeTopology {
         rings.delete(key);
         ringClosures++;
 
-        // Order may be written on either side of a closure; a closing-side symbol wins.
+        // Order may be written on either side of a closure, but two explicit orders must agree.
+        if (pending !== 0 && opened.order !== 0 && pending !== opened.order)
+            throw new SmilesError("ring-closure bond orders disagree", position);
+
         const order: 1 | 2 | 3 | 4 = pending !== 0
             ? pending
             : opened.order !== 0
@@ -153,6 +156,10 @@ export function parseSmiles(smiles: string): MoleculeTopology {
         if (ch === "(") {
             if (current === null)
                 throw new SmilesError("a branch was opened before any atom", i);
+
+            // `C=(O)`: the bond belongs inside the branch, before its first atom.
+            if (pending !== 0)
+                throw new SmilesError("a bond symbol cannot precede a branch", i);
 
             branches.push({ atom: current, position: i });
             i++;
@@ -174,6 +181,9 @@ export function parseSmiles(smiles: string): MoleculeTopology {
         }
 
         if (ch === "-" || ch === "=" || ch === "#" || ch === ":") {
+            if (current === null)
+                throw new SmilesError("a bond symbol has no preceding atom", i);
+
             if (pending !== 0)
                 throw new SmilesError("two bond symbols in a row", i);
 
@@ -183,6 +193,9 @@ export function parseSmiles(smiles: string): MoleculeTopology {
         }
 
         if (ch === "/" || ch === "\\") {
+            if (current === null)
+                throw new SmilesError("a bond symbol has no preceding atom", i);
+
             if (pending !== 0)
                 throw new SmilesError("two bond symbols in a row", i);
 

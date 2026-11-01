@@ -201,6 +201,23 @@ test("a dangling bond symbol throws", () => {
     assert.throws(() => parseSmiles("CC="), SmilesError);
 });
 
+test("a bond symbol with no preceding atom throws at the symbol", () => {
+    assertSmilesErrorAt("=CC", 0);
+    assertSmilesErrorAt("C.=C", 2);
+    assertSmilesErrorAt("/C=C", 0);
+});
+
+test("a bond symbol before a branch throws at the branch", () => {
+    assertSmilesErrorAt("C=(O)C", 2);
+    assert.equal(parseSmiles("C(=O)C").bonds[0].order, 2, "the bond inside the branch is still accepted");
+});
+
+test("explicit ring-closure bond orders that disagree throw at the closing label", () => {
+    assertSmilesErrorAt("C=1CCCC-1", 8);
+    assert.equal(parseSmiles("C=1CCCC=1").bonds[4].order, 2, "agreeing orders are accepted");
+    assert.equal(parseSmiles("C/1CCCC-1").bonds[4].order, 1, "a directional mark is a single bond");
+});
+
 test("an unclosed bracket throws", () => {
     assert.throws(() => parseSmiles("C[O"), SmilesError);
 });
