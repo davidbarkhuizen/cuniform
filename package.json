@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "test": "rm -rf .test-build && tsc -p tsconfig.test.json && node --test .test-build/test/*.test.js",
     "bench": "rm -rf .test-build && tsc -p tsconfig.test.json && node --expose-gc .test-build/bench/physics.bench.js",
+    "census": "rm -rf .test-build && tsc -p tsconfig.test.json && node --max-old-space-size=4096 .test-build/bench/census.js",
     "ci": "npm run typecheck && npm test",
     "dev": "npx webpack --watch --config webpack.config.js"
   },

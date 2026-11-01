@@ -7,7 +7,7 @@ set -euo pipefail
 # The node/npm equivalent of the reference project's `cli` script. Run it from
 # the repository root:
 #
-#   ./cli [ bench | build | ci | clean | help | install | run | test | typecheck ]
+#   ./cli [ bench | build | census | ci | clean | help | install | run | test | typecheck ]
 #
 # With no recognised option it prints usage. Unlike the reference, which falls
 # through to running the program, `run` must be asked for explicitly.
@@ -55,6 +55,11 @@ bench () {
     npm run bench
 }
 
+census () {
+
+    npm run census -- "$@"
+}
+
 build () {
 
     # One build sequence, in build-and-run.sh; this only asks for the build half.
@@ -68,11 +73,11 @@ run () {
 
 usage () {
     echo "-----------------------------------------------"
-    echo "cuniform - force directed graphs"
+    echo "cuniform - a 3D viewer for saved neural networks"
     echo "-----------------------------------------------"
     echo "usage:"
     echo
-    echo "./cli [ bench | build | ci | clean | help | install | run | test | typecheck ]"
+    echo "./cli [ bench | build | census | ci | clean | help | install | run | test | typecheck ]"
     echo
     echo
     echo "./cli run"
@@ -86,6 +91,10 @@ case "$option" in
 
     build)
         build
+    ;;
+
+    census)
+        census "$@"
     ;;
 
     ci)

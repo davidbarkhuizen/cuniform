@@ -14,13 +14,14 @@ subcommand. With no recognised option it prints usage.
     ./cli test           # compile test/ and run it under node:test
     ./cli ci             # typecheck + test
     ./cli bench          # compile and run the performance benchmark
+    ./cli census [dir..] # parse every format-2 file in the sibling repos (or the dirs)
     ./cli build          # typecheck, then bundle with webpack
     ./cli clean          # remove build artefacts
 
 Except for `clean` (which removes the build directories directly) and `run`
 (which goes through `build-and-run.sh`), each delegates to the matching npm
 script (`npm run typecheck`, `npm test`, `npm run ci`, `npm run bench`, `npm run
-start`, `npm install`). `npm run dev` rebuilds the bundle while you edit (webpack's own watcher; it
+census`, `npm run start`, `npm install`). `npm run dev` rebuilds the bundle while you edit (webpack's own watcher; it
 transpiles without type-checking, so run `npm run typecheck -- --watch` in a
 second terminal for type errors), and `BROWSER=...
 ./cli run` (or `bash build-and-run.sh --build-only`) controls how the demo is
@@ -57,6 +58,8 @@ rather than eroding the layering.
 - `graph/` — the graph data model: `Tag`, `Edge`, `Graph`, the component
   labelling (`Components`) and the worker mirror (`MirrorGraph`). The seeded
   random-graph generator is a test fixture in `test/support/GraphFactory.ts`.
+- `network/` — the saved network: the format-2 reader (`Format2`) and the
+  parsed tree it builds (`NetworkModel`). Pure; imports `core` and `graph`.
 - `view/` — the model-to-canvas transform: `Mat3`, `Viewport`, the perspective
   `Projector`, the `Projection` pass and the orbit `Camera`. Pure math, so the
   solver can project without naming a canvas type.
