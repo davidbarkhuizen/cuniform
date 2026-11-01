@@ -439,3 +439,14 @@ test("the wizard's step containers are hidden by class and toggled inline", () =
         "only the active step is shown; the rest are display:none until toggled"
     );
 });
+
+// Without a doctype the page renders in quirks mode, where percentage heights and box sizing differ.
+test("the demo page declares a doctype, a language and a viewport", () => {
+    const html = readWeb("index.html");
+
+    assert.match(html, /^<!doctype html>/i, "index.html must start with a doctype");
+    assert.match(html, /<html lang="[a-z]+">/);
+    assert.match(html, /<meta name="viewport"/);
+    assert.equal((html.match(/charset/gi) ?? []).length, 1, "one charset declaration");
+});
+

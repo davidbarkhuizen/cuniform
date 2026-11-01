@@ -9,11 +9,11 @@
     "test": "tsc -p tsconfig.test.json && node --test .test-build/test/*.test.js",
     "bench": "tsc -p tsconfig.test.json && node --expose-gc .test-build/bench/physics.bench.js",
     "ci": "npm run typecheck && npm test",
-    "dev": "nodemon --watch src --ext ts --exec \"npm run start\""
+    "dev": "npx webpack --watch --config webpack.config.js"
   },
   "repository": {
     "type": "git",
-    "url": "git@github:davidbarkhuizen/cuniform.git"
+    "url": "git+https://github.com/davidbarkhuizen/cuniform.git"
   },
   "keywords": [],
   "author": "david barkhuizen",
@@ -21,13 +21,11 @@
   "devDependencies": {
     "@types/node": "^26.6.3",
     "esbuild-loader": "^4.5.0",
-    "nodemon": "^3.1.14",
     "typescript": "^7.0.2",
     "webpack": "^5.111.1",
     "webpack-cli": "^7.2.3"
   },
   "allowScripts": {
-    "nodemon@3.1.14": true,
     "esbuild@0.28.2": true
   }
 }
