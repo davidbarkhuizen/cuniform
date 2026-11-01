@@ -65,6 +65,9 @@ export const K = {
         // How long the main thread waits for a worker's `ready` before drawing in
         // process; the canvas is transferred only after `ready`.
         workerReadyTimeoutMS: 250,
+        // How long a frame or an export may go unanswered before the render worker is
+        // declared dead; ~185x the worst measured frame, so only a real hang trips it.
+        workerFrameTimeoutMS: 5000,
         // At or above this count only the selection and its neighbours are labelled:
         // per-node label cost dominates at scale.
         labelMaxNodes: 150,

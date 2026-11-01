@@ -33,8 +33,11 @@ scope.onmessage = event => {
         if (transferred) {
             const context = transferred.getContext("2d");
 
-            if (context === null)
+            // Silence here would leave the main thread waiting on its first frame forever.
+            if (context === null) {
+                scope.postMessage({ type: "error", reason: "the transferred canvas gave no 2d context" }, []);
                 return;
+            }
 
             canvas = transferred;
             engine.attach(context, transferred);
@@ -46,22 +49,32 @@ scope.onmessage = event => {
         return;
     }
 
-    const response = engine.handle(request);
+    try {
+        const response = engine.handle(request);
 
-    if (response !== null) {
-        scope.postMessage(response, [response.positions.buffer, response.depths.buffer]);
+        if (response !== null)
+            scope.postMessage(response, [response.positions.buffer, response.depths.buffer]);
+    }
+    catch (error) {
+        scope.postMessage({ type: "error", reason: `the render worker threw: ${String(error)}` }, []);
     }
 };
 
-/** `convertToBlob` is not part of the drawing subset, so the entry owns export. */
+/** `convertToBlob` is not part of the drawing subset, so the entry owns export; every path replies. */
 async function exportPng(requestId: number): Promise<void> {
 
-    if (canvas === null)
+    if (canvas === null) {
+        scope.postMessage({ type: "png", requestId, error: "the render worker has no canvas" }, []);
         return;
+    }
 
-    const blob = await canvas.convertToBlob({ type: "image/png" });
-
-    scope.postMessage({ type: "png", requestId, blob }, []);
+    try {
+        const blob = await canvas.convertToBlob({ type: "image/png" });
+        scope.postMessage({ type: "png", requestId, blob }, []);
+    }
+    catch (error) {
+        scope.postMessage({ type: "png", requestId, error: String(error) }, []);
+    }
 }
 
 // The main thread probes this before transferring control of the canvas.

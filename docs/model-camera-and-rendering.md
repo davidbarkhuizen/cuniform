@@ -216,7 +216,22 @@ space both directions agree on.
 
 If `Worker` is missing, construction throws, or a worker script fails to load,
 the drawing falls back to the canvas's 2D context, and the physics to the
-in-process solver. A graph swap re-initialises both workers and bumps a
+in-process solver.
+
+A render worker that fails **after** the canvas transfer cannot hand the canvas
+back: the transfer is one-way, and the element then throws `InvalidStateError`
+from both `transferControlToOffscreen()` and `getContext()`. A failure is an
+`error` reply (the worker found no 2D context, or threw while drawing), a worker
+`error` event, or a frame left unanswered for `K.renderer.workerFrameTimeoutMS`
+(5000 ms, about 185x the worst measured frame). The runner then terminates the
+worker, asks the element's owner for a replacement (`UIController.replaceCanvas()`
+clones the canvas, keeping its id, attributes and inline size, and moves the
+canvas listeners to it), sizes the new backing store from the size the worker
+held, and draws in process; the failure is logged once. A second `initialize()`
+over a transferred canvas swaps it the same way before starting. **The canvas
+element's identity can therefore change**: a host holding a reference to it must
+re-read it by id. An export always settles: the worker replies with the PNG or an
+error, and an export left unanswered for the same timeout rejects. A graph swap re-initialises both workers and bumps a
 generation counter, so a response computed for the replaced graph is dropped. `Graph` is
 append-only, so a graph that grows in place (a new vertex, or a new edge at the
 same order) is treated the same way: each worker backend records the vertex and

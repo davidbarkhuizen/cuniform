@@ -43,27 +43,32 @@ export interface RenderBackend {
     terminate(): void;
 }
 
+/** The backing-store size a replacement backend must adopt. */
+interface SurfaceSize {
+    width: number;
+    height: number;
+    dpr: number;
+}
+
+/**
+ * Hands back a fresh, untransferred canvas in place of one the worker owned. Supplied by the element's
+ * owner (it holds the listeners); without it a dead worker leaves nothing to draw on.
+ */
+export type CanvasReplacer = () => HTMLCanvasElement | null;
+
 export interface RenderRunnerOptions {
     /** The default is `worker` unless the URL says `?render=main`. */
     mode?: RenderMode;
     graph?: Graph;
     workerFactory?: RenderWorkerFactory;
     readyTimeoutMS?: number;
+    frameTimeoutMS?: number;
+    replaceCanvas?: CanvasReplacer;
 }
 
-// Browsers refuse top-frame navigation to a `data:` URL, hence the `blob:` object URL.
-function pngBlob(canvas: HTMLCanvasElement): Blob {
-	const [header, base64] = canvas.toDataURL('image/png').split(',');
-	const mime = /:(.*?);/.exec(header)?.[1] ?? 'image/png';
-
-	const binary = atob(base64);
-	const bytes = new Uint8Array(binary.length);
-
-	for (let i = 0; i < binary.length; i++)
-		bytes[i] = binary.charCodeAt(i);
-
-	return new Blob([bytes], { type: mime });
-}
+// Canvases whose control went to a worker. The transfer is one-way, so such an element can never draw
+// again; a new runner over one asks for a replacement first.
+const transferredCanvases = new WeakSet<object>();
 
 function canUseWorker(canvas: HTMLCanvasElement): boolean {
     return typeof Worker !== "undefined"
@@ -96,9 +101,24 @@ function defaultWorkerFactory(canvas: HTMLCanvasElement): RenderWorkerPort | nul
 
 function inProcessBackend(canvas: HTMLCanvasElement): RenderBackend | null {
 
-    const context = canvas.getContext('2d');
+    let context: CanvasRenderingContext2D | null = null;
+
+    // A transferred canvas throws InvalidStateError rather than returning null.
+    try {
+        context = canvas.getContext('2d');
+    } catch {
+        context = null;
+    }
 
     return context === null ? null : new InProcessBackend(canvas, context);
+}
+
+function canvasBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(blob => blob === null
+            ? reject(new Error("the canvas could not be encoded as a PNG"))
+            : resolve(blob), 'image/png');
+    });
 }
 
 class InProcessBackend implements RenderBackend {
@@ -133,8 +153,8 @@ class InProcessBackend implements RenderBackend {
         // Stateless per draw: the graph arrives with every frame.
     }
 
-    async exportPng(): Promise<Blob> {
-        return pngBlob(this.canvas);
+    exportPng(): Promise<Blob> {
+        return canvasBlob(this.canvas);
     }
 
     terminate(): void {}
@@ -157,6 +177,8 @@ class WorkerBackend implements RenderBackend {
     private disposed = false;
     private offscreen: Transferable | null = null;
     private timer: ReturnType<typeof setTimeout> | null = null;
+    // Armed while a frame is in flight: an ack that never comes is a dead worker.
+    private frameTimer: ReturnType<typeof setTimeout> | null = null;
 
     private graph: Graph | null;
     // The graph's shape at the last init; growth in place re-inits the mirror.
@@ -179,23 +201,29 @@ class WorkerBackend implements RenderBackend {
 
     private frameId = 0;
     private exportId = 0;
-    private readonly exports = new Map<number, { resolve: (blob: Blob) => void; reject: (error: Error) => void }>();
+    private readonly exports = new Map<number, {
+        resolve: (blob: Blob) => void;
+        reject: (error: Error) => void;
+        timer: ReturnType<typeof setTimeout>;
+    }>();
 
     constructor(
         private readonly canvas: HTMLCanvasElement,
         private readonly worker: RenderWorkerPort,
         graph: Graph | null,
         timeoutMS: number,
-        private readonly onFallback: () => void
+        private readonly frameTimeoutMS: number,
+        private readonly onFallback: (size: SurfaceSize) => void,
+        private readonly onCrash: (reason: string, size: SurfaceSize) => void
     ) {
         this.graph = graph;
 
         worker.onmessage = event => this.receive(event.data);
 
-        // A worker script that fails to load never answers: hand back rather than freeze.
-        worker.onerror = () => this.fail();
+        // Before the probe a load failure falls back; after it, any error is a crash.
+        worker.onerror = () => this.fail("the render worker raised an error");
 
-        this.timer = setTimeout(() => this.fail(), timeoutMS);
+        this.timer = setTimeout(() => this.fail("the render worker never answered ready"), timeoutMS);
     }
 
     get usesWorker(): boolean {
@@ -259,6 +287,7 @@ class WorkerBackend implements RenderBackend {
         this.generation++;
         this.initialised = false;
         this.inFlight = false;
+        this.clearFrameTimer();
         this.free = [];
         this.pendingIndexGraph = null;
 
@@ -277,7 +306,13 @@ class WorkerBackend implements RenderBackend {
         const requestId = ++this.exportId;
 
         return new Promise<Blob>((resolve, reject) => {
-            this.exports.set(requestId, { resolve, reject });
+
+            const timer = setTimeout(() => {
+                if (this.exports.delete(requestId))
+                    reject(new Error("the render worker did not answer the export"));
+            }, this.frameTimeoutMS);
+
+            this.exports.set(requestId, { resolve, reject, timer });
             this.worker.postMessage({ type: "export", requestId }, []);
         });
     }
@@ -291,10 +326,13 @@ class WorkerBackend implements RenderBackend {
 
         this.disposed = true;
         this.clearTimer();
+        this.clearFrameTimer();
         this.worker.terminate();
 
-        for (const pending of this.exports.values())
+        for (const pending of this.exports.values()) {
+            clearTimeout(pending.timer);
             pending.reject(new Error(reason));
+        }
 
         this.exports.clear();
     }
@@ -381,6 +419,8 @@ class WorkerBackend implements RenderBackend {
         // Consumed, so the next post waits for another draw or the ack's pump.
         this.pendingCamera = null;
 
+        this.frameTimer = setTimeout(() => this.fail("the render worker did not answer a frame"), this.frameTimeoutMS);
+
         this.worker.postMessage(frame, [positions.buffer as Transferable]);
     }
 
@@ -394,13 +434,23 @@ class WorkerBackend implements RenderBackend {
             return;
         }
 
+        if (message.type === "error") {
+            this.fail(message.reason);
+            return;
+        }
+
         if (message.type === "png") {
 
             const pending = this.exports.get(message.requestId);
 
             if (pending) {
                 this.exports.delete(message.requestId);
-                pending.resolve(message.blob);
+                clearTimeout(pending.timer);
+
+                if (message.blob !== undefined)
+                    pending.resolve(message.blob);
+                else
+                    pending.reject(new Error(message.error ?? "the render worker could not export"));
             }
 
             return;
@@ -411,6 +461,7 @@ class WorkerBackend implements RenderBackend {
             return;
 
         this.inFlight = false;
+        this.clearFrameTimer();
         this.free.push(message.positions);
 
         // Depth write-back: the drag's unproject and the cull tie-break read the frame actually drawn.
@@ -437,12 +488,13 @@ class WorkerBackend implements RenderBackend {
             // Only now: the probe proved the worker answers, and the transfer cannot be undone.
             offscreen = this.canvas.transferControlToOffscreen() as unknown as Transferable;
         } catch {
-            // Already transferred (a second initialize over a live page), so there is nothing left to draw
-            // on.
-            this.fail();
+            // Already transferred; RenderRunner.create() swaps such a canvas first, so this is a host that
+            // transferred it some other way.
+            this.fail("the canvas was already transferred");
             return;
         }
 
+        transferredCanvases.add(this.canvas);
         this.offscreen = offscreen;
         this.probePassed = true;
 
@@ -452,15 +504,32 @@ class WorkerBackend implements RenderBackend {
         this.pump();
     }
 
-    private fail(): void {
+    /**
+     * Before the probe the canvas is still ours, so a failure falls back on it. After the transfer the canvas is
+     * the dead worker's, so the runner must draw on a replacement.
+     */
+    private fail(reason: string): void {
 
-        // After the transfer a failure is a crash, not a load failure: only pre-probe failures fall back.
-        if (this.disposed || this.probePassed)
+        if (this.disposed)
             return;
 
-        this.dispose("the render worker failed to start");
+        const size = { width: this.width, height: this.height, dpr: this.dpr };
 
-        this.onFallback();
+        if (!this.probePassed) {
+            this.dispose("the render worker failed to start");
+            this.onFallback(size);
+            return;
+        }
+
+        this.dispose(reason);
+        this.onCrash(reason, size);
+    }
+
+    private clearFrameTimer(): void {
+        if (this.frameTimer !== null) {
+            clearTimeout(this.frameTimer);
+            this.frameTimer = null;
+        }
     }
 
     private clearTimer(): void {
@@ -500,6 +569,10 @@ export class RenderRunner {
 
         const mode = options.mode ?? renderModeFromLocation();
 
+        // A canvas a previous runner transferred can neither transfer again nor give a 2d context.
+        if (transferredCanvases.has(canvas) && options.replaceCanvas)
+            canvas = options.replaceCanvas() ?? canvas;
+
         // An injected factory is the test seam, so it bypasses the feature check.
         if (mode === "worker" && (options.workerFactory !== undefined || canUseWorker(canvas))) {
 
@@ -518,17 +591,34 @@ export class RenderRunner {
 
                 let runner: RenderRunner | null = null;
 
+                const adopt = (target: HTMLCanvasElement | null, size: SurfaceSize): void => {
+
+                    const replacement = target === null ? null : inProcessBackend(target);
+
+                    if (replacement === null || runner === null)
+                        return;
+
+                    // The worker held the size; the new backing store must take it, not the element default.
+                    if (size.width > 0 && size.height > 0)
+                        replacement.resize(size.width, size.height, size.dpr);
+
+                    runner.replaceBackend(replacement);
+
+                    // The worker's last frame died with it, so the new surface needs a draw.
+                    onReady();
+                };
+
                 const backend = new WorkerBackend(
                     canvas,
                     worker,
                     options.graph ?? null,
                     options.readyTimeoutMS ?? K.renderer.workerReadyTimeoutMS,
-                    () => {
-                        // The probe failed before any transfer, so the canvas is still usable here.
-                        const replacement = inProcessBackend(canvas);
-
-                        if (replacement !== null && runner !== null)
-                            runner.replaceBackend(replacement);
+                    options.frameTimeoutMS ?? K.renderer.workerFrameTimeoutMS,
+                    // The probe failed before any transfer, so the canvas is still usable here.
+                    size => adopt(canvas, size),
+                    (reason, size) => {
+                        console.error(`render worker failed (${reason}); continuing in process`);
+                        adopt(options.replaceCanvas ? options.replaceCanvas() : null, size);
                     }
                 );
 

@@ -180,6 +180,7 @@ export class UIController {
         const runner = RenderRunner.create(this.canvas, onReady, {
             graph,
             workerFactory: this.renderWorkerFactory,
+            replaceCanvas: this.replaceCanvas,
         });
 
         // entrypoint() refuses such a canvas, so this path is unreachable.
@@ -768,28 +769,65 @@ export class UIController {
 		this.quietSteps = 0;
 	}
 	
+	// Whether initialize() has bound the listeners, so a canvas swap rebinds only what is live.
+	private listenersAttached = false;
+
+	/**
+	 * Swap in a fresh, untransferred copy of the canvas: a canvas whose control went to a worker can never
+	 * draw on this thread again. The copy keeps the id, attributes, inline size and fallback text.
+	 */
+	replaceCanvas = (): HTMLCanvasElement => {
+
+		const fresh = this.canvas.cloneNode(true) as HTMLCanvasElement;
+
+		if (this.listenersAttached)
+			this.toggleCanvasListeners(false);
+
+		this.canvas.replaceWith(fresh);
+		this.canvas = fresh;
+
+		if (this.listenersAttached)
+			this.toggleCanvasListeners(true);
+
+		this.requestRedraw();
+
+		return fresh;
+	};
+
+	private static bind(attach: boolean, target: EventTarget, type: string, fn: (event: any) => void): void {
+		if (attach)
+			target.addEventListener(type, fn);
+		else
+			target.removeEventListener(type, fn);
+	}
+
+	// Split from the rest so a canvas swap can move exactly these to the new element.
+	private toggleCanvasListeners(attach: boolean) {
+
+		const bind = (type: string, fn: (event: any) => void) => UIController.bind(attach, this.canvas, type, fn);
+
+		bind("mousemove", this.onMouseMove);
+		bind("mousedown", this.onMouseDown);
+		bind("mouseup", this.onMouseUp);
+		bind("mouseout", this.onMouseOut);
+		bind("contextmenu", this.onContextMenu);
+		bind("keydown", this.onKeyDown);
+		bind("wheel", this.onWheel);
+	}
+
 	// One list for both directions, so attach and detach cannot drift apart.
 	private toggleEventListeners(attach: boolean) {
+
+		this.listenersAttached = attach;
 
 		// The handlers mix MouseEvent and no-argument callbacks, hence the open parameter.
 		const bind = (
 			target: EventTarget,
 			type: string,
 			fn: (event: any) => void
-		) => {
-			if (attach)
-				target.addEventListener(type, fn);
-			else
-				target.removeEventListener(type, fn);
-		};
+		) => UIController.bind(attach, target, type, fn);
 
-		bind(this.canvas, "mousemove", this.onMouseMove);
-		bind(this.canvas, "mousedown", this.onMouseDown);
-		bind(this.canvas, "mouseup", this.onMouseUp);
-		bind(this.canvas, "mouseout", this.onMouseOut);
-		bind(this.canvas, "contextmenu", this.onContextMenu);
-		bind(this.canvas, "keydown", this.onKeyDown);
-		bind(this.canvas, "wheel", this.onWheel);
+		this.toggleCanvasListeners(attach);
 
 		bind(this.exportElement, "click", this.onExport);
 

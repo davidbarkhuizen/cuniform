@@ -156,6 +156,38 @@ export class FakeElement {
         return child;
     }
 
+    /** A shallow copy of the attributes and inline style; a canvas subclass keeps its own kind. */
+    cloneNode(_deep: boolean = false): FakeElement {
+        const copy = new (this.constructor as new () => FakeElement)();
+
+        copy.tagName = this.tagName;
+        copy.id = this.id;
+        copy.style = { ...this.style };
+        copy.attributes = { ...this.attributes };
+        copy.className = this.className;
+        copy.clientWidth = this.clientWidth;
+        copy.clientHeight = this.clientHeight;
+        copy.rect = this.rect;
+
+        return copy;
+    }
+
+    /** Takes this element's place in its parent; `detached` marks the element that left. */
+    detached = false;
+
+    replaceWith(next: FakeElement): void {
+        const parent = this.parentElement;
+
+        if (parent !== null) {
+            const index = parent.children.indexOf(this);
+            parent.children[index] = next;
+            next.parentElement = parent;
+        }
+
+        this.parentElement = null;
+        this.detached = true;
+    }
+
     removeChild(child: FakeElement): FakeElement {
         this.children = this.children.filter(c => c !== child);
         return child;
@@ -289,21 +321,29 @@ export class FakeCanvas extends FakeElement {
     }
 
     transferControlToOffscreen(): FakeOffscreenCanvas {
+        // As a real element: the transfer is one-way (verified in Chrome).
+        if (this.transferred)
+            throw new DOMException("the canvas has already been transferred", "InvalidStateError");
+
         this.transferred = true;
         this.transferCount++;
         return new FakeOffscreenCanvas();
     }
 
     getContext(kind: string): FakeContext2D | null {
-        // A real element refuses a context once control is transferred.
+        // A real element throws once control is transferred (verified in Chrome).
         if (this.transferred)
-            return null;
+            throw new DOMException("the canvas has been transferred", "InvalidStateError");
 
         return kind === '2d' ? this.context : null;
     }
 
     toDataURL(): string {
         return 'data:image/png;base64,FAKE';
+    }
+
+    toBlob(callback: (blob: Blob | null) => void, type: string = 'image/png'): void {
+        callback(new Blob(['FAKE'], { type }));
     }
 }
 
@@ -373,6 +413,9 @@ export class FakeRenderWorker implements RenderWorkerPort {
 
     private answering = true;
 
+    /** How an export is answered: a blob, an error reply, or never. */
+    exportReply: "blob" | "error" | "silent" = "blob";
+
     constructor() {
         this.engine.attach(this.context, this.context.canvas);
     }
@@ -385,7 +428,10 @@ export class FakeRenderWorker implements RenderWorkerPort {
         this.posts.push({ message, transfer });
 
         if (message.type === "export") {
-            this.onmessage?.({ data: { type: "png", requestId: message.requestId, blob: new Blob() } });
+            if (this.exportReply === "blob")
+                this.onmessage?.({ data: { type: "png", requestId: message.requestId, blob: new Blob() } });
+            else if (this.exportReply === "error")
+                this.onmessage?.({ data: { type: "png", requestId: message.requestId, error: "convertToBlob failed" } });
             return;
         }
 

@@ -62,14 +62,24 @@ export interface DrawnResponse {
     depths: Float64Array;
 }
 
-/** Produced by the worker entry, not the engine: `convertToBlob` is outside the `RenderSurface` subset. */
+/**
+ * Produced by the worker entry, not the engine: `convertToBlob` is outside the `RenderSurface` subset.
+ * Exactly one of `blob` and `error` is set, so an export always settles.
+ */
 export interface PngResponse {
     type: "png";
     requestId: number;
-    blob: Blob;
+    blob?: Blob;
+    error?: string;
 }
 
-export type RenderResponse = ReadyResponse | DrawnResponse | PngResponse;
+/** The worker cannot draw (no 2d context, or a throw while drawing); the main thread recovers. */
+export interface ErrorResponse {
+    type: "error";
+    reason: string;
+}
+
+export type RenderResponse = ReadyResponse | DrawnResponse | PngResponse | ErrorResponse;
 
 /** The writable backing store behind a surface: the worker's `OffscreenCanvas`. */
 export interface RenderTarget {
