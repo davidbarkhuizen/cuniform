@@ -3,6 +3,7 @@ import { Graph, GraphShape, graphShape, sameShape } from "../graph/Graph";
 import { readPositions, writePositions } from "../graph/MirrorGraph";
 import { initRequest, PositionsResponse, stepWithPin, StepRequest, WorkerRequest } from "./PhysicsProtocol";
 import { WorkerPort } from "../core/WorkerChannel";
+import { K } from "../core/K";
 
 /**
  * The main-thread owner of the physics; only force integration leaves this thread. See docs/physics.md
@@ -79,6 +80,9 @@ class WorkerBackend implements PhysicsBackend {
     private inFlight = false;
     private disposed = false;
 
+    // Armed while a step is in flight: a reply that never comes is a hung worker.
+    private stepTimer: ReturnType<typeof setTimeout> | null = null;
+
     // The latest pin, overlaid on every reply: a reply was computed with an older pin,
     // so without the overlay sync() would drag the pinned node back a round trip.
     private pinIndex = -1;
@@ -94,7 +98,8 @@ class WorkerBackend implements PhysicsBackend {
     constructor(
         private readonly worker: PhysicsWorkerPort,
         graph: Graph,
-        onFailure: (positions: Float64Array) => void
+        private readonly onFailure: (positions: Float64Array) => void,
+        private readonly stepTimeoutMS: number = K.physics.workerStepTimeoutMS
     ) {
 
         this.graph = graph;
@@ -107,7 +112,7 @@ class WorkerBackend implements PhysicsBackend {
         worker.onmessage = event => this.receive(event.data);
 
         // A worker script that fails to load never answers: hand back rather than freeze.
-        worker.onerror = () => onFailure(this.latest);
+        worker.onerror = () => this.fail();
 
         worker.postMessage(initRequest(graph, this.generation));
     }
@@ -138,6 +143,8 @@ class WorkerBackend implements PhysicsBackend {
             z,
         };
 
+        this.stepTimer = setTimeout(() => this.fail(), this.stepTimeoutMS);
+
         this.worker.postMessage(message);
     }
 
@@ -156,6 +163,7 @@ class WorkerBackend implements PhysicsBackend {
         this.shape = graphShape(graph);
         this.generation++;
         this.inFlight = false;
+        this.clearStepTimer();
         this.latest = new Float64Array(graph.vertices.length * 3);
         this.latestMaxDisplacement = 0;
         this.pinIndex = -1;
@@ -166,7 +174,26 @@ class WorkerBackend implements PhysicsBackend {
 
     terminate(): void {
         this.disposed = true;
+        this.clearStepTimer();
         this.worker.terminate();
+    }
+
+    // Lossless: the main thread owns the Tags, so the runner resumes in process from the last reply.
+    private fail(): void {
+
+        if (this.disposed)
+            return;
+
+        this.disposed = true;
+        this.clearStepTimer();
+        this.onFailure(this.latest);
+    }
+
+    private clearStepTimer(): void {
+        if (this.stepTimer !== null) {
+            clearTimeout(this.stepTimer);
+            this.stepTimer = null;
+        }
     }
 
     private receive(message: PositionsResponse): void {
@@ -179,6 +206,7 @@ class WorkerBackend implements PhysicsBackend {
         this.applyPin(this.latest);
         this.latestMaxDisplacement = message.maxDisplacement;
         this.inFlight = false;
+        this.clearStepTimer();
     }
 
     // Re-sent from the live tags, so the worker resumes from the current layout.

@@ -52,6 +52,9 @@ export const K = {
         // Fixed timerTickPeriodMS steps, capped at maxStepsPerFrame per frame with
         // the remainder discarded so a slow frame cannot spiral (docs/physics.md).
         maxStepsPerFrame: 2,
+        // A step unanswered this long means a hung worker; ~185x the worst measured
+        // step (27 ms at 4096 nodes), so only a real hang trips it.
+        workerStepTimeoutMS: 5000,
         settleEpsilon: 0.01,
         settleFrames: 10,
     },

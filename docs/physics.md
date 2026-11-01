@@ -108,8 +108,11 @@ drawing runs in `dist/render.worker.js`, owned by `RenderRunner` (see
 
 Positions cross the physics boundary as a transferable `Float64Array`, and the
 runner posts at most one step at a time. If `Worker` is missing, construction
-throws, or a worker script fails to load, the physics falls back to the
-in-process solver. A graph swap re-initialises the worker and bumps a generation
+throws, a worker script fails to load or raises an error, or a step goes
+unanswered for `K.physics.workerStepTimeoutMS` (5000 ms, about 185x the worst
+measured step), the physics falls back to the in-process solver, resuming from
+the last positions the worker reported; the main thread owns the tags, so the
+hand-back loses nothing. A graph swap re-initialises the worker and bumps a generation
 counter, so a response computed for the replaced graph is dropped. `Graph` is
 append-only, so a graph that grows in place (a new vertex, or a new edge at the
 same order) is treated the same way: each worker backend records the vertex and
