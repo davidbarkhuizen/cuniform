@@ -630,6 +630,8 @@ test("Tab skips the disabled generate button", () => {
             ["back", wizard.backButton],
         ]);
 
+        // order -> new edges -> seed -> (generate skipped) -> back
+        el(wizard.element).dispatch("keydown", keyEvent({ key: "Tab" }));
         el(wizard.element).dispatch("keydown", keyEvent({ key: "Tab" }));
         el(wizard.element).dispatch("keydown", keyEvent({ key: "Tab" }));
 
@@ -654,3 +656,37 @@ test("Tab skips the hidden cancel button on a non-dismissible wizard", () => {
         assert.deepEqual(order, ["molecules", "back", "random"]);
     }, { dismissible: false });
 });
+
+test("a typed seed reaches the completed spec", () => {
+    withWizard(({ wizard, completed }) => {
+        wizard.open("random");
+
+        wizard.seedInput.value = "4242";
+        el(wizard.seedInput).dispatch("input");
+        generateRandom(wizard, 9, 4);
+
+        assert.deepEqual(completed, [{ kind: "random", order: 9, branching: 4, seed: 4242 }]);
+    });
+});
+
+test("a malformed seed disables generate and names the field", () => {
+    withWizard(({ wizard }) => {
+        wizard.open("random");
+
+        wizard.seedInput.value = "-3";
+        el(wizard.seedInput).dispatch("input");
+
+        assert.equal(wizard.generateButton.disabled, true);
+        assert.match(wizard.validationLabel.textContent, /^seed:/);
+    });
+});
+
+test("the seed field opens blank even when the graph on screen has a seed", () => {
+    withWizard(({ wizard }) => {
+        wizard.open("random");
+
+        assert.equal(wizard.seedInput.value, "", "re-generating draws a new graph unless a seed is typed");
+        assert.equal(wizard.orderInput.value, "7");
+    }, { initialSpec: { kind: "random", order: 7, branching: 3, seed: 99 } });
+});
+

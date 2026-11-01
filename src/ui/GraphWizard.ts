@@ -1,6 +1,7 @@
 import { advanceIndex } from "./FocusRing";
 import { K } from "../core/K";
-import { BRANCHING_FIELD, GraphSpec, ORDER_FIELD, parseRandomSpec } from "../graph/GraphSpec";
+import { BRANCHING_FIELD, GraphSpec, ORDER_FIELD, parseRandomSpec, SEED_FIELD } from "../graph/GraphSpec";
+import { SEED_LIMIT } from "../core/Random";
 import {
     CATALOG,
     CatalogEntry,
@@ -36,6 +37,8 @@ export class GraphWizard {
     readonly searchInput: HTMLInputElement;
     readonly orderInput: HTMLInputElement;
     readonly branchingInput: HTMLInputElement;
+    /** Optional; blank draws a fresh seed, and the panel shows the seed of the graph on screen. */
+    readonly seedInput: HTMLInputElement;
     readonly generateButton: HTMLButtonElement;
     readonly backButton: HTMLButtonElement;
     readonly cancelButton: HTMLButtonElement;
@@ -108,6 +111,7 @@ export class GraphWizard {
             K.chooser.minBranching,
             K.chooser.maxBranching
         );
+        this.seedInput = this.numberField(random, `${SEED_FIELD} (optional)`, 0, SEED_LIMIT - 1);
 
         this.hintLabel = document.createElement("p");
         this.hintLabel.className = "wizardHint";
@@ -126,6 +130,7 @@ export class GraphWizard {
 
         this.orderInput.addEventListener("input", this.onRandomInput);
         this.branchingInput.addEventListener("input", this.onRandomInput);
+        this.seedInput.addEventListener("input", this.onRandomInput);
 
         this.searchInput = document.createElement("input");
         this.searchInput.className = "wizardInput";
@@ -298,7 +303,7 @@ export class GraphWizard {
                 controls.push(choice.element);
         }
         else if (this.currentStep === "random") {
-            controls.push(this.orderInput, this.branchingInput, this.generateButton);
+            controls.push(this.orderInput, this.branchingInput, this.seedInput, this.generateButton);
         }
         else {
             controls.push(this.searchInput);
@@ -359,12 +364,19 @@ export class GraphWizard {
         this.orderInput.value = String(seed ? seed.order : K.initialConditions.order);
         this.branchingInput.value = String(seed ? seed.branching : K.initialConditions.branching);
 
+        // Always blank: re-generating draws a new graph unless a seed is typed to reproduce one.
+        this.seedInput.value = "";
+
         this.validateRandomStep();
+    }
+
+    private parseFields() {
+        return parseRandomSpec(this.orderInput.value, this.branchingInput.value, this.seedInput.value);
     }
 
     private validateRandomStep(): void {
 
-        const result = parseRandomSpec(this.orderInput.value, this.branchingInput.value);
+        const result = this.parseFields();
 
         if (result.ok) {
             this.generateButton.disabled = false;
@@ -434,7 +446,7 @@ export class GraphWizard {
 
     onGenerate = () => {
 
-        const result = parseRandomSpec(this.orderInput.value, this.branchingInput.value);
+        const result = this.parseFields();
 
         if (!result.ok)
             return;

@@ -63,7 +63,9 @@ test("onReset suppresses the link's default navigation", () => {
 
 test("startup seeds the random default, so the first reset is dismissible", () => {
     withUIController(({ controller }) => {
-        assert.deepEqual(controller.spec, defaultGraphSpec(), "initialize seeds the shipped random default");
+        const { seed, ...shape } = controller.spec as { seed?: number };
+        assert.deepEqual(shape, defaultGraphSpec(), "initialize seeds the shipped random default");
+        assert.equal(typeof seed, "number");
 
         controller.onReset();
 
@@ -154,8 +156,13 @@ test("the panel's graph line names the loaded graph", () => {
     withUIController(({ elements, controller }) => {
         assert.equal(
             elements.currentGraphLabel.textContent,
-            specLabel(defaultGraphSpec()),
+            specLabel(controller.spec!),
             "the startup graph's default label is technical"
+        );
+        assert.match(
+            elements.currentGraphLabel.textContent,
+            /^random graph: 11 nodes, up to 2 new edges per node, seed \d+$/,
+            "the label names the seed that rebuilds the graph"
         );
 
         controller.onReset();
@@ -175,10 +182,8 @@ test("the panel's graph line names the loaded graph", () => {
         const wizard = controller.wizard!;
         generateRandom(wizard, 5, 2);
 
-        assert.equal(
-            elements.currentGraphLabel.textContent,
-            specLabel({ kind: "random", order: 5, branching: 2 })
-        );
+        assert.equal(elements.currentGraphLabel.textContent, specLabel(controller.spec!));
+        assert.match(elements.currentGraphLabel.textContent, /^random graph: 5 nodes, up to 2 new edges per node, seed \d+$/);
     });
 });
 
@@ -249,11 +254,20 @@ test("initialize with a chosen spec rebuilds that spec", () => {
         generateRandom(wizard, 6, 2);
 
         const chosen = controller.spec;
-        assert.deepEqual(chosen, { kind: "random", order: 6, branching: 2 });
+        const { seed, ...shape } = chosen as { seed?: number };
+        assert.deepEqual(shape, { kind: "random", order: 6, branching: 2 });
+
+        const positions = controller.solver.graph.vertices.map(v => ({ ...v.position }));
 
         controller.initialize();
 
-        assert.deepEqual(controller.spec, chosen, "the choice survives initialize()");
+        assert.deepEqual(controller.spec, chosen, "the choice, seed included, survives initialize()");
+        assert.equal(typeof seed, "number");
+        assert.deepEqual(
+            controller.solver.graph.vertices.map(v => ({ ...v.position })),
+            positions,
+            "the same seed rebuilds the same graph"
+        );
         assert.equal(controller.solver.graph.vertices.length, 6, "initialize rebuilds the chosen spec");
         assert.ok(controller.wizard === null, "initialize does not reopen the chooser");
     });

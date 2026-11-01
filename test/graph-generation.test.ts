@@ -351,3 +351,21 @@ test("an unknown molecule id throws", () => {
     assert.throws(() => factory.generateMolecule("unobtainium"), /unknown molecule id/);
     assert.throws(() => factory.build({ kind: "molecule", id: "unobtainium" }), /unknown molecule id/);
 });
+
+// F12: generation used Math.random() with no seed, so a bad random layout could not be rebuilt.
+test("one seed rebuilds the same random graph, positions and edges", () => {
+    const shape = (graph: Graph) => ({
+        positions: graph.vertices.map(v => ({ ...v.position })),
+        edges: graph.edges.map(e => [graph.vertices.indexOf(e.v1), graph.vertices.indexOf(e.v2)]),
+    });
+
+    const a = new GraphFactory().generateGraph(64, 3, 12345);
+    const b = new GraphFactory().generateGraph(64, 3, 12345);
+    const c = new GraphFactory().generateGraph(64, 3, 12346);
+    const built = new GraphFactory().build({ kind: "random", order: 64, branching: 3, seed: 12345 });
+
+    assert.deepEqual(shape(a), shape(b));
+    assert.deepEqual(shape(built), shape(a), "build() honours the spec's seed");
+    assert.notDeepEqual(shape(c), shape(a), "a different seed gives a different graph");
+});
+

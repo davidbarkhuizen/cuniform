@@ -3,6 +3,7 @@ import { GraphSpec } from "./GraphSpec";
 import { K } from "../core/K";
 import { moleculeById } from "./Molecules";
 import { point3, Point3D } from "../core/Point3D";
+import { mulberry32, Random, randomSeed } from "../core/Random";
 import { Tag } from "./Tag";
 
 // Phyllotaxis spiral at the spring rest length: `sqrt(i / PI)` gives each atom
@@ -27,7 +28,7 @@ export class GraphFactory {
 
     build(spec: GraphSpec): Graph {
         return spec.kind === "random"
-            ? this.generateGraph(spec.order, spec.branching)
+            ? this.generateGraph(spec.order, spec.branching, spec.seed)
             : this.generateMolecule(spec.id);
     }
 
@@ -52,15 +53,15 @@ export class GraphFactory {
         return graph;
     }
 
-    constructXYZFactory() {
+    constructXYZFactory(random: Random = Math.random) {
 
         const used = new Set<string>();
 
         const genXYZ = () => {
             for (let attempt = 0; attempt < 1000; attempt++) {
-                const x = (-K.space.W_0 / 2.0) + (Math.random() * K.space.W_0);
-                const y = (-K.space.H_0 / 2.0) + (Math.random() * K.space.H_0);
-                const z = (-K.space.D_0 / 2.0) + (Math.random() * K.space.D_0);
+                const x = (-K.space.W_0 / 2.0) + (random() * K.space.W_0);
+                const y = (-K.space.H_0 / 2.0) + (random() * K.space.H_0);
+                const z = (-K.space.D_0 / 2.0) + (random() * K.space.D_0);
 
                 const key = `${x},${y},${z}`;
                 if (used.has(key))
@@ -76,10 +77,13 @@ export class GraphFactory {
     };
 
     // As in the reference app's graph_manipulator.generate_graph; see docs/graphs.md.
-    generateGraph(order: number, maxNewEdgesPerVertex: number) {
+    // Every draw goes through the seeded generator, so one seed rebuilds the same graph.
+    generateGraph(order: number, maxNewEdgesPerVertex: number, seed: number = randomSeed()) {
+
+        const random = mulberry32(seed);
 
         let graph = new Graph();
-        let funcGenXYZ = this.constructXYZFactory();
+        let funcGenXYZ = this.constructXYZFactory(random);
 
         for(let i = 0; i < order; i++) {
             let pos = funcGenXYZ();
@@ -96,11 +100,11 @@ export class GraphFactory {
             const tag = vertices[i];
 
             // randint(1, maxNewEdgesPerVertex) inclusive
-            let edgesToAdd = 1 + Math.floor(Math.random() * maxNewEdgesPerVertex);
+            let edgesToAdd = 1 + Math.floor(random() * maxNewEdgesPerVertex);
 
             for(let j = 0; j < edgesToAdd; j++) {
 
-                const partner = this.pickNewNeighbour(graph, vertices, i);
+                const partner = this.pickNewNeighbour(graph, vertices, i, random);
 
                 if (partner === null)
                     break;
@@ -113,13 +117,13 @@ export class GraphFactory {
     };
 
     /** A random vertex not already joined to `vertices[self]`, or null when none remains. */
-    private pickNewNeighbour(graph: Graph, vertices: Array<Tag>, self: number): Tag | null {
+    private pickNewNeighbour(graph: Graph, vertices: Array<Tag>, self: number, random: Random): Tag | null {
 
         const selfTag = vertices[self];
 
         for (let attempt = 0; attempt < MAX_REJECTION_ATTEMPTS; attempt++) {
 
-            const candidate = Math.floor(Math.random() * vertices.length);
+            const candidate = Math.floor(random() * vertices.length);
 
             if (candidate === self)
                 continue;

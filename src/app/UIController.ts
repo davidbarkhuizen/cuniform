@@ -15,7 +15,7 @@ import { Emphasis, emphasisValue, isEmphasisName } from "../core/Emphasis";
 import { ForceDirectedGraph } from "../physics/ForceDirectedGraph";
 import { Graph } from "../graph/Graph";
 import { GraphFactory } from "../graph/GraphFactory";
-import { defaultGraphSpec, GraphSpec, specLabel } from "../graph/GraphSpec";
+import { defaultGraphSpec, GraphSpec, specLabel, withSeed } from "../graph/GraphSpec";
 import { GraphWizard } from "../ui/GraphWizard";
 import { K } from "../core/K";
 import { point, Point2D } from "../core/Point2D";
@@ -646,8 +646,9 @@ export class UIController {
 
     private applyGraphSpec = (spec: GraphSpec) => {
 
-        this.spec = spec;
-        this.loadGraph(this.makeGraph(spec));
+        // Seeded here, so the panel names the seed that rebuilds this exact graph.
+        this.spec = withSeed(spec);
+        this.loadGraph(this.makeGraph(this.spec));
         this.updateCurrentGraphLabel();
         this.closeGraphWizard();
     };
@@ -1001,7 +1002,7 @@ export class UIController {
         this.updateEmphasisButtons();
 
         // The last chooser choice survives re-initialization; only a controller that never chose falls back.
-        this.spec ??= defaultGraphSpec();
+        this.spec = withSeed(this.spec ?? defaultGraphSpec());
 
         // initialize() always seeds a spec, so no render path needs a "no graph" case.
         this.solverRef = new ForceDirectedGraph(this.initialGraph());

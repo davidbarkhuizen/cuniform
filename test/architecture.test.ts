@@ -24,6 +24,7 @@ const PURE_MODULES = [
     "core/Numeric.ts",
     "core/Point2D.ts",
     "core/Point3D.ts",
+    "core/Random.ts",
     "core/WorkerChannel.ts",
     "graph/Components.ts",
     "graph/Edge.ts",
