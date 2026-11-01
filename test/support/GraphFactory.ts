@@ -1,57 +1,15 @@
-import { Graph } from "./Graph";
-import { GraphSpec } from "./GraphSpec";
-import { K } from "../core/K";
-import { moleculeById } from "./Molecules";
-import { point3, Point3D } from "../core/Point3D";
-import { mulberry32, Random, randomSeed } from "../core/Random";
-import { Tag } from "./Tag";
-
-// Phyllotaxis spiral at the spring rest length: `sqrt(i / PI)` gives each atom
-// `spacing^2` of area, so the first frame is reproducible.
-function moleculeSeedPositions(n: number): Point3D[] {
-
-    const spacing = K.molecule.seedSpacing;
-    const golden = Math.PI * (3 - Math.sqrt(5));
-    const jitter = K.molecule.seedDepthJitter;
-
-    return Array.from({ length: n }, (_, i) => {
-        const r = spacing * Math.sqrt(i / Math.PI);
-        const theta = i * golden;
-        return point3(r * Math.cos(theta), r * Math.sin(theta), jitter * Math.sin(theta));
-    });
-}
+// A test and benchmark fixture only (workplan D1): seeded random graphs give the physics tests and the
+// 4096-node benchmark a scalable, reproducible input that no real model reproduces on demand.
+import { Graph } from "../../src/graph/Graph";
+import { K } from "../../src/core/K";
+import { point3 } from "../../src/core/Point3D";
+import { mulberry32, Random, randomSeed } from "../../src/core/Random";
+import { Tag } from "../../src/graph/Tag";
 
 // Bounds rejection sampling on a nearly complete graph before the linear fallback.
 const MAX_REJECTION_ATTEMPTS = 32;
 
 export class GraphFactory {
-
-    build(spec: GraphSpec): Graph {
-        return spec.kind === "random"
-            ? this.generateGraph(spec.order, spec.branching, spec.seed)
-            : this.generateMolecule(spec.id);
-    }
-
-    generateMolecule(id: string): Graph {
-
-        const molecule = moleculeById(id);
-        const topology = molecule.topology;
-
-        const graph = new Graph();
-        const positions = moleculeSeedPositions(topology.atoms.length);
-
-        const tags = topology.atoms.map((symbol, i) => {
-            const tag = new Tag(positions[i], symbol);
-            graph.addNode(tag);
-            return tag;
-        });
-
-        // The parser rejects duplicate bonds and the catalog has no disconnected entries.
-        for (const bond of topology.bonds)
-            graph.addEdge(tags[bond.a], tags[bond.b]);
-
-        return graph;
-    }
 
     constructXYZFactory(random: Random = Math.random) {
 
@@ -76,7 +34,7 @@ export class GraphFactory {
         return genXYZ;
     };
 
-    // As in the reference app's graph_manipulator.generate_graph; see docs/graphs.md.
+    // As in the reference app's graph_manipulator.generate_graph; see docs/networks.md.
     // Every draw goes through the seeded generator, so one seed rebuilds the same graph.
     generateGraph(order: number, maxNewEdgesPerVertex: number, seed: number = randomSeed()) {
 

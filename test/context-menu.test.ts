@@ -359,19 +359,20 @@ test("export revokes the object URL it created", async () => {
     });
 });
 
-test("reset opens the graph chooser and leaves the graph alone until a choice", () => {
-    withUIController(({ controller }) => {
+test("reset rebuilds the graph from its source and closes the menu", () => {
+    withUIController(({ canvas, controller }) => {
         const before = controller.solver.graph;
 
+        rightClick(canvas);
         entry(controller, 'reset').dispatch('click');
 
-        assert.ok(controller.wizard, "reset opens the chooser");
-        assert.equal(controller.wizard!.isOpen, true);
+        assert.notEqual(controller.solver.graph, before, "reset loads a fresh graph");
         assert.equal(
-            controller.solver.graph,
-            before,
-            "the running graph must be untouched while the chooser is open"
+            controller.solver.graph.vertices.length,
+            before.vertices.length,
+            "the same source rebuilds the same graph"
         );
+        assert.equal(controller.contextMenu!.isOpen, false, "the menu closes on reset");
     });
 });
 
@@ -388,36 +389,16 @@ test("the fake DOM blurs the previous element, so a focus steal cannot hide", ()
     });
 });
 
-test("resetting from the context menu leaves focus inside the chooser", () => {
-    withUIController(({ canvas, controller }) => {
-        rightClick(canvas);
-
-        entry(controller, 'reset').dispatch('click');
-
-        const wizard = controller.wizard!;
-        const firstChoice = el(wizard.choiceButtons[0].element);
-
-        assert.equal(firstChoice.focused, true, "the chooser's first control keeps focus");
-        assert.equal(canvas.focused, false, "the menu's dismissal must not steal focus back");
-    });
-});
-
-test("a completed reset swaps the graph without rebuilding the menu or double-registering", () => {
+test("a reset swaps the graph without rebuilding the menu or double-registering", () => {
     withUIController(({ elements, canvas, controller }) => {
         assert.equal(elements.body.children.length, 1, "one menu element after initialize");
 
         entry(controller, 'reset').dispatch('click');
 
-        const wizard = controller.wizard!;
-        wizard.orderInput.value = "5";
-        wizard.branchingInput.value = "2";
-        (wizard.generateButton as unknown as FakeElement).dispatch('click');
-
         assert.equal(elements.body.children.length, 1, "reset must not leak a second menu");
         assert.ok(controller.contextMenu);
         assert.equal(canvas.listenerCount('contextmenu'), 1);
         assert.equal(canvas.listenerCount('pointerdown'), 1);
-        assert.equal(controller.solver.graph.vertices.length, 5, "the chosen graph is now live");
     });
 });
 

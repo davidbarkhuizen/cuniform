@@ -2,7 +2,7 @@
 
 import { Emphasis } from "../../src/core/Emphasis";
 import { Graph } from "../../src/graph/Graph";
-import { GraphWizard } from "../../src/ui/GraphWizard";
+import { GraphFactory } from "./GraphFactory";
 import { K } from "../../src/core/K";
 import { CameraView } from "../../src/view/Projector";
 import { RenderRequest, RenderResponse, RenderWorkerEngine } from "../../src/render/RenderProtocol";
@@ -674,6 +674,11 @@ export function withFakeDom<T>(
     }
 }
 
+// The controller's graph when a test supplies none: small, seeded, and rebuilt identically on reset.
+export const FIXTURE_ORDER = 11;
+export const FIXTURE_BRANCHING = 2;
+const FIXTURE_SEED = 1;
+
 // `graph` is wrapped by the controller's solver, as initialize() would have done.
 export function newUIController(
     elements: Record<string, FakeElement>,
@@ -697,7 +702,7 @@ export function newUIController(
         elements.selectedNodeInfoList as unknown as HTMLElement,
         elements.currentGraphLabel as unknown as HTMLElement,
         elements.cameraConsole as unknown as HTMLElement,
-        suppliedGraph ? () => suppliedGraph : undefined,
+        suppliedGraph ? () => suppliedGraph : () => new GraphFactory().generateGraph(FIXTURE_ORDER, FIXTURE_BRANCHING, FIXTURE_SEED),
         opts.backend ?? null,
         opts.workerFactory,
         (elements.emphasisConsole ?? null) as unknown as HTMLElement | null
@@ -714,12 +719,6 @@ export function newUIController(
 
 export function el(element: HTMLElement): FakeElement {
     return element as unknown as FakeElement;
-}
-
-export function generateRandom(wizard: GraphWizard, order: number, branching: number): void {
-    wizard.orderInput.value = String(order);
-    wizard.branchingInput.value = String(branching);
-    el(wizard.generateButton).dispatch("click");
 }
 
 /** Replace `graph.selectedVertex` with a thrower, so a scan for the selection fails loudly. */

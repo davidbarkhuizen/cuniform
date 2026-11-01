@@ -14,9 +14,6 @@ import { AncestorNode, attributeOf, firstAncestor } from "../ui/Dom";
 import { Emphasis, emphasisValue, isEmphasisName } from "../core/Emphasis";
 import { ForceDirectedGraph } from "../physics/ForceDirectedGraph";
 import { Graph } from "../graph/Graph";
-import { GraphFactory } from "../graph/GraphFactory";
-import { defaultGraphSpec, GraphSpec, specLabel, withSeed } from "../graph/GraphSpec";
-import { GraphWizard } from "../ui/GraphWizard";
 import { K } from "../core/K";
 import { point, Point2D } from "../core/Point2D";
 import { point3 } from "../core/Point3D";
@@ -27,10 +24,13 @@ import { handleNodeSelectionAttempt, nodeAt } from "../ui/Selection";
 import { State } from "./State";
 import { Tag } from "../graph/Tag";
 
-/** Builds the graph a `GraphSpec` describes; supplied by the caller, not read from globals. */
-export type GraphSource = (spec: GraphSpec) => Graph;
+/** Builds the graph to show; supplied by the caller, not read from globals. */
+export type GraphSource = () => Graph;
 
-const defaultGraphSource: GraphSource = spec => new GraphFactory().build(spec);
+/** Until a model is loaded there is nothing to show. */
+const defaultGraphSource: GraphSource = () => new Graph();
+
+const NO_MODEL_LABEL = 'no model loaded';
 
 /** The two keys a focused button activates on; browsers synthesise a click for both. */
 const isButtonActivationKey = (event: KeyboardEvent): boolean =>
@@ -101,16 +101,10 @@ export class UIController {
 
     contextMenu: ContextMenu | null = null;
 
-    // Owned so terminate() can close it.
-    wizard: GraphWizard | null = null;
-
-    // The current graph description; the graph itself lives in the solver.
-    spec: GraphSpec | null = null;
-
     // Cached selection passed to the renderer; refreshed by updateSelectionInfo().
     private selected: Tag | null = null;
 
-    // Names the technical spec, unlike the word cloud's short chips.
+    // Names what is on screen.
     currentGraphLabel: HTMLElement;
 
     // Logical (CSS-pixel) canvas size; all canvas mapping uses these, not the HiDPI backing store.
@@ -145,7 +139,7 @@ export class UIController {
     }
 
     private initialGraph(): Graph {
-        return this.makeGraph(this.spec ?? defaultGraphSpec());
+        return this.makeGraph();
     }
 
     // Built lazily for handlers that run before initialize().
@@ -817,12 +811,13 @@ export class UIController {
         });
     };
 
-    // Cancelling the chooser changes nothing.
+    // Rebuilds the graph from its source, which re-seeds the layout.
     onReset = (event?: MouseEvent) => {
 
         event?.preventDefault();
 
-        this.openGraphWizard();
+        this.hideContextMenu();
+        this.loadGraph(this.makeGraph());
 
         return false;
     };
@@ -848,43 +843,8 @@ export class UIController {
         this.updateSelectionInfo();
     };
 
-    private applyGraphSpec = (spec: GraphSpec) => {
-
-        // Seeded here, so the panel names the seed that rebuilds this exact graph.
-        this.spec = withSeed(spec);
-        this.loadGraph(this.makeGraph(this.spec));
-        this.updateCurrentGraphLabel();
-        this.closeGraphWizard();
-    };
-
-    // Hides the context menu first so the overlays cannot coexist; stores the wizard before opening it.
-    openGraphWizard = () => {
-
-        this.closeGraphWizard();
-        this.hideContextMenu();
-
-        this.wizard = new GraphWizard(this.body, {
-            onComplete: this.applyGraphSpec,
-            onCancel: this.closeGraphWizard,
-            onDismiss: () => this.canvas.focus(),
-            // initialize() always seeds a spec, so this is only false for a chooser opened before any graph.
-            dismissible: this.spec !== null,
-            initialSpec: this.spec,
-        });
-
-        this.wizard.open();
-    };
-
-    closeGraphWizard = () => {
-
-        if (this.wizard) {
-            this.wizard.close();
-            this.wizard = null;
-        }
-    };
-
     private updateCurrentGraphLabel = () => {
-        this.currentGraphLabel.textContent = specLabel(this.spec ?? defaultGraphSpec());
+        this.currentGraphLabel.textContent = NO_MODEL_LABEL;
     };
 
     clearSelection = () => {
@@ -1210,10 +1170,6 @@ export class UIController {
         this.state.emphasis = Emphasis.nodes;
         this.updateEmphasisButtons();
 
-        // The last chooser choice survives re-initialization; only a controller that never chose falls back.
-        this.spec = withSeed(this.spec ?? defaultGraphSpec());
-
-        // initialize() always seeds a spec, so no render path needs a "no graph" case.
         this.solverRef = new ForceDirectedGraph(this.initialGraph());
 
         // Built before resizeCanvas() draws through it; handed the graph so a worker mirror starts first.
@@ -1266,9 +1222,6 @@ export class UIController {
 
         // A pending long press must not open a menu on a torn-down controller.
         this.cancelLongPress();
-
-        // A chooser must not outlive the controller that owns it.
-        this.closeGraphWizard();
 
         if (this.contextMenu) {
             this.body.removeChild(this.contextMenu.element);

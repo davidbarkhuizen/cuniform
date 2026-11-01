@@ -38,12 +38,6 @@ All tuning lives in [`src/core/K.ts`](../src/core/K.ts):
 | `renderer.emphasis.nodes` | `edgesOnTop false`, `edgeAlphaScale 0.55`, `nodeAlphaScale 1.0`, `edgeWidthPx 1.0` | default emphasis: nodes are the subject, the mesh recedes |
 | `renderer.emphasis.edges` | `edgesOnTop true`, `edgeAlphaScale 1.0`, `nodeAlphaScale 1.0`, `edgeWidthPx 2.5` | edge-priority emphasis: the mesh draws over the nodes and heavier |
 | `renderer.workerReadyTimeoutMS` | `250` | how long the main thread waits for a render worker's `ready` before drawing in process |
-| `chooser.minOrder` / `maxOrder` | `2` / `4096` | random-graph node-count bounds; `maxOrder` is the measured usability cap |
-| `chooser.interactiveOrder` | `1024` | above this the chooser warns that the layout may advance below 20 Hz |
-| `chooser.minBranching` / `maxBranching` | `1` / `8` | random-graph edges-per-node bounds; `order - 1` is the hard cap |
-| `molecule.seedSpacing` | `30` | molecule seed phyllotaxis spacing; the spring rest length |
-| `molecule.seedDepthJitter` | `4.5` | molecule seed depth-offset amplitude |
-| `wordCloud.minTagScale` / `maxTagScale` | `0.85` / `1.35` | word-cloud chip font-size range, em |
 
 Keep `timeStep / (1 - friction)` near `1`: that ratio is the terminal per-step
 displacement under a constant force, and it is a real stability constraint, not a

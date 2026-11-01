@@ -7,7 +7,7 @@ import { PerformanceObserver } from "perf_hooks";
 import { Emphasis } from "../src/core/Emphasis";
 import { ForceDirectedGraph } from "../src/physics/ForceDirectedGraph";
 import { Graph } from "../src/graph/Graph";
-import { GraphFactory } from "../src/graph/GraphFactory";
+import { GraphFactory } from "../test/support/GraphFactory";
 import { K, QualitySetting } from "../src/core/K";
 import { radius } from "../src/physics/Kernel";
 import { projectGraph } from "../src/view/Projection";
