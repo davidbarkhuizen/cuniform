@@ -15,6 +15,19 @@ export class State {
     /** Owned here so reset() rebuilds the graph without losing the viewing angle. */
     public readonly camera: Camera = new Camera();
 
+    /** Active touch points by pointer id, in canvas coordinates. */
+    public readonly touches: Map<number, Point2D> = new Map();
+
+    /** What the current touch gesture does; `none` until every finger lifts after a pinch. */
+    public touchMode!: 'none' | 'drag' | 'orbit' | 'pinch';
+
+    /** Where a one-finger gesture started, and whether it has left the slop circle since. */
+    public touchStart!: Point2D | null;
+    public touchMoved!: boolean;
+
+    /** The previous finger spread of a pinch, in canvas pixels. */
+    public pinchSpread!: number;
+
     /** Owned here for the same reason as the camera: reset() runs on mouse-out and graph swaps. */
     public emphasis: Emphasis = Emphasis.nodes;
 
@@ -30,5 +43,11 @@ export class State {
         this.b2Down = false;
 
         this.lastMiddleDragPos = null;
+
+        this.touches.clear();
+        this.touchMode = 'none';
+        this.touchStart = null;
+        this.touchMoved = false;
+        this.pinchSpread = 0;
     }
 }

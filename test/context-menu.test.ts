@@ -21,7 +21,7 @@ function flushDeferred() {
 }
 
 function rightClick(canvas: FakeCanvas, x = 250, y = 150) {
-    canvas.dispatch('mousedown', mouseEvent({ button: 2, clientX: x, clientY: y }));
+    canvas.dispatch('pointerdown', mouseEvent({ button: 2, clientX: x, clientY: y }));
     const contextEvent = mouseEvent({ clientX: x, clientY: y });
     canvas.dispatch('contextmenu', contextEvent);
     return contextEvent;
@@ -125,7 +125,7 @@ test("macOS Ctrl+click opens the menu without changing the selection", () => {
         selected.isSelected = true;
 
         // macOS reports Ctrl+click as a primary press plus a contextmenu event.
-        canvas.dispatch('mousedown', mouseEvent({ button: 0, ctrlKey: true, clientX: 250, clientY: 150 }));
+        canvas.dispatch('pointerdown', mouseEvent({ button: 0, ctrlKey: true, clientX: 250, clientY: 150 }));
         canvas.dispatch('contextmenu', mouseEvent({ ctrlKey: true, clientX: 250, clientY: 150 }));
 
         assert.equal(controller.contextMenu!.isOpen, true, "the Ctrl+click gesture opens the menu");
@@ -416,7 +416,7 @@ test("a completed reset swaps the graph without rebuilding the menu or double-re
         assert.equal(elements.body.children.length, 1, "reset must not leak a second menu");
         assert.ok(controller.contextMenu);
         assert.equal(canvas.listenerCount('contextmenu'), 1);
-        assert.equal(canvas.listenerCount('mousedown'), 1);
+        assert.equal(canvas.listenerCount('pointerdown'), 1);
         assert.equal(controller.solver.graph.vertices.length, 5, "the chosen graph is now live");
     });
 });
@@ -446,7 +446,7 @@ test("a left mousedown closes an open context menu", () => {
         rightClick(canvas);
         assert.equal(controller.contextMenu!.isOpen, true);
 
-        canvas.dispatch('mousedown', mouseEvent({ button: 0, clientX: 10, clientY: 10 }));
+        canvas.dispatch('pointerdown', mouseEvent({ button: 0, clientX: 10, clientY: 10 }));
 
         assert.equal(controller.contextMenu!.isOpen, false);
     });

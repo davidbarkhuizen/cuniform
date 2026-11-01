@@ -23,7 +23,7 @@ import { point3 } from "../core/Point3D";
 import { PhysicsRunner } from "../physics/PhysicsRunner";
 import { CameraView, Projector } from "../view/Projector";
 import { RenderBackend, RenderRunner, RenderWorkerFactory } from "../render/RenderRunner";
-import { handleNodeSelectionAttempt } from "../ui/Selection";
+import { handleNodeSelectionAttempt, nodeAt } from "../ui/Selection";
 import { State } from "./State";
 import { Tag } from "../graph/Tag";
 
@@ -194,31 +194,34 @@ export class UIController {
         this.state.reset();
     };
 
+    // A culled node has no usable depth, so it drags on the near plane.
+    private dragSelectedTo(mxy: Point2D): void {
+
+        const projector = this.projector();
+
+        for (const vertex of this.solver.graph.vertices) {
+
+            if (!vertex.isSelected)
+                continue;
+
+            const depth = projector.isCulled(vertex.depth)
+                ? projector.camera.nearPlane
+                : vertex.depth;
+
+            vertex.position = projector.unproject(mxy, depth);
+        }
+
+        // No step or camera move here, so the idle-frame skip would freeze the drag.
+        this.requestRedraw();
+    }
+
     onMouseMove = (event: MouseEvent) => {
 
         if (this.state.b0Down || this.state.b1Down)
             this.wake();
 
         if (this.state.b0Down) {
-
-            // A culled node has no usable depth, so it drags on the near plane.
-            const mxy = this.getMousePos(this.canvas, event);
-            const projector = this.projector();
-
-            for (const vertex of this.solver.graph.vertices) {
-
-                if (!vertex.isSelected)
-                    continue;
-
-                const depth = projector.isCulled(vertex.depth)
-                    ? projector.camera.nearPlane
-                    : vertex.depth;
-
-                vertex.position = projector.unproject(mxy, depth);
-            }
-
-            // No step or camera move here, so the idle-frame skip would freeze the drag.
-            this.requestRedraw();
+            this.dragSelectedTo(this.getMousePos(this.canvas, event));
         }
         else if (this.state.b1Down) {
 
@@ -591,6 +594,207 @@ export class UIController {
             this.state.b2Down = false;
     }
 
+    // The canvas listens to Pointer Events only, so mouse, pen and touch share one event model; mouse and pen
+    // take the handlers above unchanged, and touch takes the gesture map below.
+    onPointerDown = (event: PointerEvent) => {
+        if (event.pointerType === 'touch')
+            this.onTouchDown(event);
+        else
+            this.onMouseDown(event);
+    };
+
+    onPointerMove = (event: PointerEvent) => {
+        if (event.pointerType === 'touch')
+            this.onTouchMove(event);
+        else
+            this.onMouseMove(event);
+    };
+
+    onPointerUp = (event: PointerEvent) => {
+        if (event.pointerType === 'touch')
+            this.onTouchEnd(event, true);
+        else
+            this.onMouseUp(event);
+    };
+
+    onPointerCancel = (event: PointerEvent) => {
+        if (event.pointerType === 'touch')
+            this.onTouchEnd(event, false);
+        else
+            this.onMouseOut();
+    };
+
+    // A lifted finger also fires pointerout, so only mouse and pen leaving the canvas reset the buttons.
+    onPointerOut = (event: PointerEvent) => {
+        if (event.pointerType !== 'touch')
+            this.onMouseOut();
+    };
+
+    private longPressTimer: ReturnType<typeof setTimeout> | null = null;
+
+    private cancelLongPress(): void {
+        if (this.longPressTimer !== null) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+    }
+
+    private pinchGeometry(): { spread: number; centroid: Point2D } {
+        const [a, b] = Array.from(this.state.touches.values());
+
+        return {
+            spread: Math.hypot(b.x - a.x, b.y - a.y),
+            centroid: point((a.x + b.x) / 2, (a.y + b.y) / 2),
+        };
+    }
+
+    /**
+     * One finger on a node selects and drags it; on empty canvas it orbits, a tap clears the selection, and a
+     * still long press opens the actions menu. A second finger cancels that and pinches (dolly) and pans.
+     */
+    onTouchDown = (event: PointerEvent) => {
+
+        event.preventDefault();
+
+        this.hideContextMenu();
+        this.wake();
+
+        const state = this.state;
+        const at = this.getMousePos(this.canvas, event);
+
+        state.touches.set(event.pointerId, at);
+
+        if (state.touches.size === 1) {
+
+            state.touchStart = at;
+            state.touchMoved = false;
+
+            const graph = this.solver.graph;
+
+            if (nodeAt(graph, at, this.projector()) !== null) {
+                if (handleNodeSelectionAttempt(graph, at, this.projector()))
+                    this.updateSelectionInfo();
+
+                state.b0Down = true;
+                state.touchMode = 'drag';
+            }
+            else {
+                state.touchMode = 'orbit';
+                state.lastMiddleDragPos = at;
+            }
+
+            const { clientX, clientY } = event;
+
+            this.cancelLongPress();
+            this.longPressTimer = setTimeout(() => {
+                this.longPressTimer = null;
+
+                if (state.touches.size !== 1 || state.touchMoved)
+                    return;
+
+                state.b0Down = false;
+                state.touchMode = 'none';
+                this.openContextMenu(clientX, clientY);
+            }, K.ui.longPressMS);
+
+            return;
+        }
+
+        this.cancelLongPress();
+
+        // A second finger turns any one-finger gesture into a pinch; a third is ignored.
+        if (state.touches.size === 2) {
+            state.b0Down = false;
+            state.touchMode = 'pinch';
+
+            const { spread, centroid } = this.pinchGeometry();
+
+            state.pinchSpread = spread;
+            state.lastMiddleDragPos = centroid;
+
+            // The drag's pin is released, so the frame must redraw without it.
+            this.requestRedraw();
+        }
+    };
+
+    onTouchMove = (event: PointerEvent) => {
+
+        const state = this.state;
+
+        if (!state.touches.has(event.pointerId))
+            return;
+
+        const at = this.getMousePos(this.canvas, event);
+
+        state.touches.set(event.pointerId, at);
+
+        if (state.touchStart !== null && !state.touchMoved) {
+            const travel = Math.hypot(at.x - state.touchStart.x, at.y - state.touchStart.y);
+
+            if (travel >= K.ui.touchSlopPx) {
+                state.touchMoved = true;
+                this.cancelLongPress();
+            }
+        }
+
+        if (state.touchMode === 'drag') {
+            this.wake();
+            this.dragSelectedTo(at);
+        }
+        else if (state.touchMode === 'orbit' && state.touchMoved) {
+            this.wake();
+            this.orbitTo(at);
+        }
+        else if (state.touchMode === 'pinch' && state.touches.size === 2) {
+
+            const { spread, centroid } = this.pinchGeometry();
+
+            this.wake();
+
+            // Fingers apart zooms in, which is a shorter distance.
+            if (spread > 0 && state.pinchSpread > 0)
+                state.camera.dollyBy(state.pinchSpread / spread);
+
+            state.pinchSpread = spread;
+
+            this.panCameraTo(centroid);
+        }
+    };
+
+    /** `completed` is false for pointercancel, which never counts as a tap. */
+    private onTouchEnd(event: PointerEvent, completed: boolean): void {
+
+        const state = this.state;
+
+        if (!state.touches.has(event.pointerId))
+            return;
+
+        const at = state.touches.get(event.pointerId)!;
+
+        state.touches.delete(event.pointerId);
+        this.cancelLongPress();
+
+        if (completed && state.touchMode === 'orbit' && !state.touchMoved) {
+            // A tap on empty canvas: the same miss a primary click is, so it clears the selection.
+            if (handleNodeSelectionAttempt(this.solver.graph, at, this.projector()))
+                this.updateSelectionInfo();
+        }
+
+        if (state.touchMode === 'drag') {
+            state.b0Down = false;
+            this.updateSelectionInfo();
+        }
+
+        // After any lift the gesture is over until every finger is up, so a pinch never decays into an orbit.
+        state.touchMode = 'none';
+        state.lastMiddleDragPos = null;
+
+        if (state.touches.size === 0) {
+            state.touchStart = null;
+            state.touchMoved = false;
+        }
+    }
+
     onExport = (event?: MouseEvent) => {
 
         event?.preventDefault();
@@ -807,10 +1011,15 @@ export class UIController {
 
         const bind = (type: string, fn: (event: any) => void) => UIController.bind(attach, this.canvas, type, fn);
 
-        bind("mousemove", this.onMouseMove);
-        bind("mousedown", this.onMouseDown);
-        bind("mouseup", this.onMouseUp);
-        bind("mouseout", this.onMouseOut);
+        // The page must not scroll or zoom under a gesture on the canvas.
+        if (attach)
+            this.canvas.style.touchAction = 'none';
+
+        bind("pointermove", this.onPointerMove);
+        bind("pointerdown", this.onPointerDown);
+        bind("pointerup", this.onPointerUp);
+        bind("pointercancel", this.onPointerCancel);
+        bind("pointerout", this.onPointerOut);
         bind("contextmenu", this.onContextMenu);
         bind("keydown", this.onKeyDown);
         bind("wheel", this.onWheel);
@@ -1054,6 +1263,9 @@ export class UIController {
 
         // A button held across a reset must not keep turning the new graph.
         this.stopCameraHold();
+
+        // A pending long press must not open a menu on a torn-down controller.
+        this.cancelLongPress();
 
         // A chooser must not outlive the controller that owns it.
         this.closeGraphWizard();

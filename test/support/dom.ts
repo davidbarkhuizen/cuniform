@@ -731,7 +731,7 @@ export function poisonSelection(graph: Graph, message: string): void {
 
 /** Every listener initialize() attaches to the canvas. */
 export const CANVAS_EVENTS = [
-    'mousemove', 'mousedown', 'mouseup', 'mouseout', 'contextmenu', 'keydown', 'wheel',
+    'pointermove', 'pointerdown', 'pointerup', 'pointercancel', 'pointerout', 'contextmenu', 'keydown', 'wheel',
 ];
 
 export const CAMERA_CONSOLE_EVENTS = ['pointerdown', 'keydown', 'keyup', 'click'];
@@ -837,6 +837,9 @@ export interface FakeMouseEvent {
     target: unknown;
     /** The click count; 0 marks a keyboard or assistive-technology click. */
     detail: number;
+    /** Pointer Events fields; a mouse event doubles as a mouse-type pointer event. */
+    pointerType: string;
+    pointerId: number;
     defaultPrevented: boolean; preventDefault: () => void;
 }
 
@@ -844,6 +847,7 @@ export function mouseEvent(props: Partial<FakeMouseEvent> = {}): MouseEvent {
     const event: FakeMouseEvent = {
         button: 0, clientX: 0, clientY: 0, shiftKey: false, ctrlKey: false,
         target: null, detail: 1,
+        pointerType: 'mouse', pointerId: 1,
         defaultPrevented: false,
         preventDefault: () => { event.defaultPrevented = true; },
         ...props,
@@ -955,4 +959,9 @@ export function countSteps(controller: UIController): () => number {
 
 // The `K.renderer` threshold override lives in `support/settings.ts` so the benchmark need not import these
 // fakes.
+
+/** A touch pointer event at canvas-relative (x, y); the fixture canvas sits at the page origin. */
+export function touchEvent(pointerId: number, x: number, y: number): PointerEvent {
+    return mouseEvent({ pointerType: 'touch', pointerId, button: 0, clientX: x, clientY: y }) as unknown as PointerEvent;
+}
 
