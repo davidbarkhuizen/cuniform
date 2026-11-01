@@ -237,8 +237,8 @@ test("the probe transfers nothing until the worker answers ready", () => {
     assert.equal(fake.posts[0].message.type, "init", "the mirror crosses first");
     assert.equal(
         fake.posts[0].transfer.length,
-        2,
-        "the init carries the transferred canvas and its position buffer"
+        3,
+        "the init carries the transferred canvas and its position and edge buffers"
     );
 
     runner.terminate();

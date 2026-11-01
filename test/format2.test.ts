@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { Format2Error, readFormat2, weightStats } from "../src/network/Format2";
 import { allEntries } from "../src/network/NetworkModel";
-import { array, attentionWeights, dense, file, flatClassifier, sequenceModel } from "./support/format2";
+import { array, attentionWeights, branchedWindow, dense, file, flatClassifier, sequenceModel } from "./support/format2";
 
 test("a flat classifier reads as one entry per layer, weights row-major", () => {
     const model = readFormat2(flatClassifier());
@@ -189,54 +189,6 @@ test("conv, pool and batch norm track the image; a dense layer after them flatte
     assert.equal(entries[2].outWidth, 2 * 3 * 3);
     assert.equal(entries[3].inWidth, 18);
 });
-
-/** A window-recurrent model with two coded factors over branches; `merge` recombines them. */
-function branchedWindow(merge: boolean, reads: number[] | null = null): Record<string, unknown> {
-    const d = 4;
-    const branch = () => [{ kind: "state_input" }, { kind: "layer_norm", epsilon: 1e-5 }];
-    const branchCount = merge ? 2 : 3;
-
-    const layers: unknown[] = [
-        { kind: "embedding", vocabulary: 6, size: d },
-        {
-            kind: merge ? "merged_branches" : "branches",
-            branches: Array.from({ length: branchCount }, branch),
-            ...(reads ? { reads } : {}),
-        },
-        dense(5, { activation: "softmax", output: true, loss: "cross_entropy" }),
-    ];
-
-    const stateWidth = 2 + 3;
-    const branchWeights = () => [[array([d, stateWidth])], [array([d]), array([d])]];
-    const weights: unknown[] = [[array([6, d])], []];
-
-    for (let b = 0; b < branchCount; b++) {
-        weights.push(...branchWeights());
-
-        if (b + 1 < branchCount)
-            weights.push([]);
-    }
-
-    if (merge)
-        weights.push([]);
-
-    weights.push([array([5, d]), array([5])]);
-
-    // Factor 0: state 2, 3 codes; factor 1: state 3, continuous.
-    weights.push([array([d])], [array([6, d]), array([6, 2]), array([6])], [array([3, 2])], [array([2])]);
-    weights.push([array([d])], [array([9, d]), array([9, 3]), array([9])], [array([3])]);
-
-    return file(layers, weights, {
-        shape: "window_recurrent",
-        input: { dimension: 2 },
-        recurrence: {
-            factors: [{ state_size: 2, codes: { count: 3, commitment: 0.25 } }, { state_size: 3, codes: null }],
-            cross: false,
-            cell: { kind: "gru", update_bias: 1.0 },
-            pooling: { kind: "attention" },
-        },
-    });
-}
 
 test("branches expand into split, lanes and branch ends; factor g reads branch g's end", () => {
     const model = readFormat2(branchedWindow(false));

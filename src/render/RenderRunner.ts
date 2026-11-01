@@ -10,6 +10,7 @@ import {
     encodeCameraInto,
     FrameRequest,
     initRequest,
+    initTransfer,
     RenderRequest,
     RenderResponse,
 } from "./RenderProtocol";
@@ -366,7 +367,7 @@ class WorkerBackend implements RenderBackend {
         this.free = [new Float64Array(length), new Float64Array(length), new Float64Array(length)];
 
         const init = initRequest(graph, this.generation);
-        const transfer: Transferable[] = [init.positions.buffer as Transferable];
+        const transfer: Transferable[] = initTransfer(init);
 
         if (!this.canvasSent) {
             (init as { canvas?: Transferable }).canvas = offscreen;

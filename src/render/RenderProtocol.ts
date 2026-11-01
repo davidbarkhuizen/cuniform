@@ -1,7 +1,8 @@
 import { emphasisFromWire } from "../core/Emphasis";
+import { GraphAttributes } from "../graph/Attributes";
 import { Graph } from "../graph/Graph";
 import { K } from "../core/K";
-import { buildMirrorGraph, packMirror, writePositions } from "../graph/MirrorGraph";
+import { buildMirrorGraph, mirrorBuffers, packMirror, writePositions } from "../graph/MirrorGraph";
 import { projectGraph } from "../view/Projection";
 import { CameraView, Projector } from "../view/Projector";
 import { render } from "./Renderer";
@@ -23,6 +24,8 @@ export interface InitRequest {
     /** Undirected edge endpoints as node-index pairs, length 2E. */
     edges: Int32Array;
     positions: Float64Array;
+    /** The bands and kinds (D10): static, sent once per graph; null for a plain graph. */
+    attributes: GraphAttributes | null;
 }
 
 export interface FrameRequest {
@@ -100,7 +103,12 @@ export function initRequest(graph: Graph, generation: number): InitRequest {
 
     const wire = packMirror(graph);
 
-    return { type: "init", generation, labels, edges: wire.edges, positions: wire.positions };
+    return { type: "init", generation, labels, edges: wire.edges, positions: wire.positions, attributes: wire.attributes };
+}
+
+/** Every buffer of an init message: all fresh copies, so they transfer rather than clone (D10). */
+export function initTransfer(init: InitRequest): Transferable[] {
+    return mirrorBuffers(init) as Transferable[];
 }
 
 export function encodeCamera(view: CameraView): Float64Array {
@@ -245,7 +253,7 @@ export class RenderWorkerEngine {
     }
 
     private build(request: InitRequest): void {
-        this.graph = buildMirrorGraph(request.labels, request.edges, request.positions);
+        this.graph = buildMirrorGraph(request.labels, request.edges, request.positions, request.attributes);
         this.generation = request.generation;
     }
 }

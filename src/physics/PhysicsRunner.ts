@@ -1,7 +1,7 @@
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
 import { Graph, GraphShape, graphShape, sameShape } from "../graph/Graph";
 import { readPositions, writePositions } from "../graph/MirrorGraph";
-import { initRequest, PositionsResponse, stepWithPin, StepRequest, WorkerRequest } from "./PhysicsProtocol";
+import { initRequest, initTransfer, PositionsResponse, stepWithPin, StepRequest, WorkerRequest } from "./PhysicsProtocol";
 import { WorkerPort } from "../core/WorkerChannel";
 import { K } from "../core/K";
 
@@ -114,7 +114,8 @@ class WorkerBackend implements PhysicsBackend {
         // A worker script that fails to load never answers: hand back rather than freeze.
         worker.onerror = () => this.fail();
 
-        worker.postMessage(initRequest(graph, this.generation));
+        const init = initRequest(graph, this.generation);
+        worker.postMessage(init, initTransfer(init));
     }
 
     get maxDisplacement(): number {
@@ -169,7 +170,8 @@ class WorkerBackend implements PhysicsBackend {
         this.pinIndex = -1;
 
         readPositions(graph, this.latest);
-        this.worker.postMessage(initRequest(graph, this.generation));
+        const init = initRequest(graph, this.generation);
+        this.worker.postMessage(init, initTransfer(init));
     }
 
     terminate(): void {

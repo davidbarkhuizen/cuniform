@@ -1,6 +1,7 @@
 import { ForceDirectedGraph } from "./ForceDirectedGraph";
+import { GraphAttributes } from "../graph/Attributes";
 import { Graph } from "../graph/Graph";
-import { buildMirrorGraph, packMirror, readPositions } from "../graph/MirrorGraph";
+import { buildMirrorGraph, mirrorBuffers, packMirror, readPositions } from "../graph/MirrorGraph";
 import { Tag } from "../graph/Tag";
 
 /**
@@ -15,6 +16,8 @@ export interface InitRequest {
     positions: Float64Array;
     /** Undirected edge endpoints as node-index pairs, length 2E. */
     edges: Int32Array;
+    /** The bands and kinds (D10): static, sent once per graph; null for a plain graph. */
+    attributes: GraphAttributes | null;
 }
 
 export interface StepRequest {
@@ -43,7 +46,12 @@ export function initRequest(graph: Graph, generation: number): InitRequest {
 
     const wire = packMirror(graph);
 
-    return { type: "init", generation, positions: wire.positions, edges: wire.edges };
+    return { type: "init", generation, positions: wire.positions, edges: wire.edges, attributes: wire.attributes };
+}
+
+/** Every buffer of an init message: all fresh copies, so they transfer rather than clone (D10). */
+export function initTransfer(init: InitRequest): Transferable[] {
+    return mirrorBuffers(init) as Transferable[];
 }
 
 /** Tag at `index`, or null when it pins nothing (`-1` sentinel or out of range). */
@@ -107,7 +115,7 @@ export class PhysicsWorkerEngine {
 
         // The shared mirror builder, so the physics and render mirrors cannot drift;
         // its `n<i>` default supplies labels that physics never reads.
-        const graph = buildMirrorGraph([], request.edges, request.positions);
+        const graph = buildMirrorGraph([], request.edges, request.positions, request.attributes);
 
         this.graph = graph;
         this.solver = new ForceDirectedGraph(graph);

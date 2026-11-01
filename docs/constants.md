@@ -38,6 +38,10 @@ All tuning lives in [`src/core/K.ts`](../src/core/K.ts):
 | `renderer.emphasis.nodes` | `edgesOnTop false`, `edgeAlphaScale 0.55`, `nodeAlphaScale 1.0`, `edgeWidthPx 1.0` | default emphasis: nodes are the subject, the mesh recedes |
 | `renderer.emphasis.edges` | `edgesOnTop true`, `edgeAlphaScale 1.0`, `nodeAlphaScale 1.0`, `edgeWidthPx 2.5` | edge-priority emphasis: the mesh draws over the nodes and heavier |
 | `renderer.workerReadyTimeoutMS` | `250` | how long the main thread waits for a render worker's `ready` before drawing in process |
+| `network.bandThickness` / `thinBandThickness` | `24` / `8` | a band's height in model units; thin for a normalisation or a token mean |
+| `network.bandGap` | `56` | the gap between bands; with the thickness it sets a model's height |
+| `network.minFootprint` / `unitSpacing` | `120` / `30` | a band's footprint side: at least the minimum, grown to fit its members at the spring rest length |
+| `network.laneGap` / `stackGap` | `40` / `400` | the gaps between branch or factor lanes (z) and between stacks (x) |
 
 Keep `timeStep / (1 - friction)` near `1`: that ratio is the terminal per-step
 displacement under a constant force, and it is a real stability constraint, not a

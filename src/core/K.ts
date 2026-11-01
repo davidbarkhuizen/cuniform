@@ -166,4 +166,18 @@ export const K = {
         edgeDefault : '#4b5b70',
         edgeIncident : SELECTION_COLOUR,
     },
+
+    network: {
+        // Band geometry (workplan D5, D6): fixed sizes, so the band count sets a model's height and a
+        // deep model is tall rather than squashed. A thin band holds a normalisation or a token mean.
+        bandThickness: 24,
+        thinBandThickness: 8,
+        bandGap: 56,
+        // A band's footprint is a square of at least this side, grown to fit its members at the unit
+        // spacing; lanes and stacks are separated by the gaps.
+        minFootprint: 120,
+        unitSpacing: EQUILIBRIUM_DISPLACEMENT,
+        laneGap: 40,
+        stackGap: 400,
+    },
 };
