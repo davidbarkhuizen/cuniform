@@ -69,6 +69,17 @@ relaxation, not an energy minimisation:
   overlays the latest pin on every reply, because a reply was computed with the
   pin of an earlier step; without the overlay `sync()` would pull the dragged
   node back a round trip behind the pointer.
+- **Band clamp** (workplan D5). A network's nodes each have a band, a box in
+  model space (see [Networks](networks.md#the-render-graph)). After a banded
+  node's velocity and position update, its y is clamped to the band's centre ±
+  half thickness and its x and z to the footprint, and each clamped axis loses
+  its velocity: the per-axis analogue of the pin. A pinned node is clamped too,
+  so a drag cannot leave its band. A banded node's travel, for the settle
+  detector, is the distance it actually moved, so a node pressed against a face
+  reads as still. Unbanded nodes, and graphs without attributes, take the
+  unchanged path. The clamp is in `stepPhysics`, so the main thread and the
+  physics worker apply it identically; repulsion between bands still acts, and
+  the clamp turns it into spreading within the band's plane.
 
 Each step runs in fixed passes — all repulsion, all springs, the per-component
 anchor, all velocities, then all positions — so every node sees the same frozen

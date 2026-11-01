@@ -19,6 +19,7 @@ import { point, Point2D } from "../core/Point2D";
 import { point3 } from "../core/Point3D";
 import { PhysicsRunner } from "../physics/PhysicsRunner";
 import { CameraView, Projector } from "../view/Projector";
+import { fitView } from "../view/Fit";
 import { RenderBackend, RenderRunner, RenderWorkerFactory } from "../render/RenderRunner";
 import { handleNodeSelectionAttempt, nodeAt } from "../ui/Selection";
 import { State } from "./State";
@@ -817,14 +818,20 @@ export class UIController {
         event?.preventDefault();
 
         this.hideContextMenu();
-        this.loadGraph(this.makeGraph());
+
+        // The same model again: the camera the viewer chose stays.
+        this.loadGraph(this.makeGraph(), false);
 
         return false;
     };
 
-    loadGraph = (graph: Graph) => {
+    // A new model is framed once, on load (D6); `fit` is false for a reload of the same one.
+    loadGraph = (graph: Graph, fit: boolean = true) => {
 
         this.solverRef = new ForceDirectedGraph(graph);
+
+        if (fit)
+            this.fitCamera(graph);
 
         // Re-initialise the physics owner, dropping in-flight messages from the replaced graph.
         if (this.runnerRef !== null)
@@ -842,6 +849,15 @@ export class UIController {
 
         this.updateSelectionInfo();
     };
+
+    /** Frame a banded graph; a plain graph keeps the camera it has. */
+    private fitCamera(graph: Graph): void {
+
+        const view = graph.attributes === null ? null : fitView(graph.attributes.bands);
+
+        if (view !== null)
+            this.state.camera.setPose(view);
+    }
 
     private updateCurrentGraphLabel = () => {
         this.currentGraphLabel.textContent = NO_MODEL_LABEL;
@@ -1171,6 +1187,7 @@ export class UIController {
         this.updateEmphasisButtons();
 
         this.solverRef = new ForceDirectedGraph(this.initialGraph());
+        this.fitCamera(this.solverRef.graph);
 
         // Built before resizeCanvas() draws through it; handed the graph so a worker mirror starts first.
         this.renderRunnerRef = this.createRenderRunner(this.solverRef.graph);

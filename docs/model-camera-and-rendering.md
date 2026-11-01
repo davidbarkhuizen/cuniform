@@ -44,6 +44,14 @@ axis is flipped so increasing projected `y` moves up the screen. The scale is
 uniform so a canvas whose aspect ratio differs from the model square never
 stretches the layout.
 
+**The initial view of a network** ([`src/view/Fit.ts`](../src/view/Fit.ts),
+workplan D6) is set once, when a model loads: the camera aims at the bands'
+bounding-box centre, turned slightly (`FIT_YAW`) and looking slightly down
+(`FIT_PITCH`) so bands read as slabs, at the distance where the box's bounding
+sphere fills 90% of the viewport's shorter half, within the dolly clamp. It is
+never re-fitted per frame, and `reset` keeps the camera the viewer chose; a very
+deep model starts small and the wheel brings it closer.
+
 Selection is the one measurement deliberately taken in canvas space rather than
 model space: the hit radius is a fixed number of screen pixels, so a click means
 the same target size at every canvas scale, camera distance and

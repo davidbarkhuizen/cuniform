@@ -30,7 +30,7 @@ The suite enforces these, so they are the contract rather than suggestions:
    keep insertion order within a class, the frame's display emphasis decides the
    class order, and a layout is reproducible.
 5. **Pinned-node semantics.** A dragged node keeps the position the pointer
-   writes, has its velocity zeroed, is skipped by integration, and still exerts
+   writes (clamped to its band, invariant 10), has its velocity zeroed, is skipped by integration, and still exerts
    forces. Dragging never teleports depth. On the worker path the physics
    runner overlays the latest pin on every reply, so `sync()` never pulls the
    pinned node back to the pin of an earlier step.
@@ -50,6 +50,11 @@ The suite enforces these, so they are the contract rather than suggestions:
 9. **One selection input for the renderer.** `render()` takes the selection
    only from its `selected` argument and never reads `Tag.isSelected`, which is
    UI state; the render worker's mirror tags carry no such flag.
+10. **Layers in bands.** After every physics step, every node with a band lies
+   in that band's box: y within the half thickness of its centre, x and z within
+   its footprint. That includes pinned nodes, so a drag is clamped to its band.
+   It holds in process and in the physics worker, which run the same clamp and
+   stay bit-equal (`test/band-clamp.test.ts`, on hand-built and real models).
 
 When timing a change, time it with the committed benchmark and report force
 error alongside any time that moves an approximation; "it feels faster" is not
