@@ -1,0 +1,5 @@
+# Mechanical reformats, skipped by `git blame --ignore-revs-file .git-blame-ignore-revs`
+# (or `git config blame.ignoreRevsFile .git-blame-ignore-revs`).
+
+# style: indent with spaces and declare no var (#162)
+50a1028d984faa66e5d48ec62b43c765ff21aced
