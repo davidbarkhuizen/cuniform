@@ -90,3 +90,17 @@ export class Graph {
 	};
 
 };
+
+/** A graph's size as the worker mirrors see it; `Graph` is append-only, so any change is growth. */
+export interface GraphShape {
+	vertices: number;
+	edges: number;
+}
+
+export function graphShape(graph: Graph): GraphShape {
+	return { vertices: graph.vertices.length, edges: graph.edges.length };
+}
+
+export function sameShape(graph: Graph, shape: GraphShape): boolean {
+	return graph.vertices.length === shape.vertices && graph.edges.length === shape.edges;
+}

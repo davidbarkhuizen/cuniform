@@ -1,5 +1,5 @@
 import { Emphasis } from "../core/Emphasis";
-import { Graph } from "../graph/Graph";
+import { Graph, GraphShape, graphShape, sameShape } from "../graph/Graph";
 import { K } from "../core/K";
 import { readPositions } from "../graph/MirrorGraph";
 import { projectGraph } from "../view/Projection";
@@ -159,6 +159,8 @@ class WorkerBackend implements RenderBackend {
     private timer: ReturnType<typeof setTimeout> | null = null;
 
     private graph: Graph | null;
+    // The graph's shape at the last init; growth in place re-inits the mirror.
+    private shape: GraphShape = { vertices: -1, edges: -1 };
     private width = 0;
     private height = 0;
     private dpr = 1;
@@ -214,6 +216,8 @@ class WorkerBackend implements RenderBackend {
 
         if (graph !== this.graph)
             this.setGraph(graph);
+        else if (this.initialised && !sameShape(graph, this.shape))
+            this.restart();
 
         // The selection index is O(N) to resolve, so it is cached across frames.
         if (selected !== this.pendingSelected || graph !== this.pendingIndexGraph) {
@@ -245,6 +249,10 @@ class WorkerBackend implements RenderBackend {
             return;
 
         this.graph = graph;
+        this.restart();
+    }
+
+    private restart(): void {
 
         // Bump the generation so a response for the replaced graph is dropped; the frame in flight is
         // abandoned.
@@ -316,6 +324,7 @@ class WorkerBackend implements RenderBackend {
 
         const length = graph.vertices.length * 3;
 
+        this.shape = graphShape(graph);
         this.free = [new Float64Array(length), new Float64Array(length), new Float64Array(length)];
 
         const init = initRequest(graph, this.generation);
@@ -341,9 +350,15 @@ class WorkerBackend implements RenderBackend {
 
         const positions = this.free.pop();
 
-        // Pooled buffers are sized to this graph; a mismatch means a re-init is due.
-        if (positions === undefined || positions.length !== graph.vertices.length * 3)
+        if (positions === undefined)
             return;
+
+        // Pooled buffers are sized to this graph; a mismatch means a re-init is due. The buffer
+        // goes back, so the pool cannot drain while the mismatch lasts.
+        if (positions.length !== graph.vertices.length * 3) {
+            this.free.push(positions);
+            return;
+        }
 
         readPositions(graph, positions);
         encodeCameraInto(camera, this.scratchCamera);
