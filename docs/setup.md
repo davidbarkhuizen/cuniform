@@ -20,7 +20,9 @@ subcommand. With no recognised option it prints usage.
 Except for `clean` (which removes the build directories directly) and `run`
 (which goes through `build-and-run.sh`), each delegates to the matching npm
 script (`npm run typecheck`, `npm test`, `npm run ci`, `npm run bench`, `npm run
-start`, `npm install`). `npm run dev` rebuilds while you edit, and `BROWSER=...
+start`, `npm install`). `npm run dev` rebuilds the bundle while you edit (webpack's own watcher; it
+transpiles without type-checking, so run `npm run typecheck -- --watch` in a
+second terminal for type errors), and `BROWSER=...
 ./cli run` (or `bash build-and-run.sh --build-only`) controls how the demo is
 launched.
 
