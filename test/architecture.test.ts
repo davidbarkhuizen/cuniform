@@ -31,6 +31,8 @@ const PURE_MODULES = [
     "graph/Graph.ts",
     "graph/MirrorGraph.ts",
     "graph/Tag.ts",
+    "network/Format2.ts",
+    "network/NetworkModel.ts",
     "view/Camera.ts",
     "view/Mat3.ts",
     "view/Projection.ts",
@@ -131,11 +133,12 @@ const PACKAGE_DEPENDENCIES: Record<string, string[]> = {
     ".": ["app"],
     "core": [],
     "graph": ["core"],
+    "network": ["core", "graph"],
     "view": ["core", "graph"],
     "physics": ["core", "graph", "view"],
     "render": ["core", "graph", "view"],
     "ui": ["core", "graph", "view"],
-    "app": ["core", "graph", "view", "physics", "render", "ui"],
+    "app": ["core", "graph", "network", "view", "physics", "render", "ui"],
 };
 
 /** `core/K.ts` -> `core`; the bundle entry `index.ts` -> `.`. */
