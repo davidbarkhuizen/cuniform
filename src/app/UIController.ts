@@ -21,6 +21,7 @@ import { PhysicsRunner } from "../physics/PhysicsRunner";
 import { CameraView, Projector } from "../view/Projector";
 import { fitView } from "../view/Fit";
 import { buildGraph, BuiltGraph } from "../network/BuildGraph";
+import { carryPositions } from "../network/Carry";
 import { componentDetails, modelSummary } from "../network/Details";
 import { fileSource, ModelSource, TextFile } from "./ModelSource";
 import { NetworkModel } from "../network/NetworkModel";
@@ -111,9 +112,16 @@ export class UIController {
     // Cached selection passed to the renderer; refreshed by updateSelectionInfo().
     private selected: Tag | null = null;
 
-    // The loader's file picker and the model panel's list; null in fixtures without them.
+    // The loader's file picker, the model panel's list, the selection's expand/collapse button and the
+    // panel's edges-per-unit field; null in fixtures without them.
     modelFileInput: HTMLInputElement | null = null;
     modelInfoList: HTMLElement | null = null;
+    expandToggle: HTMLElement | null = null;
+    edgesPerUnitInput: HTMLInputElement | null = null;
+
+    // The components shown at the unit level (D7 L1), by id, and how many weights each unit draws.
+    readonly expanded = new Set<string>();
+    edgesPerUnit = K.network.edgesPerUnit;
 
     // The loaded network, and the render graph built from it; null until a model opens.
     model: NetworkModel | null = null;
@@ -840,7 +848,7 @@ export class UIController {
 
         // The same model again, re-seeded from its band grid; the camera the viewer chose stays.
         if (this.model !== null) {
-            this.built = buildGraph(this.model);
+            this.built = this.buildModel(this.model);
             this.loadGraph(this.built.graph, false);
         }
         else {
@@ -913,12 +921,87 @@ export class UIController {
         this.model = model;
         this.modelName = source.name;
         this.loadError = null;
-        this.built = buildGraph(model);
+        this.expanded.clear();
+        this.built = this.buildModel(model);
         this.loadGraph(this.built.graph);
         this.updateCurrentGraphLabel();
         this.updateModelInfo();
 
         return true;
+    };
+
+    private buildModel(model: NetworkModel): BuiltGraph {
+        return buildGraph(model, { expanded: this.expanded, edgesPerUnit: this.edgesPerUnit });
+    }
+
+    /**
+     * Rebuilds the shown model at the current level of detail (D7): stable ids keep their positions, new units
+     * start around their collapsed node, and both workers re-initialise through the generation path.
+     */
+    private rebuild(): void {
+        if (this.model === null || this.built === null)
+            return;
+
+        const previous = this.built;
+        const next = this.buildModel(this.model);
+
+        carryPositions(previous, next);
+
+        this.built = next;
+        this.loadGraph(next.graph, false);
+        this.updateModelInfo();
+    }
+
+    /** Expand a collapsed component, or collapse an expanded one, by its id. */
+    toggleExpanded = (componentId: string) => {
+        if (this.expanded.has(componentId))
+            this.expanded.delete(componentId);
+        else
+            this.expanded.add(componentId);
+
+        this.rebuild();
+
+        // After a collapse the component's node is the natural selection; after an expand, none.
+        if (!this.expanded.has(componentId) && this.built !== null) {
+            const index = this.built.ids.indexOf(componentId);
+
+            if (index >= 0) {
+                this.built.graph.vertices[index].isSelected = true;
+                this.updateSelectionInfo();
+            }
+        }
+    };
+
+    /** The selected node's component id, when a network's node is selected. */
+    private selectedComponentId(): string | null {
+        const built = this.built;
+        const selected = this.selected;
+
+        if (built === null || selected === null || this.solver.graph !== built.graph)
+            return null;
+
+        const group = built.graph.attributes!.group[built.graph.vertices.indexOf(selected)];
+        return built.components[group]?.id ?? null;
+    }
+
+    // A real button, so there is no default action to prevent.
+    onExpandToggle = () => {
+        const id = this.selectedComponentId();
+
+        if (id !== null)
+            this.toggleExpanded(id);
+    };
+
+    onEdgesPerUnitChange = () => {
+        const value = Number(this.edgesPerUnitInput?.value);
+
+        if (!Number.isInteger(value) || value < 1 || value === this.edgesPerUnit)
+            return;
+
+        this.edgesPerUnit = value;
+
+        if (this.expanded.size > 0)
+            this.rebuild();
     };
 
     private openFile(file: TextFile | undefined): void {
@@ -949,6 +1032,19 @@ export class UIController {
     private updateCurrentGraphLabel = () => {
         this.currentGraphLabel.textContent = this.loadError ?? this.modelName ?? NO_MODEL_LABEL;
     };
+
+    /** The button names the toggle the selected component would take, and hides when there is none. */
+    private updateExpandToggle(component: { id: string; units: number } | null): void {
+        const button = this.expandToggle;
+
+        if (button === null)
+            return;
+
+        const usable = component !== null && component.units > 1;
+
+        button.hidden = !usable;
+        button.textContent = usable && this.expanded.has(component.id) ? 'collapse' : 'expand';
+    }
 
     private updateModelInfo(): void {
         const list = this.modelInfoList;
@@ -1141,6 +1237,12 @@ export class UIController {
         if (this.modelFileInput)
             bind(this.modelFileInput, "change", this.onModelFileChange);
 
+        if (this.expandToggle)
+            bind(this.expandToggle, "click", this.onExpandToggle);
+
+        if (this.edgesPerUnitInput)
+            bind(this.edgesPerUnitInput, "change", this.onEdgesPerUnitChange);
+
         // A held button is released wherever the pointer is, so release is watched on the window; blur covers lost
         // focus.
         if (this.cameraConsole) {
@@ -1189,6 +1291,7 @@ export class UIController {
         const list = this.selectionInfoList;
 
         UIController.clearList(list);
+        this.updateExpandToggle(null);
 
         if (!selectedNode) {
             selectedNodeInfoLabel.textContent = 'Click on a node to select...';
@@ -1204,6 +1307,8 @@ export class UIController {
                 item.textContent = line;
                 list.appendChild(item);
             }
+
+            this.updateExpandToggle(this.built.components[group]);
         }
         else {
             selectedNodeInfoLabel.textContent = selectedNode.label;

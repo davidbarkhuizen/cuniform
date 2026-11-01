@@ -28,6 +28,7 @@ import { K } from "../core/K";
 import { point3 } from "../core/Point3D";
 import { Tag } from "../graph/Tag";
 import { Component, Entry, NetworkModel } from "./NetworkModel";
+import { incomingOf } from "./Incoming";
 
 export interface BuiltGraph {
     graph: Graph;
@@ -163,8 +164,38 @@ function labelOf(entry: Entry, component: Component, kind: NodeKindValue): strin
     }
 }
 
-/** Builds the component-level render graph. `expanded` is reserved for the unit level (D7 L1). */
-export function buildGraph(model: NetworkModel, _expanded: ReadonlySet<string> = new Set()): BuiltGraph {
+/** A component as the graph shows it: one node, or one node per unit when expanded. */
+interface Port {
+    nodes: number[];
+    expanded: boolean;
+    component: Component;
+    entry: Entry;
+}
+
+export interface BuildOptions {
+    /** Component ids shown at the unit level (D7 L1); every other component is one node. */
+    expanded?: ReadonlySet<string>;
+    /** The strongest incoming weights drawn per unit; `K.network.edgesPerUnit` by default. */
+    edgesPerUnit?: number;
+}
+
+// Above this many pairs, a structural link between two ports (a skip, a loop, the cross term) joins them
+// unit by unit, or through their first nodes, instead of all to all.
+const LINK_ALL_MAX = 64;
+
+/** A unit node's id: its component's, then its index. */
+export function unitId(component: Component, unit: number): string {
+    return `${component.id}/u${unit}`;
+}
+
+/**
+ * Builds the render graph: every component one node (L0), except those in `expanded`, which become one node
+ * per unit with weight edges to their strongest inputs (L1).
+ */
+export function buildGraph(model: NetworkModel, options: BuildOptions = {}): BuiltGraph {
+
+    const expanded = options.expanded ?? new Set<string>();
+    const edgesPerUnit = Math.max(1, Math.floor(options.edgesPerUnit ?? K.network.edgesPerUnit));
 
     const nodes: PendingNode[] = [];
     const edges: PendingEdge[] = [];
@@ -185,7 +216,7 @@ export function buildGraph(model: NetworkModel, _expanded: ReadonlySet<string> =
         return bands.length - 1;
     };
 
-    // Normalised by the largest component RMS, so a flow edge's weight is in (0, 1].
+    // Normalised by the largest component RMS, so a component-level flow edge's weight is in (0, 1].
     let maxRms = 0;
 
     for (const stack of model.stacks)
@@ -196,54 +227,122 @@ export function buildGraph(model: NetworkModel, _expanded: ReadonlySet<string> =
     const flowWeight = (component: Component) =>
         maxRms > 0 ? Math.max((component.parameters[0]?.stats.rms ?? 0) / maxRms, 0.05) : 1;
 
+    let dotted = false;
+
+    const flowKind = () => EdgeKind.flow | (dotted ? EdgeKind.dotted : 0);
+
+    const addPort = (entry: Entry, component: Component, band: number): Port => {
+        const kind = nodeKindOf(entry, component);
+        const group = components.length;
+        const open = expanded.has(component.id) && component.units > 1;
+        const label = labelOf(entry, component, kind);
+        const marks = marksOf(entry, kind);
+        const count = open ? component.units : 1;
+        const out: number[] = [];
+
+        for (let k = 0; k < count; k++) {
+            out.push(nodes.length);
+            bands[band].members.push(nodes.length);
+            nodes.push({
+                id: open ? unitId(component, k) : component.id,
+                label: open ? `${label} · ${k}` : label,
+                kind,
+                marks: open ? Mark.unit : marks,
+                group,
+                band,
+            });
+        }
+
+        components.push(component);
+        componentEntries.push(entry);
+
+        return { nodes: out, expanded: open, component, entry };
+    };
+
+    /** Every pair, or unit by unit, or first to first: a structural link that stays small. */
+    const link = (from: number[], to: number[], kind: number, weight: number) => {
+        if (from.length * to.length <= LINK_ALL_MAX) {
+            for (const a of from)
+                for (const b of to)
+                    edges.push({ a, b, kind, weight });
+        }
+        else if (from.length === to.length) {
+            from.forEach((a, i) => edges.push({ a, b: to[i], kind, weight }));
+        }
+        else {
+            edges.push({ a: from[0], b: to[0], kind, weight });
+        }
+    };
+
+    /** The data flow into `to` from the ports feeding it: weight edges between units where both ends are open. */
+    const connect = (from: Port[], to: Port) => {
+        const kind = flowKind();
+
+        if (!to.expanded) {
+            const weight = flowWeight(to.component);
+
+            for (const port of from)
+                for (const a of port.nodes)
+                    edges.push({ a, b: to.nodes[0], kind, weight });
+
+            return;
+        }
+
+        const incoming = incomingOf(to.entry, to.component);
+        const features = from.every(port => port.expanded) ? from.flatMap(port => port.nodes) : null;
+
+        if (incoming !== null && features !== null && incoming.rows === to.nodes.length) {
+
+            if (incoming.kind === "matrix" && incoming.cols === features.length) {
+                topWeights(incoming.rows, incoming.cols, incoming.at, edgesPerUnit, (r, c, w) =>
+                    edges.push({ a: features[c], b: to.nodes[r], kind: EdgeKind.weight | (kind & EdgeKind.dotted), weight: w }));
+                return;
+            }
+
+            if (incoming.kind === "diagonal" && features.length === incoming.rows) {
+                let largest = 0;
+
+                for (let r = 0; r < incoming.rows; r++)
+                    largest = Math.max(largest, Math.abs(incoming.at(r)));
+
+                for (let r = 0; r < incoming.rows; r++)
+                    edges.push({ a: features[r], b: to.nodes[r], kind: EdgeKind.weight | (kind & EdgeKind.dotted), weight: largest > 0 ? incoming.at(r) / largest : 1 });
+
+                return;
+            }
+        }
+
+        // The ends do not line up unit for unit (a collapsed source, or a flattened image): each unit hears
+        // each source port through that port's first node.
+        const weight = flowWeight(to.component);
+
+        for (const port of from)
+            for (const b of to.nodes)
+                edges.push({ a: port.nodes[0], b, kind, weight });
+    };
+
     model.stacks.forEach((stack, s) => {
 
         const entries = stack.entries;
         const windowEntries = entries.filter(entry => entry.factor === null);
         const parts = entries.filter(entry => entry.factor !== null);
 
-        // Node indices feeding each entry, recorded so a factor's pooling can read any entry's input.
-        const before = new Map<number, number[]>();
+        // The ports feeding each entry, recorded so a factor's pooling can read any entry's input.
+        const before = new Map<number, Port[]>();
 
-        let frontier: number[] = [];
+        let frontier: Port[] = [];
         let layer = 0;
-        let dotted = false;
         let lastBand = NO_BAND;
 
-        const forkFrontiers = new Map<number, number[]>();
+        const forkFrontiers = new Map<number, Port[]>();
         let splitLayer = 0;
-        let splitFrontier: number[] = [];
+        let splitFrontier: Port[] = [];
         let laneTop = 0;
         let laneCount = 1;
-        const branchEnds: number[][] = [];
-        const stateInputs: number[] = [];
+        const branchEnds: Port[][] = [];
+        const stateInputs: Port[] = [];
 
-        const addFlow = (from: number[], to: number, weight: number) => {
-            const kind = EdgeKind.flow | (dotted ? EdgeKind.dotted : 0);
-
-            for (const a of from)
-                edges.push({ a, b: to, kind, weight });
-        };
-
-        const addNodes = (entry: Entry, band: number): number[] => {
-            return entry.components.map(component => {
-                const kind = nodeKindOf(entry, component);
-                const index = nodes.length;
-
-                nodes.push({
-                    id: component.id,
-                    label: labelOf(entry, component, kind),
-                    kind,
-                    marks: marksOf(entry, kind),
-                    group: components.length,
-                    band,
-                });
-                bands[band].members.push(index);
-                components.push(component);
-                componentEntries.push(entry);
-                return index;
-            });
-        };
+        dotted = false;
 
         for (const entry of windowEntries) {
 
@@ -287,12 +386,14 @@ export function buildGraph(model: NetworkModel, _expanded: ReadonlySet<string> =
 
             if (entry.kind === "add") {
                 // The "+" sits at the join, in the band of the body's last layer.
-                const [plus] = addNodes(entry, lastBand === NO_BAND ? bandFor(s, layer++, entry.lane, laneCount, Family.feedForward, true) : lastBand);
-                addFlow(frontier, plus, 1);
+                const band = lastBand === NO_BAND ? bandFor(s, layer++, entry.lane, laneCount, Family.feedForward, true) : lastBand;
+                const plus = addPort(entry, entry.components[0], band);
+
+                connect(frontier, plus);
                 dotted = false;
 
-                for (const a of forkFrontiers.get(entry.partner ?? -1) ?? [])
-                    edges.push({ a, b: plus, kind: EdgeKind.residual, weight: 1 });
+                for (const port of forkFrontiers.get(entry.partner ?? -1) ?? [])
+                    link(port.nodes, plus.nodes, EdgeKind.residual, 1);
 
                 frontier = [plus];
                 continue;
@@ -301,14 +402,14 @@ export function buildGraph(model: NetworkModel, _expanded: ReadonlySet<string> =
             if (entry.kind === "merge") {
                 layer = Math.max(laneTop, layer);
                 laneCount = 1;
-                const [sigma] = addNodes(entry, bandFor(s, layer++, null, 1, Family.feedForward, true));
+                const sigma = addPort(entry, entry.components[0], bandFor(s, layer++, null, 1, Family.feedForward, true));
 
                 for (const end of [...branchEnds, frontier])
-                    addFlow(end, sigma, 1);
+                    connect(end, sigma);
 
                 dotted = false;
                 frontier = [sigma];
-                lastBand = nodes[sigma].band;
+                lastBand = nodes[sigma.nodes[0]].band;
                 continue;
             }
 
@@ -317,30 +418,31 @@ export function buildGraph(model: NetworkModel, _expanded: ReadonlySet<string> =
             const thin = family === Family.normalisation || kind === NodeKind.tokenMean;
             const lanes = entry.lane === null ? 1 : laneCount;
             const band = bandFor(s, layer++, entry.lane, lanes, family, thin);
-            const added = addNodes(entry, band);
+            const ports = entry.components.map(component => addPort(entry, component, band));
 
             lastBand = band;
 
             if (entry.kind === "state_input")
-                stateInputs.push(...added);
+                stateInputs.push(...ports);
 
-            if (entry.kind === "attention" && added.length > 1) {
-                const out = added[added.length - 1];
-                const heads = added.slice(0, -1);
-
-                heads.forEach((head, h) => addFlow(frontier, head, flowWeight(entry.components[h])));
-                dotted = false;
+            if (entry.kind === "attention" && ports.length > 1) {
+                const heads = ports.slice(0, -1);
+                const out = ports[ports.length - 1];
 
                 for (const head of heads)
-                    edges.push({ a: head, b: out, kind: EdgeKind.flow, weight: flowWeight(entry.components[entry.components.length - 1]) });
+                    connect(frontier, head);
 
+                dotted = false;
+                connect(heads, out);
                 frontier = [out];
                 continue;
             }
 
-            added.forEach((node, c) => addFlow(frontier, node, flowWeight(entry.components[c])));
+            for (const port of ports)
+                connect(frontier, port);
+
             dotted = false;
-            frontier = added;
+            frontier = ports;
         }
 
         if (parts.length === 0 || model.recurrence === null)
@@ -350,34 +452,32 @@ export function buildGraph(model: NetworkModel, _expanded: ReadonlySet<string> =
         // the cell, then the codes.
         const top = Math.max(layer, laneTop);
         const factorCount = model.recurrence.factors.length;
-        const cells: number[] = [];
-        const states: number[] = [];
+        const cells: Port[] = [];
+        const states: Port[] = [];
 
         for (const factor of model.recurrence.factors) {
             const own = parts.filter(entry => entry.factor === factor.index);
-            const nodeOf = (kind: string, row: number): number | null => {
+            const portOf = (kind: string, row: number): Port | null => {
                 const entry = own.find(e => e.kind === kind);
-                return entry ? addNodes(entry, bandFor(s, top + row, factor.index, factorCount, Family.recurrence, false))[0] : null;
+                return entry ? addPort(entry, entry.components[0], bandFor(s, top + row, factor.index, factorCount, Family.recurrence, false)) : null;
             };
 
-            const pooling = nodeOf("pooling", 0);
-            const initial = nodeOf("initial_state", 0);
-            const cell = nodeOf("cell", 1);
-            const codes = nodeOf("codes", 2);
+            const pooling = portOf("pooling", 0);
+            const initial = portOf("initial_state", 0);
+            const cell = portOf("cell", 1);
+            const codes = portOf("codes", 2);
 
             if (pooling === null || cell === null)
                 continue;
 
-            for (const a of before.get(factor.reads) ?? [])
-                edges.push({ a, b: pooling, kind: EdgeKind.flow, weight: 1 });
-
-            edges.push({ a: pooling, b: cell, kind: EdgeKind.flow, weight: 1 });
+            connect(before.get(factor.reads) ?? [], pooling);
+            connect([pooling], cell);
 
             if (initial !== null)
-                edges.push({ a: initial, b: cell, kind: EdgeKind.flow, weight: 1 });
+                link(initial.nodes, cell.nodes, EdgeKind.flow, 1);
 
             if (codes !== null)
-                edges.push({ a: cell, b: codes, kind: EdgeKind.flow, weight: 1 });
+                connect([cell], codes);
 
             cells.push(cell);
             states.push(codes ?? cell);
@@ -385,16 +485,17 @@ export function buildGraph(model: NetworkModel, _expanded: ReadonlySet<string> =
 
         for (const state of states)
             for (const input of stateInputs)
-                edges.push({ a: state, b: input, kind: EdgeKind.recurrent, weight: 1 });
+                link(state.nodes, input.nodes, EdgeKind.recurrent, 1);
 
         if (model.recurrence.cross)
             for (let g = 0; g < cells.length; g++)
                 for (let h = g + 1; h < cells.length; h++)
-                    edges.push({ a: cells[g], b: cells[h], kind: EdgeKind.cross, weight: 1 });
+                    link(cells[g].nodes, cells[h].nodes, EdgeKind.cross, 1);
     });
 
+    const kept = capWeightEdges(edges, nodes, K.network.maxWeightEdgesPerBand);
     const table = bandTable(bands, model.stacks.length);
-    const attributes = emptyAttributes(nodes.length, edges.length, bands.length);
+    const attributes = emptyAttributes(nodes.length, kept.length, bands.length);
     attributes.bands.set(table);
 
     const graph = new Graph();
@@ -408,7 +509,7 @@ export function buildGraph(model: NetworkModel, _expanded: ReadonlySet<string> =
         attributes.marks[i] = node.marks;
     });
 
-    edges.forEach((edge, j) => {
+    kept.forEach((edge, j) => {
         graph.addEdge(graph.vertices[edge.a], graph.vertices[edge.b]);
         attributes.edgeKind[j] = edge.kind;
         attributes.weight[j] = edge.weight;
@@ -423,6 +524,93 @@ export function buildGraph(model: NetworkModel, _expanded: ReadonlySet<string> =
         componentEntries,
         bandKeys: bands.map(band => band.key),
     };
+}
+
+/**
+ * Each row's `k` strongest entries by |w|, normalised by the matrix's largest |w| over those kept, handed to
+ * `emit` in row order, then strength order. Ties keep the lower column.
+ */
+function topWeights(
+    rows: number,
+    cols: number,
+    at: (r: number, c: number) => number,
+    k: number,
+    emit: (r: number, c: number, weight: number) => void
+): void {
+
+    const keep = Math.min(k, cols);
+    const chosen: Array<[number, number, number]> = [];
+    let largest = 0;
+    const bestColumn = new Int32Array(keep);
+    const bestValue = new Float64Array(keep);
+
+    for (let r = 0; r < rows; r++) {
+        let filled = 0;
+
+        for (let c = 0; c < cols; c++) {
+            const w = at(r, c);
+            const magnitude = Math.abs(w);
+
+            // Insertion into a short sorted list: k is a handful.
+            let slot = filled;
+
+            while (slot > 0 && Math.abs(bestValue[slot - 1]) < magnitude)
+                slot--;
+
+            if (slot >= keep)
+                continue;
+
+            for (let t = Math.min(filled, keep - 1); t > slot; t--) {
+                bestColumn[t] = bestColumn[t - 1];
+                bestValue[t] = bestValue[t - 1];
+            }
+
+            bestColumn[slot] = c;
+            bestValue[slot] = w;
+            filled = Math.min(filled + 1, keep);
+        }
+
+        for (let t = 0; t < filled; t++) {
+            chosen.push([r, bestColumn[t], bestValue[t]]);
+            largest = Math.max(largest, Math.abs(bestValue[t]));
+        }
+    }
+
+    for (const [r, c, w] of chosen)
+        emit(r, c, largest > 0 ? w / largest : 0);
+}
+
+/**
+ * A band's weight edges beyond `cap` are dropped, weakest first, so one huge layer cannot flood the frame;
+ * every other edge is kept. Order is otherwise unchanged.
+ */
+function capWeightEdges(edges: PendingEdge[], nodes: PendingNode[], cap: number): PendingEdge[] {
+
+    const perBand = new Map<number, number[]>();
+
+    edges.forEach((edge, j) => {
+        if ((edge.kind & ~EdgeKind.dotted) !== EdgeKind.weight)
+            return;
+
+        const band = nodes[edge.b].band;
+        const list = perBand.get(band) ?? [];
+        list.push(j);
+        perBand.set(band, list);
+    });
+
+    const dropped = new Set<number>();
+
+    for (const list of perBand.values()) {
+        if (list.length <= cap)
+            continue;
+
+        const ranked = [...list].sort((a, b) => Math.abs(edges[b].weight) - Math.abs(edges[a].weight) || a - b);
+
+        for (const j of ranked.slice(cap))
+            dropped.add(j);
+    }
+
+    return dropped.size === 0 ? edges : edges.filter((_, j) => !dropped.has(j));
 }
 
 /** Band geometry (D5, D6): layers up model y from the input, stacks along x, lanes along z. */

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { K } from "../src/core/K";
 import { readWeb } from "./support/files";
-import { MODEL_FILE_INPUT_ID, MODEL_INFO_LIST_ID } from "../src/app/entrypoint";
+import { EDGES_PER_UNIT_ID, EXPAND_TOGGLE_ID, MODEL_FILE_INPUT_ID, MODEL_INFO_LIST_ID } from "../src/app/entrypoint";
 
 /**
  * The layout lives in the static demo assets; these read them back and pin the structure the UI depends on.
@@ -410,4 +410,15 @@ test("the loader and the model panel sit in the menu section, under the model li
     const css = readWeb("stylez.css");
     assert.match(cssRule(css, ".visuallyHidden"), /clip\s*:/, "hidden by clipping, not display:none, so the label still works");
     assert.match(cssRule(css, ".modelInfo"), /overflow-wrap\s*:\s*anywhere/);
+});
+
+test("the expand toggle sits in the selection section, hidden until a component is selected", () => {
+    const panel = panelMarkup(readWeb("index.html"));
+    const selection = panel.indexOf('class="selectionSection"');
+    const toggle = panel.indexOf(`id="${EXPAND_TOGGLE_ID}"`);
+
+    assert.ok(toggle > selection && toggle < panel.indexOf('id="selectedNodeInfoList"'));
+    assert.match(panel, new RegExp(`<button type="button" id="${EXPAND_TOGGLE_ID}"[^>]* hidden>`));
+    assert.match(panel, new RegExp(`id="${EDGES_PER_UNIT_ID}" min="1" max="16" step="1" value="4"`));
+    assert.match(cssRule(readWeb("stylez.css"), ".expandToggle[hidden]"), /display\s*:\s*none/, "hidden beats the button's display");
 });

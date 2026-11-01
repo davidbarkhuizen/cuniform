@@ -44,7 +44,7 @@ function parameterLine(p: Parameter): string {
 
 /** A selected component's lines: where it is, its spec fields, its units, and each weight's statistics. */
 export function componentDetails(entry: Entry, component: Component): string[] {
-    const lines = [
+    const lines: string[] = [
         `kind: ${entry.sourceKind === "recurrence" || entry.kind !== "unknown" ? component.kind.replace("_", " ") : `${entry.sourceKind} (unsupported)`}`,
         `at: ${entry.path}`,
         `units: ${component.units}`,

@@ -82,6 +82,33 @@ every state input, and with the cross term the cells are joined. Band sizes are
 `K.network`'s: fixed thickness and gap, and a footprint that grows with its
 members. Nodes are seeded on a grid inside their band.
 
+### The unit level
+
+Expanding a component (D7 L1) rebuilds the graph with that component as one
+node per unit (a feature, a neuron, a head's key-size features, a cell's state
+features, a code), drawn as plain dots in the component's family colour inside
+its band; unit ids are the component's id plus `/u<k>`.
+[`src/network/Incoming.ts`](../src/network/Incoming.ts) says how a component's
+units read their inputs: a matrix (dense `W`; a head's strongest of `Wq`, `Wk`
+and `Wv`; the output projection's `Wo`, across the heads' units in order; a
+conv's strongest kernel tap per channel pair; a GRU cell's strongest gate; the
+codes' `E`), a diagonal (norms by `gamma`, the pooling by `q`, and the
+pass-throughs: position, state input, add, merge, token mean, pool), or none.
+Where both ends are expanded and line up, each unit draws its
+`K.network.edgesPerUnit` strongest incoming weights by |w| (4, adjustable in
+the panel), normalised to the strongest kept and signed; a band keeps at most
+`K.network.maxWeightEdgesPerBand` (2048), strongest first. Where they do not
+(a collapsed source, a flattened image), each unit hears each source through
+that source's first node. Skips, loops and the cross term join units one to one
+or through first nodes, so they stay small. Fully expanded, the tinyshakespeare
+model is 1,601 nodes and 4,676 edges, against ~106k weights.
+
+A toggle rebuilds the graph and re-initialises both workers through the
+generation path; [`src/network/Carry.ts`](../src/network/Carry.ts) carries the
+layout by id: a surviving node keeps its position, new units are seeded on a
+grid centred on their collapsed node, a collapsed node returns to its units'
+centroid, and everything is clamped into its band.
+
 Both workers' init messages carry copies of the attributes, by transfer, and
 rebuild them on their mirrors (D10). Frame and step requests are unchanged, so
 nothing new crosses per frame; a rebuild sends a new init through the existing
