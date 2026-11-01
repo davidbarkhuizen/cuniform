@@ -33,6 +33,7 @@ const PURE_MODULES = [
     "graph/MirrorGraph.ts",
     "graph/Tag.ts",
     "network/BuildGraph.ts",
+    "network/Details.ts",
     "network/Format2.ts",
     "network/NetworkModel.ts",
     "view/Camera.ts",

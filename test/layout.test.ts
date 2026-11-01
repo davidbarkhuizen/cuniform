@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { K } from "../src/core/K";
 import { readWeb } from "./support/files";
+import { MODEL_FILE_INPUT_ID, MODEL_INFO_LIST_ID } from "../src/app/entrypoint";
 
 /**
  * The layout lives in the static demo assets; these read them back and pin the structure the UI depends on.
@@ -393,3 +394,20 @@ test("the demo page declares a doctype, a language and a viewport", () => {
     assert.equal((html.match(/charset/gi) ?? []).length, 1, "one charset declaration");
 });
 
+
+test("the loader and the model panel sit in the menu section, under the model line", () => {
+    const panel = panelMarkup(readWeb("index.html"));
+
+    const label = panel.indexOf('id="currentGraphLabel"');
+    const input = panel.indexOf(`id="${MODEL_FILE_INPUT_ID}"`);
+    const info = panel.indexOf(`id="${MODEL_INFO_LIST_ID}"`);
+    const selection = panel.indexOf('class="selectionSection"');
+
+    assert.ok(label < input && input < info && info < selection, "line, loader, then panel, before the selection");
+    assert.match(panel, new RegExp(`<label for="${MODEL_FILE_INPUT_ID}"[^>]*>open model</label>`), "a visible label opens the picker");
+    assert.match(panel, /type="file"[^>]*class="visuallyHidden"[^>]*accept="\.json,application\/json"/);
+
+    const css = readWeb("stylez.css");
+    assert.match(cssRule(css, ".visuallyHidden"), /clip\s*:/, "hidden by clipping, not display:none, so the label still works");
+    assert.match(cssRule(css, ".modelInfo"), /overflow-wrap\s*:\s*anywhere/);
+});

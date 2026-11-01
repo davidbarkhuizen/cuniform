@@ -198,6 +198,35 @@ body
     background-color	: var(--accent-hover);
 }
 
+/* the loader and the model panel, under the model line */
+.modelLoader
+{
+    display			: flex;
+    margin-top		: 10px;
+}
+
+.modelInfo
+{
+    margin			: 8px 0 0 0;
+    padding-left		: 18px;
+
+    font-size		: small;
+    line-height		: 1.35;
+    color			: var(--muted);
+    overflow-wrap		: anywhere;
+}
+
+/* Hidden from sight but not from assistive technology, so its label still opens it. */
+.visuallyHidden
+{
+    position		: absolute;
+    width			: 1px;
+    height			: 1px;
+    overflow		: hidden;
+    clip			: rect(0 0 0 0);
+    white-space		: nowrap;
+}
+
 /* the currently selected node */
 .selectionSection
 {

@@ -87,9 +87,20 @@ rebuild them on their mirrors (D10). Frame and step requests are unchanged, so
 nothing new crosses per frame; a rebuild sends a new init through the existing
 generation path.
 
+## Model sources
+
+[`src/app/ModelSource.ts`](../src/app/ModelSource.ts) is the seam for where a
+model comes from (D3): `load(): Promise<unknown>` hands the reader parsed JSON.
+Two sources exist: a file (the picker or a drop onto the canvas) and a URL
+(`?model=<url>`, for development against a local static server). A server
+source joins later behind the same interface; a server's view payload, format 2
+without `optimizer_state` and `rng`, needs no reader change.
+`UIController.openModel(source)` reads, builds and shows the model; only the
+latest open lands, and a refusal leaves the previous model on screen.
+
 Until a model is loaded the canvas is empty and the panel says
-`no model loaded`; `reset` rebuilds the graph from its source, which re-seeds
-the layout.
+`no model loaded`; `reset` rebuilds the graph from the loaded model, which
+re-seeds the layout from the band grid.
 
 ## The random-graph fixture
 
